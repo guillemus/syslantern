@@ -1,0 +1,20 @@
+version: "2"
+sql:
+  - engine: "sqlite"
+    schema: "db/schema.sql"
+    queries: "db/queries.sql"
+    gen:
+      go:
+        package: "db"
+        out: "db"
+        sql_package: "database/sql"
+        emit_json_tags: false
+        emit_db_tags: true
+        emit_prepared_queries: false
+        emit_interface: false
+        emit_exact_table_names: false
+        rename:
+          root_url: "RootURL"
+          favicon_url: "FaviconURL"
+          theme_color: "ThemeColor"
+          url: "URL"

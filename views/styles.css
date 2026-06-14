@@ -1,0 +1,13 @@
+@import "tailwindcss";
+@source "./**/*.go";
+
+@font-face {
+    font-family: "JetBrains Mono";
+    src: url("/public/fonts/jetbrains-mono-latin-var.woff2") format("woff2");
+    font-weight: 100 800;
+    font-display: swap;
+}
+
+@theme {
+    --font-mono: "JetBrains Mono", monospace;
+}
