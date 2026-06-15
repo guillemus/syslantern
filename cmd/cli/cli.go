@@ -30,10 +30,21 @@ func newRootCommand(out io.Writer) *cobra.Command {
 	cmd.SetOut(out)
 	cmd.SetErr(out)
 	cmd.AddCommand(newUsageCommand(out))
+	cmd.AddCommand(newStartCommand())
 
 	return cmd
 }
 
+func newStartCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "start",
+		Short: "Starts emitting events",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			StartEmitter()
+			return nil
+		},
+	}
+}
 func newUsageCommand(out io.Writer) *cobra.Command {
 	return &cobra.Command{
 		Use:   "usage",
@@ -57,7 +68,9 @@ func newUsageCommand(out io.Writer) *cobra.Command {
 				return fmt.Errorf("cpu usage unavailable")
 			}
 
-			fmt.Fprintf(out, "RAM: %.1f%% (%s / %s)\n", memory.UsedPercent, formatBytes(memory.Used), formatBytes(memory.Total))
+			fmt.Fprintf(out,
+				"RAM: %.1f%% (%s / %s)\n",
+				memory.UsedPercent, formatBytes(memory.Used), formatBytes(memory.Total))
 			for i, usage := range cpuUsage {
 				fmt.Fprintf(out, "CPU %d: %.1f%%", i, usage)
 				if i < len(cpuInfo) && cpuInfo[i].ModelName != "" {

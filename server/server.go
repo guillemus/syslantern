@@ -58,7 +58,9 @@ func NewServer() *Server {
 	s.Router.Use(s.CrossOriginProtection.Handler)
 	s.Router.Use(s.Sessions.LoadAndSave)
 	s.Router.Get("/public/*", app.GetPublicHandler(cfg).ServeHTTP)
-	s.RegisterLandingRoutes()
+
+	s.Router.Post("/receive-stats", s.ReceiveStats)
+
 	s.RegisterDashboardRoutes()
 	s.RegisterAuthRoutes()
 

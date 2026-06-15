@@ -1,6 +1,9 @@
 tmp/
 node_modules/
 data/
+dist/
+
+public/styles.css
 
 .env
 .air/

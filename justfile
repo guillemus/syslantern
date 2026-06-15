@@ -22,3 +22,9 @@ migrate:
 build-linux: build-assets
 	mkdir -p dist
 	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o dist/app ./cmd/server
+
+build-cli:
+	@mkdir -p dist
+	@GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o dist/cli ./cmd/cli
+	@multipass transfer dist/cli linuxbox:/home/ubuntu/cli
+	@multipass exec linuxbox -- chmod +x /home/ubuntu/cli

@@ -10,17 +10,6 @@ Why this setup:
 
 VM tool: Multipass. It creates a small Ubuntu VM named `linuxbox`.
 
-## Basic VM commands
-
-```bash
-multipass list
-multipass info linuxbox
-multipass shell linuxbox
-multipass exec linuxbox -- lscpu
-multipass stop linuxbox
-multipass start linuxbox
-```
-
 ## Host domain
 
 Inside the VM, use `host.multipass` to call the Mac host.

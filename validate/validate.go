@@ -10,25 +10,23 @@ import (
 
 var V = validator.New(validator.WithRequiredStructEnabled())
 
-func ParseJSON[T any](payload io.Reader) (*T, error) {
-	parsed := new(T)
+func Unmarshal(payload io.Reader, v any) error {
 	decoder := json.NewDecoder(payload)
-	decoder.DisallowUnknownFields()
 
-	if err := decoder.Decode(parsed); err != nil {
-		return nil, fmt.Errorf("decode strict json: %w", err)
+	if err := decoder.Decode(v); err != nil {
+		return fmt.Errorf("decode strict json: %w", err)
 	}
 
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		if err == nil {
-			return nil, fmt.Errorf("decode strict json: unexpected trailing data")
+			return fmt.Errorf("decode strict json: unexpected trailing data")
 		}
-		return nil, fmt.Errorf("decode strict json: %w", err)
+		return fmt.Errorf("decode strict json: %w", err)
 	}
 
-	if err := V.Struct(parsed); err != nil {
-		return nil, fmt.Errorf("validate strict json: %w", err)
+	if err := V.Struct(v); err != nil {
+		return fmt.Errorf("validate strict json: %w", err)
 	}
 
-	return parsed, nil
+	return nil
 }
