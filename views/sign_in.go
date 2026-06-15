@@ -10,7 +10,7 @@ type SignInData struct {
 	Error string
 }
 
-func SignIn(data SignInData) Node {
+func (r *Renderer) SignIn(data SignInData) Node {
 	return Div(
 		Class("flex h-dvh items-center justify-center bg-zinc-950 px-4 font-mono text-zinc-100"),
 		Div(
@@ -20,7 +20,7 @@ func SignIn(data SignInData) Node {
 			Form(
 				Class("space-y-3"),
 				Method("POST"),
-				Action("/sign-in"),
+				Action(r.URL("POST", "/sign-in")),
 				Label(
 					Class("block text-sm text-zinc-400"),
 					For("email"),
@@ -56,7 +56,7 @@ func SignIn(data SignInData) Node {
 			P(
 				Class("mt-4 text-center text-sm text-zinc-400"),
 				Text("No account? "),
-				A(Class("text-orange-400 underline underline-offset-4 hover:text-orange-300"), Attr("href", "/sign-up"), Text("Sign up")),
+				A(Class("text-orange-400 underline underline-offset-4 hover:text-orange-300"), Attr("href", r.URL("GET", "/sign-up")), Text("Sign up")),
 			),
 		),
 	)

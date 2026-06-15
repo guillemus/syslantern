@@ -17,7 +17,7 @@ func (r *Renderer) Layout(title string, body Node) Node {
 			Meta(Attr("name", "viewport"), Attr("content", "width=device-width, initial-scale=1.0")),
 			Link(
 				Attr("rel", "stylesheet"),
-				Attr("href", fmt.Sprintf("/public/styles.css?v=%s", r.AssetVersion)),
+				Attr("href", fmt.Sprintf("%s?v=%s", r.URL("GET", "/public/styles.css"), r.AssetVersion)),
 			),
 			Script(
 				Attr("type", "module"),

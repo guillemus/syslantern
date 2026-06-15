@@ -1,14 +1,13 @@
 package server
 
 import (
+	"app/shared"
 	"app/validate"
 	"net/http"
 )
 
-func (s *Server) ProcessBatch(w http.ResponseWriter, r *http.Request) {
-	var payload struct {
-		Stats string `json:"stats" validate:"required"`
-	}
+func (s *Server) HandleBatch(w http.ResponseWriter, r *http.Request) {
+	var payload shared.EventBatch
 
 	if err := validate.Unmarshal(r.Body, &payload); err != nil {
 		s.Logger.Warn("receive stats: parse request", "err", err)
@@ -16,6 +15,6 @@ func (s *Server) ProcessBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.Logger.Info("stats received", "stats", payload.Stats)
+	s.Logger.Info("stats received", "stats", payload)
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -5,7 +5,7 @@ import (
 	. "maragu.dev/gomponents/html"
 )
 
-func Landing() Node {
+func (r *Renderer) Landing() Node {
 	return Div(
 		Class("flex h-dvh bg-zinc-950 font-mono text-zinc-100"),
 		Main(
@@ -16,9 +16,9 @@ func Landing() Node {
 				P(Class("text-zinc-400"), Text("Go, Jet, Datastar, SCS, and PostgreSQL.")),
 				P(
 					Class("text-zinc-400"),
-					A(Class("text-orange-400 underline underline-offset-4 hover:text-orange-300"), Attr("href", "/sign-in"), Text("Sign In")),
+					A(Class("text-orange-400 underline underline-offset-4 hover:text-orange-300"), Attr("href", r.URL("GET", "/sign-in")), Text("Sign In")),
 					Text(" or "),
-					A(Class("text-orange-400 underline underline-offset-4 hover:text-orange-300"), Attr("href", "/sign-up"), Text("Sign Up")),
+					A(Class("text-orange-400 underline underline-offset-4 hover:text-orange-300"), Attr("href", r.URL("GET", "/sign-up")), Text("Sign Up")),
 				),
 			),
 		),

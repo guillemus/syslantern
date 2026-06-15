@@ -29,7 +29,7 @@ func StartEmitter(ctx context.Context) {
 		// TODO: retry send batch
 
 		if err := client.SendBatch(ctx, batch); err != nil {
-			// fixme: put here log
+			fmt.Fprintln(os.Stderr, err)
 			continue
 		}
 	}

@@ -7,57 +7,78 @@ import (
 	. "maragu.dev/gomponents/html"
 )
 
-func Dashboard() Node {
+type DashboardStatsData struct {
+	HostName  string
+	UpdatedAt string
+	CPU       string
+	Memory    string
+	Disks     []DashboardDiskData
+}
+
+type DashboardDiskData struct {
+	Mount string
+	Usage string
+}
+
+func (r *Renderer) Dashboard() Node {
 	return Div(
-		Class("flex h-dvh bg-zinc-950 font-mono text-zinc-100"),
-		Data("signals", `{count: 0}`),
+		Class("min-h-dvh bg-zinc-950 p-6 font-mono text-zinc-100"),
+		r.DataGet("init", "/dashboard/events"),
 		Main(
-			Class("flex min-w-0 flex-1 flex-col"),
-			Div(
-				Class("flex w-full flex-1 flex-col items-start gap-3 overflow-y-auto px-6 py-4"),
-				H1(Class("text-3xl font-semibold tracking-tight"), Text("Dashboard")),
-				P(Class("text-zinc-400"), Text("You are logged in.")),
-				Section(
-					Class("w-full max-w-2xl space-y-3 rounded-xl border border-zinc-800 bg-zinc-900 p-6"),
-					H2(Class("text-xl font-semibold"), Text("Datastar Example")),
-					P(Class("text-zinc-400"), Text("Ask the server to increment a counter and stream the UI update back over SSE.")),
-					Button(
-						Class("rounded-md bg-orange-600 px-3 py-2 font-medium text-white transition hover:brightness-110"),
-						Data("on:click", "@get('/dash/example')"),
-						Data("indicator", "loading"),
-						Text("Increment On Server"),
-					),
-					P(
-						Class("text-sm text-zinc-500"),
-						Data("show", "$loading"),
-						StyleAttr("display: none;"),
-						Text("Updating..."),
-					),
-					P(
-						Text("Current count: "),
-						Strong(
-							Data("text", "$count"),
-							Text("0"),
-						),
-					),
-					Div(
-						ID("dashboard-example-result"),
-						Class("rounded-lg border border-zinc-800 bg-zinc-950 p-4 text-zinc-300"),
-						P(Text("Press the button to load a Datastar response from the server.")),
-					),
-				),
-				Form(
-					Method("POST"),
-					Action("/logout"),
-					Button(
-						Class("rounded-md bg-orange-600 px-3 py-2 font-medium text-white transition hover:brightness-110"),
-						Attr("type", "submit"),
-						Text("Logout"),
-					),
-				),
-			),
+			Class("max-w-3xl space-y-6"),
+			H1(Class("text-3xl font-semibold"), Text("Dashboard")),
+			DashboardStats(DashboardStatsData{}),
 		),
 	)
+}
+
+func DashboardStats(data DashboardStatsData) Node {
+	disks := append([]Node{Class("space-y-2")}, diskRows(data.Disks)...)
+
+	return Section(
+		ID("dashboard-stats"),
+		Class("space-y-4 rounded-lg border border-zinc-800 bg-zinc-900 p-4"),
+		P(Class("text-zinc-400"), Text(valueOr(data.UpdatedAt, "Waiting for events..."))),
+		Div(
+			Class("grid gap-3 sm:grid-cols-3"),
+			statBox("Host", valueOr(data.HostName, "—")),
+			statBox("CPU", valueOr(data.CPU, "—")),
+			statBox("Memory", valueOr(data.Memory, "—")),
+		),
+		H2(Class("text-xl font-semibold"), Text("Disks")),
+		Div(disks...),
+	)
+}
+
+func statBox(label string, value string) Node {
+	return Div(
+		Class("rounded border border-zinc-800 bg-zinc-950 p-3"),
+		P(Class("text-sm text-zinc-500"), Text(label)),
+		P(Class("text-2xl font-semibold"), Text(value)),
+	)
+}
+
+func diskRows(disks []DashboardDiskData) []Node {
+	if len(disks) == 0 {
+		return []Node{P(Class("text-zinc-500"), Text("—"))}
+	}
+
+	rows := make([]Node, 0, len(disks))
+	for _, disk := range disks {
+		rows = append(rows, Div(
+			Class("flex justify-between rounded border border-zinc-800 bg-zinc-950 p-3"),
+			Span(Text(valueOr(disk.Mount, "—"))),
+			Strong(Text(disk.Usage)),
+		))
+	}
+	return rows
+}
+
+func valueOr(value string, fallback string) string {
+	if value == "" {
+		return fallback
+	}
+	return value
 }
 
 type DashboardExampleResultData struct {

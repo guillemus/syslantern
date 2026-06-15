@@ -10,6 +10,7 @@ import (
 	"app/config"
 	"app/db"
 	"app/logger"
+	"app/shared"
 	"app/views"
 
 	"github.com/alexedwards/scs/v2"
@@ -24,6 +25,8 @@ type Server struct {
 	CrossOriginProtection *http.CrossOriginProtection
 	Port                  string
 	Logger                *slog.Logger
+
+	BatchBus EventBus[shared.EventBatch]
 }
 
 func NewServer() *Server {
@@ -47,28 +50,31 @@ func NewServer() *Server {
 
 	s := &Server{
 		Router:                chi.NewRouter(),
-		Renderer:              views.NewRenderer(log, cfg.AssetVersion),
+		Renderer:              views.NewRenderer(log, cfg.AssetVersion, cfg.Dev),
 		DB:                    conn,
 		Sessions:              sessionManager,
 		CrossOriginProtection: NewCrossOriginProtection(log),
 		Port:                  cfg.Port,
 		Logger:                log,
+		BatchBus:              NewEventBusAsync[shared.EventBatch](),
 	}
 
 	s.Router.Use(s.CrossOriginProtection.Handler)
 	s.Router.Use(s.Sessions.LoadAndSave)
 	s.Router.Get("/public/*", app.GetPublicHandler(cfg).ServeHTTP)
 
-	s.Router.Post("/receive-stats", s.ProcessBatch)
+	s.Router.Post("/batch", s.HandleBatch)
 
-	s.Router.Get("/dash", s.HandleDashboard)
-	s.Router.Get("/dash/example", s.HandleDashboardExample)
+	s.Router.Get("/dashboard", s.HandleDashboard)
+	s.Router.Get("/dashboard/events", s.HandleDashboardEvents)
 
 	s.Router.Get("/sign-in", s.HandleSignInPage)
 	s.Router.Post("/sign-in", s.HandleSignIn)
 	s.Router.Get("/sign-up", s.HandleSignUpPage)
 	s.Router.Post("/sign-up", s.HandleSignUp)
 	s.Router.Post("/logout", s.HandleLogout)
+
+	s.Renderer.Routes = s.Router
 
 	return s
 }

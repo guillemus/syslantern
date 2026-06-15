@@ -7,16 +7,20 @@ import (
 	"log/slog"
 	"net/url"
 
+	"github.com/go-chi/chi/v5"
+
 	. "maragu.dev/gomponents"
 )
 
 type Renderer struct {
 	AssetVersion string
 	Logger       *slog.Logger
+	Dev          bool
+	Routes       chi.Routes
 }
 
-func NewRenderer(logger *slog.Logger, assetVersion string) *Renderer {
-	return &Renderer{Logger: logger, AssetVersion: url.QueryEscape(assetVersion)}
+func NewRenderer(logger *slog.Logger, assetVersion string, dev bool) *Renderer {
+	return &Renderer{Logger: logger, AssetVersion: url.QueryEscape(assetVersion), Dev: dev}
 }
 
 func (r *Renderer) Render(w io.Writer, node Node) {
@@ -30,19 +34,28 @@ func (r *Renderer) RenderPage(w io.Writer, title string, body Node) {
 }
 
 func (r *Renderer) RenderLanding(w io.Writer) {
-	r.RenderPage(w, "Landing", Landing())
+	r.RenderPage(w, "Landing", r.Landing())
 }
 
 func (r *Renderer) RenderSignIn(w io.Writer, data SignInData) {
-	r.RenderPage(w, "Sign In", SignIn(data))
+	r.RenderPage(w, "Sign In", r.SignIn(data))
 }
 
 func (r *Renderer) RenderSignUp(w io.Writer, data SignUpData) {
-	r.RenderPage(w, "Sign Up", SignUp(data))
+	r.RenderPage(w, "Sign Up", r.SignUp(data))
 }
 
 func (r *Renderer) RenderDashboard(w io.Writer) {
-	r.RenderPage(w, "Dashboard", Dashboard())
+	r.RenderPage(w, "Dashboard", r.Dashboard())
+}
+
+func (r *Renderer) RenderDashboardStatsHTML(data DashboardStatsData) (string, error) {
+	var body bytes.Buffer
+	node := DashboardStats(data)
+	if err := node.Render(&body); err != nil {
+		return "", fmt.Errorf("render dashboard stats: %w", err)
+	}
+	return body.String(), nil
 }
 
 func (r *Renderer) RenderDashboardExampleResultHTML(data DashboardExampleResultData) (string, error) {

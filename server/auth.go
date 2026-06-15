@@ -1,6 +1,7 @@
 package server
 
 import (
+	"database/sql"
 	"errors"
 	"net/http"
 	"strings"
@@ -137,4 +138,26 @@ func (s *Server) HandleLogout(w http.ResponseWriter, r *http.Request) {
 
 func NormalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
+}
+
+func (s *Server) GetAuthenticatedUser(w http.ResponseWriter, r *http.Request) (*db.User, bool) {
+	userID := s.Sessions.GetInt64(r.Context(), "user_id")
+	if userID == 0 {
+		http.Redirect(w, r, "/sign-in", http.StatusSeeOther)
+		return nil, true
+	}
+
+	user, err := s.DB.GetUserByID(r.Context(), userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			s.Logger.Warn("auth: session user not found", "user_id", userID)
+		} else {
+			s.Logger.Error("auth: load session user", "user_id", userID, "err", err)
+		}
+		s.Sessions.Remove(r.Context(), "user_id")
+		http.Redirect(w, r, "/sign-in", http.StatusSeeOther)
+		return nil, true
+	}
+
+	return &user, false
 }

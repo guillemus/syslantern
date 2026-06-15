@@ -34,7 +34,7 @@ func (c *Client) SendBatch(ctx context.Context, batch shared.EventBatch) error {
 		return fmt.Errorf("encode event batch: %w", err)
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/event-batches", bytes.NewReader(body))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/batch", bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("create event batch request: %w", err)
 	}
