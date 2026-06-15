@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -40,7 +41,7 @@ func newStartCommand() *cobra.Command {
 		Use:   "start",
 		Short: "Starts emitting events",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			StartEmitter()
+			StartEmitter(context.Background())
 			return nil
 		},
 	}

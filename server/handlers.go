@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func (s *Server) ReceiveStats(w http.ResponseWriter, r *http.Request) {
+func (s *Server) ProcessBatch(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
 		Stats string `json:"stats" validate:"required"`
 	}

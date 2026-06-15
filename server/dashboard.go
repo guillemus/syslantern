@@ -17,8 +17,6 @@ type dashboardSignals struct {
 }
 
 func (s *Server) RegisterDashboardRoutes() {
-	s.Router.Get("/dash", s.HandleDashboard)
-	s.Router.Get("/dash/example", s.HandleDashboardExample)
 }
 
 func (s *Server) HandleDashboard(w http.ResponseWriter, r *http.Request) {

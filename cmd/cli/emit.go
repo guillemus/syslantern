@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
+
+	"app/shared"
 
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
@@ -12,42 +15,9 @@ import (
 	"github.com/shirou/gopsutil/v4/mem"
 )
 
-type EventBatch struct {
-	BatchID string       `json:"batch_id"`
-	Agent   BatchAgent   `json:"agent"`
-	Host    BatchHost    `json:"host"`
-	SentAt  time.Time    `json:"sent_at"`
-	Events  []BatchEvent `json:"events"`
-}
+func StartEmitter(ctx context.Context) {
+	client := NewClient()
 
-type BatchAgent struct {
-	ID      string `json:"id"`
-	Version string `json:"version"`
-}
-
-type BatchHost struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	OS   string `json:"os"`
-	Arch string `json:"arch"`
-}
-
-type BatchEvent struct {
-	ID         string        `json:"id"`
-	ObservedAt time.Time     `json:"observed_at"`
-	Type       string        `json:"type"`
-	Source     string        `json:"source"`
-	Payload    MetricPayload `json:"payload"`
-}
-
-type MetricPayload struct {
-	Name   string         `json:"name"`
-	Value  float64        `json:"value"`
-	Unit   string         `json:"unit"`
-	Fields map[string]any `json:"fields"`
-}
-
-func StartEmitter() {
 	for {
 		time.Sleep(1 * time.Second)
 		batch, err := collectBatch()
@@ -55,28 +25,35 @@ func StartEmitter() {
 			fmt.Fprintln(os.Stderr, err)
 			continue
 		}
+
+		// TODO: retry send batch
+
+		if err := client.SendBatch(ctx, batch); err != nil {
+			// fixme: put here log
+			continue
+		}
 	}
 }
 
-func collectBatch() (EventBatch, error) {
+func collectBatch() (shared.EventBatch, error) {
 	now := time.Now().UTC()
 	hostInfo, err := host.Info()
 	if err != nil {
-		return EventBatch{}, err
+		return shared.EventBatch{}, err
 	}
 
 	hostname, err := os.Hostname()
 	if err != nil {
-		return EventBatch{}, err
+		return shared.EventBatch{}, err
 	}
 
-	batch := EventBatch{
+	batch := shared.EventBatch{
 		BatchID: "batch_" + eventID(now, 0),
-		Agent: BatchAgent{
+		Agent: shared.BatchAgent{
 			ID:      hostInfo.HostID,
 			Version: "0.1.0",
 		},
-		Host: BatchHost{
+		Host: shared.BatchHost{
 			ID:   hostInfo.HostID,
 			Name: hostname,
 			OS:   hostInfo.OS,
@@ -88,15 +65,15 @@ func collectBatch() (EventBatch, error) {
 
 	events, err := collectEvents(now)
 	if err != nil {
-		return EventBatch{}, err
+		return shared.EventBatch{}, err
 	}
 	batch.Events = events
 
 	return batch, nil
 }
 
-func collectEvents(now time.Time) ([]BatchEvent, error) {
-	events := make([]BatchEvent, 0, 10)
+func collectEvents(now time.Time) ([]shared.BatchEvent, error) {
+	events := make([]shared.BatchEvent, 0, 10)
 	nextID := 1
 
 	cpuUsage, err := cpu.Percent(0, true)
@@ -140,13 +117,13 @@ func collectEvents(now time.Time) ([]BatchEvent, error) {
 	return events, nil
 }
 
-func newCPUEvent(now time.Time, sequence int, core int, usage float64, cores int, loadAvg *load.AvgStat) BatchEvent {
-	return BatchEvent{
+func newCPUEvent(now time.Time, sequence int, core int, usage float64, cores int, loadAvg *load.AvgStat) shared.BatchEvent {
+	return shared.BatchEvent{
 		ID:         "evt_" + eventID(now, sequence),
 		ObservedAt: now,
 		Type:       "metric",
 		Source:     "system.cpu",
-		Payload: MetricPayload{
+		Payload: shared.MetricPayload{
 			Name:  "cpu.usage",
 			Value: usage,
 			Unit:  "percent",
@@ -161,13 +138,13 @@ func newCPUEvent(now time.Time, sequence int, core int, usage float64, cores int
 	}
 }
 
-func newMemoryEvent(now time.Time, sequence int, memory *mem.VirtualMemoryStat) BatchEvent {
-	return BatchEvent{
+func newMemoryEvent(now time.Time, sequence int, memory *mem.VirtualMemoryStat) shared.BatchEvent {
+	return shared.BatchEvent{
 		ID:         "evt_" + eventID(now, sequence),
 		ObservedAt: now,
 		Type:       "metric",
 		Source:     "system.memory",
-		Payload: MetricPayload{
+		Payload: shared.MetricPayload{
 			Name:  "memory.usage",
 			Value: memory.UsedPercent,
 			Unit:  "percent",
@@ -180,13 +157,13 @@ func newMemoryEvent(now time.Time, sequence int, memory *mem.VirtualMemoryStat) 
 	}
 }
 
-func newDiskEvent(now time.Time, sequence int, partition disk.PartitionStat, usage *disk.UsageStat) BatchEvent {
-	return BatchEvent{
+func newDiskEvent(now time.Time, sequence int, partition disk.PartitionStat, usage *disk.UsageStat) shared.BatchEvent {
+	return shared.BatchEvent{
 		ID:         "evt_" + eventID(now, sequence),
 		ObservedAt: now,
 		Type:       "metric",
 		Source:     "system.disk",
-		Payload: MetricPayload{
+		Payload: shared.MetricPayload{
 			Name:  "disk.usage",
 			Value: usage.UsedPercent,
 			Unit:  "percent",

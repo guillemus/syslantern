@@ -1,13 +1,12 @@
 package logger
 
 import (
-	"bytes"
-	"encoding/json"
 	"log/slog"
 	"os"
 
 	"app/config"
 
+	"github.com/bytedance/sonic"
 	"github.com/lmittmann/tint"
 )
 
@@ -41,12 +40,12 @@ func NewLogger(cfg config.Config) *slog.Logger {
 
 func PrettyJSON(s string) string {
 	var obj any
-	if err := json.Unmarshal([]byte(s), &obj); err != nil {
+	if err := sonic.UnmarshalString(s, &obj); err != nil {
 		return s
 	}
-	var buf bytes.Buffer
-	if err := json.Indent(&buf, []byte(s), "", "  "); err != nil {
+	pretty, err := sonic.MarshalIndent(obj, "", "  ")
+	if err != nil {
 		return s
 	}
-	return buf.String()
+	return string(pretty)
 }

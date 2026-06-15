@@ -59,10 +59,16 @@ func NewServer() *Server {
 	s.Router.Use(s.Sessions.LoadAndSave)
 	s.Router.Get("/public/*", app.GetPublicHandler(cfg).ServeHTTP)
 
-	s.Router.Post("/receive-stats", s.ReceiveStats)
+	s.Router.Post("/receive-stats", s.ProcessBatch)
 
-	s.RegisterDashboardRoutes()
-	s.RegisterAuthRoutes()
+	s.Router.Get("/dash", s.HandleDashboard)
+	s.Router.Get("/dash/example", s.HandleDashboardExample)
+
+	s.Router.Get("/sign-in", s.HandleSignInPage)
+	s.Router.Post("/sign-in", s.HandleSignIn)
+	s.Router.Get("/sign-up", s.HandleSignUpPage)
+	s.Router.Post("/sign-up", s.HandleSignUp)
+	s.Router.Post("/logout", s.HandleLogout)
 
 	return s
 }
