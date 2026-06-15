@@ -18,11 +18,11 @@ const (
 )
 
 func (s *Server) RegisterAuthRoutes() {
-	s.Mux.HandleFunc("GET /sign-in", s.HandleSignInPage)
-	s.Mux.HandleFunc("POST /sign-in", s.HandleSignIn)
-	s.Mux.HandleFunc("GET /sign-up", s.HandleSignUpPage)
-	s.Mux.HandleFunc("POST /sign-up", s.HandleSignUp)
-	s.Mux.HandleFunc("POST /logout", s.HandleLogout)
+	s.Router.Get("/sign-in", s.HandleSignInPage)
+	s.Router.Post("/sign-in", s.HandleSignIn)
+	s.Router.Get("/sign-up", s.HandleSignUpPage)
+	s.Router.Post("/sign-up", s.HandleSignUp)
+	s.Router.Post("/logout", s.HandleLogout)
 }
 
 func (s *Server) HandleSignInPage(w http.ResponseWriter, r *http.Request) {

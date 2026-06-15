@@ -5,7 +5,7 @@ import (
 )
 
 func (s *Server) RegisterLandingRoutes() {
-	s.Mux.HandleFunc("GET /", s.HandleLanding)
+	s.Router.Get("/", s.HandleLanding)
 }
 
 func (s *Server) HandleLanding(w http.ResponseWriter, r *http.Request) {

@@ -13,10 +13,11 @@ import (
 	"app/views"
 
 	"github.com/alexedwards/scs/v2"
+	"github.com/go-chi/chi/v5"
 )
 
 type Server struct {
-	Mux                   *http.ServeMux
+	Router                chi.Router
 	Renderer              *views.Renderer
 	DB                    *db.Conn
 	Sessions              *scs.SessionManager
@@ -45,7 +46,7 @@ func NewServer() *Server {
 	sessionManager.Cookie.SameSite = http.SameSiteLaxMode
 
 	s := &Server{
-		Mux:                   http.NewServeMux(),
+		Router:                chi.NewRouter(),
 		Renderer:              views.NewRenderer(log, cfg.AssetVersion),
 		DB:                    conn,
 		Sessions:              sessionManager,
@@ -54,7 +55,9 @@ func NewServer() *Server {
 		Logger:                log,
 	}
 
-	s.Mux.Handle("GET /public/", app.GetPublicHandler(cfg))
+	s.Router.Use(s.CrossOriginProtection.Handler)
+	s.Router.Use(s.Sessions.LoadAndSave)
+	s.Router.Get("/public/*", app.GetPublicHandler(cfg).ServeHTTP)
 	s.RegisterLandingRoutes()
 	s.RegisterDashboardRoutes()
 	s.RegisterAuthRoutes()
@@ -65,8 +68,7 @@ func NewServer() *Server {
 func (s *Server) Start() {
 	addr := ":" + s.Port
 	s.Logger.Info("server starting", "addr", addr)
-	handler := s.CrossOriginProtection.Handler(s.Sessions.LoadAndSave(s.Mux))
-	if err := http.ListenAndServe(addr, handler); err != nil {
+	if err := http.ListenAndServe(addr, s.Router); err != nil {
 		log.Fatal(err)
 	}
 }
