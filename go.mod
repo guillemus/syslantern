@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/alexedwards/scs/v2 v2.9.0
+	github.com/bytedance/sonic v1.15.2
 	github.com/go-chi/chi/v5 v5.3.0
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/joho/godotenv v1.5.1
@@ -20,7 +21,6 @@ require (
 	github.com/CAFxX/httpcompression v0.0.9 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
-	github.com/bytedance/sonic v1.15.2 // indirect
 	github.com/bytedance/sonic/loader v0.5.1 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
