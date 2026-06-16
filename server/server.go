@@ -26,7 +26,8 @@ type Server struct {
 	Port                  string
 	Logger                *slog.Logger
 
-	BatchBus EventBus[shared.EventBatch]
+	CommandBus EventBus[shared.Command]
+	BatchBus   EventBus[shared.EventBatch]
 }
 
 func NewServer() *Server {
@@ -56,7 +57,9 @@ func NewServer() *Server {
 		CrossOriginProtection: NewCrossOriginProtection(log),
 		Port:                  cfg.Port,
 		Logger:                log,
-		BatchBus:              NewEventBusAsync[shared.EventBatch](),
+
+		CommandBus: NewEventBusAsync[shared.Command](),
+		BatchBus:   NewEventBusAsync[shared.EventBatch](),
 	}
 
 	s.Router.Use(s.CrossOriginProtection.Handler)
@@ -64,6 +67,7 @@ func NewServer() *Server {
 	s.Router.Get("/public/*", app.GetPublicHandler(cfg).ServeHTTP)
 
 	s.Router.Post("/batch", s.HandleBatch)
+	s.Router.Get("/connect", s.HandleConnect)
 
 	s.Router.Get("/dashboard", s.HandleDashboard)
 	s.Router.Get("/dashboard/events", s.HandleDashboardEvents)

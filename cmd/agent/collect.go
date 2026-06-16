@@ -1,12 +1,10 @@
 package main
 
 import (
-	"context"
+	"app/shared"
 	"fmt"
 	"os"
 	"time"
-
-	"app/shared"
 
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
@@ -14,26 +12,6 @@ import (
 	"github.com/shirou/gopsutil/v4/load"
 	"github.com/shirou/gopsutil/v4/mem"
 )
-
-func StartEmitter(ctx context.Context) {
-	client := NewClient()
-
-	for {
-		time.Sleep(1 * time.Second)
-		batch, err := collectBatch()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			continue
-		}
-
-		// TODO: retry send batch
-
-		if err := client.SendBatch(ctx, batch); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			continue
-		}
-	}
-}
 
 func collectBatch() (shared.EventBatch, error) {
 	now := time.Now().UTC()

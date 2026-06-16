@@ -1,5 +1,6 @@
 dev:
-	bunx concurrently -k -n go,css "air" "bunx @tailwindcss/cli -i ./views/styles.css -o ./public/styles.css --watch"
+    lsof -ti :3000 | xargs kill
+    bunx concurrently -k -n go,css "air" "bunx @tailwindcss/cli -i ./views/styles.css -o ./public/styles.css --watch"
 
 build-assets:
 	bunx @tailwindcss/cli -i ./views/styles.css -o ./public/styles.css --minify
@@ -23,8 +24,11 @@ build-linux: build-assets
 	mkdir -p dist
 	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o dist/app ./cmd/server
 
-build-cli:
+build-agent:
 	@mkdir -p dist
-	@GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o dist/cli ./cmd/cli
-	@multipass transfer dist/cli linuxbox:/home/ubuntu/cli
-	@multipass exec linuxbox -- chmod +x /home/ubuntu/cli
+	@GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o dist/agent ./cmd/agent
+	@multipass transfer dist/agent linuxbox:/home/ubuntu/agent
+	@multipass exec linuxbox -- chmod +x /home/ubuntu/agent
+
+start-agent: build-agent
+    multipass exec linuxbox -- ./agent start

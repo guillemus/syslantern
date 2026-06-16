@@ -36,3 +36,5 @@ type MetricPayload struct {
 	Unit   string         `json:"unit"`
 	Fields map[string]any `json:"fields"`
 }
+
+type Command struct{}

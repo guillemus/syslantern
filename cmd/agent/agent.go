@@ -3,100 +3,35 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"time"
-
-	"github.com/shirou/gopsutil/v4/cpu"
-	"github.com/shirou/gopsutil/v4/mem"
-	"github.com/spf13/cobra"
 )
 
-func main() {
-	if err := newRootCommand(os.Stdout).Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-}
+func StartAgent(ctx context.Context) {
+	client := NewClient()
 
-func newRootCommand(out io.Writer) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "openlogs",
-		Short: "OpenLogs CLI",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmd.Help()
-		},
-	}
+	cmdC := client.Connect(ctx)
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
 
-	cmd.SetOut(out)
-	cmd.SetErr(out)
-	cmd.AddCommand(newUsageCommand(out))
-	cmd.AddCommand(newStartCommand())
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			// send current state back to server
+		case cmd := <-cmdC:
+			fmt.Fprintf(os.Stderr, "received command: %+v\n", cmd)
 
-	return cmd
-}
-
-func newStartCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "start",
-		Short: "Starts emitting events",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			StartEmitter(context.Background())
-			return nil
-		},
-	}
-}
-func newUsageCommand(out io.Writer) *cobra.Command {
-	return &cobra.Command{
-		Use:   "usage",
-		Short: "Print RAM and CPU usage",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			memory, err := mem.VirtualMemory()
+			batch, err := collectBatch()
 			if err != nil {
-				return err
+				fmt.Fprintf(os.Stderr, "collect batch: %v\n", err)
+				continue
 			}
 
-			cpuInfo, err := cpu.Info()
-			if err != nil {
-				return err
+			if err := client.SendBatch(ctx, batch); err != nil {
+				fmt.Fprintf(os.Stderr, "send batch: %v\n", err)
 			}
-
-			cpuUsage, err := cpu.Percent(500*time.Millisecond, true)
-			if err != nil {
-				return err
-			}
-			if len(cpuUsage) == 0 {
-				return fmt.Errorf("cpu usage unavailable")
-			}
-
-			fmt.Fprintf(out,
-				"RAM: %.1f%% (%s / %s)\n",
-				memory.UsedPercent, formatBytes(memory.Used), formatBytes(memory.Total))
-			for i, usage := range cpuUsage {
-				fmt.Fprintf(out, "CPU %d: %.1f%%", i, usage)
-				if i < len(cpuInfo) && cpuInfo[i].ModelName != "" {
-					fmt.Fprintf(out, " %s", cpuInfo[i].ModelName)
-				}
-				fmt.Fprintln(out)
-			}
-			return nil
-		},
-	}
-}
-
-func formatBytes(bytes uint64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-
-	value := float64(bytes)
-	for _, suffix := range []string{"KB", "MB", "GB", "TB"} {
-		value /= unit
-		if value < unit {
-			return fmt.Sprintf("%.1f %s", value, suffix)
 		}
 	}
-
-	return fmt.Sprintf("%.1f PB", value/unit)
 }

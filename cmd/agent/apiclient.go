@@ -1,58 +1,101 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
-	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"app/shared"
 
 	"github.com/bytedance/sonic"
+	"github.com/go-resty/resty/v2"
 )
 
 type Client struct {
-	baseURL    string
-	httpClient *http.Client
+	resty *resty.Client
 }
 
 func NewClient() *Client {
 	return &Client{
-		baseURL: "http://host.multipass:3000",
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
-		},
+		resty: resty.New().
+			SetBaseURL("http://host.multipass:3000"),
 	}
 }
 
 func (c *Client) SendBatch(ctx context.Context, batch shared.EventBatch) error {
-	body, err := sonic.Marshal(batch)
-	if err != nil {
-		return fmt.Errorf("encode event batch: %w", err)
-	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/batch", bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("create event batch request: %w", err)
-	}
-	request.Header.Set("Content-Type", "application/json")
-
-	response, err := c.httpClient.Do(request)
+	resp, err := c.resty.R().
+		SetContext(ctx).
+		SetHeader("Content-Type", "application/json").
+		SetBody(batch).
+		Post("/batch")
 	if err != nil {
 		return fmt.Errorf("send event batch: %w", err)
 	}
-	defer response.Body.Close()
 
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		responseBody, err := io.ReadAll(response.Body)
-		if err != nil {
-			return fmt.Errorf("send event batch: %s", response.Status)
-		}
-		return fmt.Errorf("send event batch: %s: %s", response.Status, strings.TrimSpace(string(responseBody)))
+	if resp.IsError() {
+		return fmt.Errorf(
+			"send event batch: %s: %s",
+			resp.Status(), strings.TrimSpace(string(resp.Body())))
 	}
 
 	return nil
+}
+
+func (c *Client) Connect(ctx context.Context) <-chan shared.Command {
+	commands := make(chan shared.Command)
+
+	go func() {
+		defer close(commands)
+
+		for {
+			err := c.streamCommands(ctx, commands)
+			if ctx.Err() != nil {
+				return
+			}
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			}
+
+			select {
+			case <-ctx.Done():
+			case <-time.After(2 * time.Second):
+			}
+		}
+	}()
+
+	return commands
+}
+
+func (c *Client) streamCommands(ctx context.Context, commands chan<- shared.Command) error {
+	resp, err := c.resty.R().
+		SetContext(ctx).
+		SetDoNotParseResponse(true).
+		Get("/connect")
+	if err != nil {
+		return fmt.Errorf("open command stream: %w", err)
+	}
+	defer resp.RawBody().Close()
+
+	if resp.IsError() {
+		return fmt.Errorf("open command stream: %s", resp.Status())
+	}
+
+	decoder := sonic.ConfigDefault.NewDecoder(resp.RawBody())
+	for {
+		var command shared.Command
+		if err := decoder.Decode(&command); err != nil {
+			return fmt.Errorf("read command stream: %w", err)
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case commands <- command:
+		}
+	}
 }

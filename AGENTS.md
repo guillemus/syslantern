@@ -3,6 +3,14 @@ When modifying `db/schema.sql` or `db/queries.sql`, regenerate SQLC models/queri
 
 # Architecture
 
+## Agent
+
+The cli that reads the vps system state and emits it back to the server.
+
+## Hub
+
+The main server, where users can see and read the state of all the connected vps.
+
 Follow MVC-style package boundaries.
 
 - `views`: rendering only. HTML, components, static UI helpers.

@@ -49,13 +49,13 @@ func (r *Renderer) RenderDashboard(w io.Writer) {
 	r.RenderPage(w, "Dashboard", r.Dashboard())
 }
 
-func (r *Renderer) RenderDashboardStatsHTML(data DashboardStatsData) (string, error) {
+func (r *Renderer) RenderDashboardStatsHTML(data DashboardStatsData) string {
 	var body bytes.Buffer
 	node := DashboardStats(data)
 	if err := node.Render(&body); err != nil {
-		return "", fmt.Errorf("render dashboard stats: %w", err)
+		r.Logger.Error("render dashboard stats", "err", err)
 	}
-	return body.String(), nil
+	return body.String()
 }
 
 func (r *Renderer) RenderDashboardExampleResultHTML(data DashboardExampleResultData) (string, error) {
