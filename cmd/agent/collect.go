@@ -26,12 +26,12 @@ func collectBatch() (shared.EventBatch, error) {
 	}
 
 	batch := shared.EventBatch{
-		BatchID: "batch_" + eventID(now, 0),
-		Agent: shared.BatchAgent{
+		ID: "batch_" + eventID(now, 0),
+		Agent: shared.Agent{
 			ID:      hostInfo.HostID,
 			Version: "0.1.0",
 		},
-		Host: shared.BatchHost{
+		Host: shared.Host{
 			ID:   hostInfo.HostID,
 			Name: hostname,
 			OS:   hostInfo.OS,
@@ -50,111 +50,116 @@ func collectBatch() (shared.EventBatch, error) {
 	return batch, nil
 }
 
-func collectEvents(now time.Time) ([]shared.BatchEvent, error) {
-	events := make([]shared.BatchEvent, 0, 10)
+func collectEvents(now time.Time) ([]shared.Event, error) {
+	events := make([]shared.Event, 0, 10)
 	nextID := 1
 
-	cpuUsage, err := cpu.Percent(0, true)
+	cpuEvent, nextID, err := createCPUEvent(now, nextID)
 	if err != nil {
 		return nil, err
 	}
-	cpuCores, err := cpu.Counts(true)
-	if err != nil {
-		return nil, err
-	}
-	loadAvg, err := load.Avg()
-	if err != nil {
-		return nil, err
-	}
+	events = append(events, cpuEvent)
 
-	for core, usage := range cpuUsage {
-		events = append(events, newCPUEvent(now, nextID, core, usage, cpuCores, loadAvg))
-		nextID++
-	}
-
-	memory, err := mem.VirtualMemory()
+	memoryEvent, nextID, err := createMemoryEvent(now, nextID)
 	if err != nil {
 		return nil, err
 	}
-	events = append(events, newMemoryEvent(now, nextID, memory))
-	nextID++
+	events = append(events, memoryEvent)
 
-	partitions, err := disk.Partitions(false)
+	diskEvents, nextID, err := createDiskEvents(now, nextID)
 	if err != nil {
 		return nil, err
 	}
-	for _, partition := range partitions {
-		usage, err := disk.Usage(partition.Mountpoint)
-		if err != nil {
-			return nil, err
-		}
-		events = append(events, newDiskEvent(now, nextID, partition, usage))
-		nextID++
-	}
+	events = append(events, diskEvents...)
 
 	return events, nil
 }
 
-func newCPUEvent(now time.Time, sequence int, core int, usage float64, cores int, loadAvg *load.AvgStat) shared.BatchEvent {
-	return shared.BatchEvent{
+func createCPUEvent(now time.Time, sequence int) (shared.Event, int, error) {
+	perCoreUsage, err := cpu.Percent(0, true)
+	if err != nil {
+		return shared.Event{}, sequence, err
+	}
+	logicalCores, err := cpu.Counts(true)
+	if err != nil {
+		return shared.Event{}, sequence, err
+	}
+	physicalCores, err := cpu.Counts(false)
+	if err != nil {
+		return shared.Event{}, sequence, err
+	}
+	loadAvg, err := load.Avg()
+	if err != nil {
+		return shared.Event{}, sequence, err
+	}
+
+	var totalUsage float64
+	for _, usage := range perCoreUsage {
+		totalUsage += usage
+	}
+	overallUsage := totalUsage / float64(len(perCoreUsage))
+
+	return shared.Event{
 		ID:         "evt_" + eventID(now, sequence),
 		ObservedAt: now,
-		Type:       "metric",
-		Source:     "system.cpu",
-		Payload: shared.MetricPayload{
-			Name:  "cpu.usage",
-			Value: usage,
-			Unit:  "percent",
-			Fields: map[string]any{
-				"core":     core,
-				"cores":    cores,
-				"load_1m":  loadAvg.Load1,
-				"load_5m":  loadAvg.Load5,
-				"load_15m": loadAvg.Load15,
-			},
+		CPU: &shared.CPUUsage{
+			UsedPercent:    overallUsage,
+			CoresLogical:   logicalCores,
+			CoresPhysical:  physicalCores,
+			PerCorePercent: perCoreUsage,
+			Load1M:         loadAvg.Load1,
+			Load5M:         loadAvg.Load5,
+			Load15M:        loadAvg.Load15,
 		},
-	}
+	}, sequence + 1, nil
 }
 
-func newMemoryEvent(now time.Time, sequence int, memory *mem.VirtualMemoryStat) shared.BatchEvent {
-	return shared.BatchEvent{
+func createMemoryEvent(now time.Time, sequence int) (shared.Event, int, error) {
+	memory, err := mem.VirtualMemory()
+	if err != nil {
+		return shared.Event{}, sequence, err
+	}
+
+	return shared.Event{
 		ID:         "evt_" + eventID(now, sequence),
 		ObservedAt: now,
-		Type:       "metric",
-		Source:     "system.memory",
-		Payload: shared.MetricPayload{
-			Name:  "memory.usage",
-			Value: memory.UsedPercent,
-			Unit:  "percent",
-			Fields: map[string]any{
-				"used_bytes":      memory.Used,
-				"available_bytes": memory.Available,
-				"total_bytes":     memory.Total,
-			},
+		Memory: &shared.MemoryUsage{
+			UsedPercent:    memory.UsedPercent,
+			UsedBytes:      memory.Used,
+			AvailableBytes: memory.Available,
+			TotalBytes:     memory.Total,
 		},
-	}
+	}, sequence + 1, nil
 }
 
-func newDiskEvent(now time.Time, sequence int, partition disk.PartitionStat, usage *disk.UsageStat) shared.BatchEvent {
-	return shared.BatchEvent{
-		ID:         "evt_" + eventID(now, sequence),
-		ObservedAt: now,
-		Type:       "metric",
-		Source:     "system.disk",
-		Payload: shared.MetricPayload{
-			Name:  "disk.usage",
-			Value: usage.UsedPercent,
-			Unit:  "percent",
-			Fields: map[string]any{
-				"mount":           usage.Path,
-				"device":          partition.Device,
-				"filesystem":      partition.Fstype,
-				"used_bytes":      usage.Used,
-				"available_bytes": usage.Free,
-				"total_bytes":     usage.Total,
-			},
-		},
+func createDiskEvents(now time.Time, sequence int) ([]shared.Event, int, error) {
+	partitions, err := disk.Partitions(false)
+	if err != nil {
+		return nil, sequence, err
 	}
+
+	events := make([]shared.Event, 0, len(partitions))
+	for _, partition := range partitions {
+		usage, err := disk.Usage(partition.Mountpoint)
+		if err != nil {
+			return nil, sequence, err
+		}
+		events = append(events, shared.Event{
+			ID:         "evt_" + eventID(now, sequence),
+			ObservedAt: now,
+			Disk: &shared.DiskUsage{
+				Mount:       usage.Path,
+				Filesystem:  partition.Fstype,
+				UsedPercent: usage.UsedPercent,
+				UsedBytes:   usage.Used,
+				FreeBytes:   usage.Free,
+				TotalBytes:  usage.Total,
+			},
+		})
+		sequence++
+	}
+
+	return events, sequence, nil
 }
 
 func eventID(t time.Time, sequence int) string {

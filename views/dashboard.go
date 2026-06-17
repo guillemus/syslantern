@@ -43,44 +43,32 @@ func DashboardStatsFromBatch(batch shared.EventBatch) DashboardStatsData {
 		Disks:      []DashboardDiskData{},
 	}
 
-	var cpuTotal float64
-	var cpuCount int
-	var cpuCores uint64
-
 	for _, event := range batch.Events {
-		switch event.Payload.Name {
-		case "cpu.usage":
-			cpuTotal += event.Payload.Value
-			cpuCount++
-			if cpuCores == 0 {
-				cpuCores = uintField(event.Payload.Fields, "cores")
-			}
-		case "memory.usage":
-			stats.MemoryAvailable = formatBytes(uintField(event.Payload.Fields, "available_bytes"))
-			stats.MemoryDescription = fmt.Sprintf("%s used of %s", formatBytes(uintField(event.Payload.Fields, "used_bytes")), formatBytes(uintField(event.Payload.Fields, "total_bytes")))
-		case "disk.usage":
-			used := event.Payload.Value
+		if event.CPU != nil {
+			stats.CPUHeadroom = percent(100 - event.CPU.UsedPercent)
+			stats.CPUDescription = fmt.Sprintf("%s currently used across %d cores", percent(event.CPU.UsedPercent), event.CPU.CoresLogical)
+		}
+
+		if event.Memory != nil {
+			stats.MemoryAvailable = formatBytes(event.Memory.AvailableBytes)
+			stats.MemoryDescription = fmt.Sprintf("%s used of %s", formatBytes(event.Memory.UsedBytes), formatBytes(event.Memory.TotalBytes))
+		}
+
+		if event.Disk != nil {
+			used := event.Disk.UsedPercent
 			freePercent := 100 - used
-			freeBytes := uintField(event.Payload.Fields, "available_bytes")
-			totalBytes := uintField(event.Payload.Fields, "total_bytes")
 			stats.Disks = append(stats.Disks, DashboardDiskData{
-				Mount:            stringField(event.Payload.Fields, "mount"),
-				Free:             formatBytes(freeBytes),
-				FreeBytes:        freeBytes,
+				Mount:            event.Disk.Mount,
+				Free:             formatBytes(event.Disk.FreeBytes),
+				FreeBytes:        event.Disk.FreeBytes,
 				FreePercent:      percent(freePercent),
 				FreePercentValue: freePercent,
 				Used:             percent(used),
-				Total:            formatBytes(totalBytes),
+				Total:            formatBytes(event.Disk.TotalBytes),
 				Meaning:          diskMeaning(used),
 				StatusClass:      diskStatusClass(used),
 			})
 		}
-	}
-
-	if cpuCount > 0 {
-		cpuUsage := cpuTotal / float64(cpuCount)
-		stats.CPUHeadroom = percent(100 - cpuUsage)
-		stats.CPUDescription = fmt.Sprintf("%s currently used across %d cores", percent(cpuUsage), cpuCores)
 	}
 
 	sort.Slice(stats.Disks, func(i, j int) bool {
@@ -252,35 +240,6 @@ func diskStatusClass(used float64) string {
 		return "text-amber-300"
 	}
 	return "text-emerald-300"
-}
-
-func stringField(fields map[string]any, key string) string {
-	value, ok := fields[key]
-	if !ok {
-		return ""
-	}
-	return fmt.Sprint(value)
-}
-
-func uintField(fields map[string]any, key string) uint64 {
-	value, ok := fields[key]
-	if !ok {
-		return 0
-	}
-	switch typed := value.(type) {
-	case uint64:
-		return typed
-	case uint:
-		return uint64(typed)
-	case int:
-		return uint64(typed)
-	case int64:
-		return uint64(typed)
-	case float64:
-		return uint64(typed)
-	default:
-		return 0
-	}
 }
 
 type DashboardExampleResultData struct {
