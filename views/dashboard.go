@@ -43,32 +43,27 @@ func DashboardStatsFromBatch(batch shared.EventBatch) DashboardStatsData {
 		Disks:      []DashboardDiskData{},
 	}
 
-	for _, event := range batch.Events {
-		if event.CPU != nil {
-			stats.CPUHeadroom = percent(100 - event.CPU.UsedPercent)
-			stats.CPUDescription = fmt.Sprintf("%s currently used across %d cores", percent(event.CPU.UsedPercent), event.CPU.CoresLogical)
-		}
+	metrics := batch.Metrics
+	stats.CPUHeadroom = percent(100 - metrics.CPU.UsedPercent)
+	stats.CPUDescription = fmt.Sprintf("%s currently used across %d cores", percent(metrics.CPU.UsedPercent), metrics.CPU.CoresLogical)
+	stats.MemoryAvailable = formatBytes(metrics.VirtualMemory.AvailableBytes)
+	stats.MemoryDescription = fmt.Sprintf("%s used of %s", formatBytes(metrics.VirtualMemory.UsedBytes), formatBytes(metrics.VirtualMemory.TotalBytes))
 
-		if event.Memory != nil {
-			stats.MemoryAvailable = formatBytes(event.Memory.AvailableBytes)
-			stats.MemoryDescription = fmt.Sprintf("%s used of %s", formatBytes(event.Memory.UsedBytes), formatBytes(event.Memory.TotalBytes))
-		}
-
-		if event.Disk != nil {
-			used := event.Disk.UsedPercent
-			freePercent := 100 - used
-			stats.Disks = append(stats.Disks, DashboardDiskData{
-				Mount:            event.Disk.Mount,
-				Free:             formatBytes(event.Disk.FreeBytes),
-				FreeBytes:        event.Disk.FreeBytes,
-				FreePercent:      percent(freePercent),
-				FreePercentValue: freePercent,
-				Used:             percent(used),
-				Total:            formatBytes(event.Disk.TotalBytes),
-				Meaning:          diskMeaning(used),
-				StatusClass:      diskStatusClass(used),
-			})
-		}
+	disks := append([]shared.DiskUsage{metrics.Disk.Total}, metrics.Disk.Partitions...)
+	for _, disk := range disks {
+		used := disk.UsedPercent
+		freePercent := 100 - used
+		stats.Disks = append(stats.Disks, DashboardDiskData{
+			Mount:            disk.Mount,
+			Free:             formatBytes(disk.FreeBytes),
+			FreeBytes:        disk.FreeBytes,
+			FreePercent:      percent(freePercent),
+			FreePercentValue: freePercent,
+			Used:             percent(used),
+			Total:            formatBytes(disk.TotalBytes),
+			Meaning:          diskMeaning(used),
+			StatusClass:      diskStatusClass(used),
+		})
 	}
 
 	sort.Slice(stats.Disks, func(i, j int) bool {

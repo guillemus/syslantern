@@ -17,52 +17,46 @@ func (c *Conn) SaveBatch(ctx context.Context, batch shared.EventBatch) error {
 	defer tx.Rollback()
 
 	queries := c.Queries.WithTx(tx)
-	for _, event := range batch.Events {
-		observedAt := event.ObservedAt.Format(time.RFC3339Nano)
+	metrics := batch.Metrics
+	observedAt := metrics.ObservedAt.Format(time.RFC3339Nano)
 
-		if event.CPU != nil {
-			perCorePercent, err := json.Marshal(event.CPU.PerCorePercent)
-			if err != nil {
-				return err
-			}
-			if err := queries.CreateCPUSampleQuery(ctx, CreateCPUSampleQueryParams{
-				ObservedAt:     observedAt,
-				UsedPercent:    event.CPU.UsedPercent,
-				CoresLogical:   int64(event.CPU.CoresLogical),
-				CoresPhysical:  int64(event.CPU.CoresPhysical),
-				PerCorePercent: string(perCorePercent),
-				Load1m:         event.CPU.Load1M,
-				Load5m:         event.CPU.Load5M,
-				Load15m:        event.CPU.Load15M,
-			}); err != nil {
-				return err
-			}
-		}
+	perCorePercent, err := json.Marshal(metrics.CPU.PerCorePercent)
+	if err != nil {
+		return err
+	}
+	if err := queries.CreateCPUSampleQuery(ctx, CreateCPUSampleQueryParams{
+		ObservedAt:     observedAt,
+		UsedPercent:    metrics.CPU.UsedPercent,
+		CoresLogical:   int64(metrics.CPU.CoresLogical),
+		CoresPhysical:  int64(metrics.CPU.CoresPhysical),
+		PerCorePercent: string(perCorePercent),
+		Load1m:         metrics.CPU.Load1M,
+		Load5m:         metrics.CPU.Load5M,
+		Load15m:        metrics.CPU.Load15M,
+	}); err != nil {
+		return err
+	}
 
-		if event.Memory != nil {
-			if err := queries.CreateMemorySampleQuery(ctx, CreateMemorySampleQueryParams{
-				ObservedAt:     observedAt,
-				UsedPercent:    event.Memory.UsedPercent,
-				UsedBytes:      int64(event.Memory.UsedBytes),
-				AvailableBytes: int64(event.Memory.AvailableBytes),
-				TotalBytes:     int64(event.Memory.TotalBytes),
-			}); err != nil {
-				return err
-			}
-		}
+	if err := queries.CreateMemorySampleQuery(ctx, CreateMemorySampleQueryParams{
+		ObservedAt:            observedAt,
+		VirtualUsedPercent:    metrics.VirtualMemory.UsedPercent,
+		VirtualUsedBytes:      int64(metrics.VirtualMemory.UsedBytes),
+		VirtualAvailableBytes: int64(metrics.VirtualMemory.AvailableBytes),
+		VirtualTotalBytes:     int64(metrics.VirtualMemory.TotalBytes),
+		SwapUsedPercent:       metrics.SwapMemory.UsedPercent,
+		SwapUsedBytes:         int64(metrics.SwapMemory.UsedBytes),
+		SwapAvailableBytes:    int64(metrics.SwapMemory.AvailableBytes),
+		SwapTotalBytes:        int64(metrics.SwapMemory.TotalBytes),
+	}); err != nil {
+		return err
+	}
 
-		if event.Disk != nil {
-			if err := queries.CreateDiskSampleQuery(ctx, CreateDiskSampleQueryParams{
-				ObservedAt:  observedAt,
-				Mount:       event.Disk.Mount,
-				Filesystem:  event.Disk.Filesystem,
-				UsedPercent: event.Disk.UsedPercent,
-				UsedBytes:   int64(event.Disk.UsedBytes),
-				FreeBytes:   int64(event.Disk.FreeBytes),
-				TotalBytes:  int64(event.Disk.TotalBytes),
-			}); err != nil {
-				return err
-			}
+	if err := createDiskSample(ctx, queries, observedAt, true, metrics.Disk.Total); err != nil {
+		return err
+	}
+	for _, partition := range metrics.Disk.Partitions {
+		if err := createDiskSample(ctx, queries, observedAt, false, partition); err != nil {
+			return err
 		}
 	}
 
@@ -78,4 +72,22 @@ func (c *Conn) SaveBatch(ctx context.Context, batch shared.EventBatch) error {
 	}
 
 	return tx.Commit()
+}
+
+func createDiskSample(ctx context.Context, queries *Queries, observedAt string, isTotal bool, disk shared.DiskUsage) error {
+	var isTotalValue int64
+	if isTotal {
+		isTotalValue = 1
+	}
+	return queries.CreateDiskSampleQuery(ctx, CreateDiskSampleQueryParams{
+		ObservedAt:  observedAt,
+		IsTotal:     isTotalValue,
+		Device:      disk.Device,
+		Mount:       disk.Mount,
+		Filesystem:  disk.Filesystem,
+		UsedPercent: disk.UsedPercent,
+		UsedBytes:   int64(disk.UsedBytes),
+		FreeBytes:   int64(disk.FreeBytes),
+		TotalBytes:  int64(disk.TotalBytes),
+	})
 }

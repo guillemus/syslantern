@@ -3,11 +3,11 @@ package shared
 import "time"
 
 type EventBatch struct {
-	ID     string    `json:"id"`
-	Agent  Agent     `json:"agent"`
-	Host   Host      `json:"host"`
-	SentAt time.Time `json:"sent_at"`
-	Events []Event   `json:"events"`
+	ID      string          `json:"id"`
+	Agent   Agent           `json:"agent"`
+	Host    Host            `json:"host"`
+	SentAt  time.Time       `json:"sent_at"`
+	Metrics MetricsSnapshot `json:"metrics"`
 }
 
 type Agent struct {
@@ -22,12 +22,12 @@ type Host struct {
 	Arch string `json:"arch"`
 }
 
-type Event struct {
-	ID         string       `json:"id"`
-	ObservedAt time.Time    `json:"observed_at"`
-	CPU        *CPUUsage    `json:"cpu,omitempty"`
-	Memory     *MemoryUsage `json:"memory,omitempty"`
-	Disk       *DiskUsage   `json:"disk,omitempty"`
+type MetricsSnapshot struct {
+	ObservedAt    time.Time   `json:"observed_at"`
+	CPU           CPUUsage    `json:"cpu"`
+	VirtualMemory MemoryUsage `json:"virtual_memory"`
+	SwapMemory    MemoryUsage `json:"swap_memory"`
+	Disk          DiskMetrics `json:"disk"`
 }
 
 type CPUUsage struct {
@@ -47,7 +47,13 @@ type MemoryUsage struct {
 	TotalBytes     uint64  `json:"total_bytes"`
 }
 
+type DiskMetrics struct {
+	Total      DiskUsage   `json:"total"`
+	Partitions []DiskUsage `json:"partitions"`
+}
+
 type DiskUsage struct {
+	Device      string  `json:"device"`
 	Mount       string  `json:"mount"`
 	Filesystem  string  `json:"filesystem"`
 	UsedPercent float64 `json:"used_percent"`

@@ -1,14 +1,14 @@
 package main
 
 import (
-	agentdb "app/cmd/agent/db"
+	"app/cmd/agent/db"
 	"context"
 	"fmt"
 	"time"
 )
 
 func StartAgent(ctx context.Context) {
-	store, err := agentdb.Connect("data/openlogs-agent.db")
+	store, err := db.Connect("data/openlogs-agent.db")
 	if err != nil {
 		fmt.Printf("connect sqlite db: %v\n", err)
 		return
@@ -17,7 +17,6 @@ func StartAgent(ctx context.Context) {
 
 	client := NewClient()
 
-	cmdC := client.Connect(ctx)
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
@@ -27,27 +26,26 @@ func StartAgent(ctx context.Context) {
 			return
 		case <-ticker.C:
 			fmt.Println("ticked, sending batch")
-			collectSaveSend(ctx, store, client)
-		case cmd := <-cmdC:
-			fmt.Printf("received command: %+v\n", cmd)
-			collectSaveSend(ctx, store, client)
+			if err := collectSaveSend(ctx, store, client); err != nil {
+				fmt.Println("collectSaveSend err:", err)
+			}
 		}
 	}
 }
 
-func collectSaveSend(ctx context.Context, store *agentdb.Conn, client *Client) {
+func collectSaveSend(ctx context.Context, store *db.Conn, client *Client) error {
 	batch, err := collectBatch()
 	if err != nil {
-		fmt.Printf("collect batch: %v\n", err)
-		return
+		return fmt.Errorf("collect batch: %w", err)
 	}
 
 	if err := store.SaveBatch(ctx, batch); err != nil {
-		fmt.Printf("save batch: %v\n", err)
-		return
+		return fmt.Errorf("save batch: %w", err)
 	}
 
 	if err := client.SendBatch(ctx, batch); err != nil {
-		fmt.Printf("send batch: %v\n", err)
+		return fmt.Errorf("send batch: %w", err)
 	}
+
+	return nil
 }

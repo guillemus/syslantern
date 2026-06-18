@@ -19,6 +19,8 @@ type CpuSample struct {
 type DiskSample struct {
 	ID          int64   `db:"id"`
 	ObservedAt  string  `db:"observed_at"`
+	IsTotal     int64   `db:"is_total"`
+	Device      string  `db:"device"`
 	Mount       string  `db:"mount"`
 	Filesystem  string  `db:"filesystem"`
 	UsedPercent float64 `db:"used_percent"`
@@ -28,10 +30,14 @@ type DiskSample struct {
 }
 
 type MemorySample struct {
-	ID             int64   `db:"id"`
-	ObservedAt     string  `db:"observed_at"`
-	UsedPercent    float64 `db:"used_percent"`
-	UsedBytes      int64   `db:"used_bytes"`
-	AvailableBytes int64   `db:"available_bytes"`
-	TotalBytes     int64   `db:"total_bytes"`
+	ID                    int64   `db:"id"`
+	ObservedAt            string  `db:"observed_at"`
+	VirtualUsedPercent    float64 `db:"virtual_used_percent"`
+	VirtualUsedBytes      int64   `db:"virtual_used_bytes"`
+	VirtualAvailableBytes int64   `db:"virtual_available_bytes"`
+	VirtualTotalBytes     int64   `db:"virtual_total_bytes"`
+	SwapUsedPercent       float64 `db:"swap_used_percent"`
+	SwapUsedBytes         int64   `db:"swap_used_bytes"`
+	SwapAvailableBytes    int64   `db:"swap_available_bytes"`
+	SwapTotalBytes        int64   `db:"swap_total_bytes"`
 }

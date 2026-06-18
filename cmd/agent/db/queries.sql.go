@@ -59,6 +59,8 @@ func (q *Queries) CreateCPUSampleQuery(ctx context.Context, arg CreateCPUSampleQ
 const createDiskSampleQuery = `-- name: CreateDiskSampleQuery :exec
 INSERT INTO disk_samples (
     observed_at,
+    is_total,
+    device,
     mount,
     filesystem,
     used_percent,
@@ -72,12 +74,16 @@ INSERT INTO disk_samples (
     ?4,
     ?5,
     ?6,
-    ?7
+    ?7,
+    ?8,
+    ?9
 )
 `
 
 type CreateDiskSampleQueryParams struct {
 	ObservedAt  string  `db:"observed_at"`
+	IsTotal     int64   `db:"is_total"`
+	Device      string  `db:"device"`
 	Mount       string  `db:"mount"`
 	Filesystem  string  `db:"filesystem"`
 	UsedPercent float64 `db:"used_percent"`
@@ -89,6 +95,8 @@ type CreateDiskSampleQueryParams struct {
 func (q *Queries) CreateDiskSampleQuery(ctx context.Context, arg CreateDiskSampleQueryParams) error {
 	_, err := q.db.ExecContext(ctx, createDiskSampleQuery,
 		arg.ObservedAt,
+		arg.IsTotal,
+		arg.Device,
 		arg.Mount,
 		arg.Filesystem,
 		arg.UsedPercent,
@@ -102,34 +110,50 @@ func (q *Queries) CreateDiskSampleQuery(ctx context.Context, arg CreateDiskSampl
 const createMemorySampleQuery = `-- name: CreateMemorySampleQuery :exec
 INSERT INTO memory_samples (
     observed_at,
-    used_percent,
-    used_bytes,
-    available_bytes,
-    total_bytes
+    virtual_used_percent,
+    virtual_used_bytes,
+    virtual_available_bytes,
+    virtual_total_bytes,
+    swap_used_percent,
+    swap_used_bytes,
+    swap_available_bytes,
+    swap_total_bytes
 ) VALUES (
     ?1,
     ?2,
     ?3,
     ?4,
-    ?5
+    ?5,
+    ?6,
+    ?7,
+    ?8,
+    ?9
 )
 `
 
 type CreateMemorySampleQueryParams struct {
-	ObservedAt     string  `db:"observed_at"`
-	UsedPercent    float64 `db:"used_percent"`
-	UsedBytes      int64   `db:"used_bytes"`
-	AvailableBytes int64   `db:"available_bytes"`
-	TotalBytes     int64   `db:"total_bytes"`
+	ObservedAt            string  `db:"observed_at"`
+	VirtualUsedPercent    float64 `db:"virtual_used_percent"`
+	VirtualUsedBytes      int64   `db:"virtual_used_bytes"`
+	VirtualAvailableBytes int64   `db:"virtual_available_bytes"`
+	VirtualTotalBytes     int64   `db:"virtual_total_bytes"`
+	SwapUsedPercent       float64 `db:"swap_used_percent"`
+	SwapUsedBytes         int64   `db:"swap_used_bytes"`
+	SwapAvailableBytes    int64   `db:"swap_available_bytes"`
+	SwapTotalBytes        int64   `db:"swap_total_bytes"`
 }
 
 func (q *Queries) CreateMemorySampleQuery(ctx context.Context, arg CreateMemorySampleQueryParams) error {
 	_, err := q.db.ExecContext(ctx, createMemorySampleQuery,
 		arg.ObservedAt,
-		arg.UsedPercent,
-		arg.UsedBytes,
-		arg.AvailableBytes,
-		arg.TotalBytes,
+		arg.VirtualUsedPercent,
+		arg.VirtualUsedBytes,
+		arg.VirtualAvailableBytes,
+		arg.VirtualTotalBytes,
+		arg.SwapUsedPercent,
+		arg.SwapUsedBytes,
+		arg.SwapAvailableBytes,
+		arg.SwapTotalBytes,
 	)
 	return err
 }

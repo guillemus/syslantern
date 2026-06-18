@@ -4,6 +4,8 @@ import (
 	"app/shared"
 	"fmt"
 	"os"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/shirou/gopsutil/v4/cpu"
@@ -38,59 +40,63 @@ func collectBatch() (shared.EventBatch, error) {
 			Arch: hostInfo.KernelArch,
 		},
 		SentAt: now,
-		Events: nil,
 	}
 
-	events, err := collectEvents(now)
+	metrics, err := collectMetrics(now)
 	if err != nil {
 		return shared.EventBatch{}, err
 	}
-	batch.Events = events
+	batch.Metrics = metrics
 
 	return batch, nil
 }
 
-func collectEvents(now time.Time) ([]shared.Event, error) {
-	events := make([]shared.Event, 0, 10)
-	nextID := 1
-
-	cpuEvent, nextID, err := createCPUEvent(now, nextID)
+func collectMetrics(now time.Time) (shared.MetricsSnapshot, error) {
+	cpuUsage, err := createCPUUsage()
 	if err != nil {
-		return nil, err
+		return shared.MetricsSnapshot{}, err
 	}
-	events = append(events, cpuEvent)
 
-	memoryEvent, nextID, err := createMemoryEvent(now, nextID)
+	virtualMemory, err := createVirtualMemoryUsage()
 	if err != nil {
-		return nil, err
+		return shared.MetricsSnapshot{}, err
 	}
-	events = append(events, memoryEvent)
 
-	diskEvents, nextID, err := createDiskEvents(now, nextID)
+	swapMemory, err := createSwapMemoryUsage()
 	if err != nil {
-		return nil, err
+		return shared.MetricsSnapshot{}, err
 	}
-	events = append(events, diskEvents...)
 
-	return events, nil
+	diskMetrics, err := createDiskMetrics()
+	if err != nil {
+		return shared.MetricsSnapshot{}, err
+	}
+
+	return shared.MetricsSnapshot{
+		ObservedAt:    now,
+		CPU:           cpuUsage,
+		VirtualMemory: virtualMemory,
+		SwapMemory:    swapMemory,
+		Disk:          diskMetrics,
+	}, nil
 }
 
-func createCPUEvent(now time.Time, sequence int) (shared.Event, int, error) {
+func createCPUUsage() (shared.CPUUsage, error) {
 	perCoreUsage, err := cpu.Percent(0, true)
 	if err != nil {
-		return shared.Event{}, sequence, err
+		return shared.CPUUsage{}, err
 	}
 	logicalCores, err := cpu.Counts(true)
 	if err != nil {
-		return shared.Event{}, sequence, err
+		return shared.CPUUsage{}, err
 	}
 	physicalCores, err := cpu.Counts(false)
 	if err != nil {
-		return shared.Event{}, sequence, err
+		return shared.CPUUsage{}, err
 	}
 	loadAvg, err := load.Avg()
 	if err != nil {
-		return shared.Event{}, sequence, err
+		return shared.CPUUsage{}, err
 	}
 
 	var totalUsage float64
@@ -99,67 +105,149 @@ func createCPUEvent(now time.Time, sequence int) (shared.Event, int, error) {
 	}
 	overallUsage := totalUsage / float64(len(perCoreUsage))
 
-	return shared.Event{
-		ID:         "evt_" + eventID(now, sequence),
-		ObservedAt: now,
-		CPU: &shared.CPUUsage{
-			UsedPercent:    overallUsage,
-			CoresLogical:   logicalCores,
-			CoresPhysical:  physicalCores,
-			PerCorePercent: perCoreUsage,
-			Load1M:         loadAvg.Load1,
-			Load5M:         loadAvg.Load5,
-			Load15M:        loadAvg.Load15,
-		},
-	}, sequence + 1, nil
+	return shared.CPUUsage{
+		UsedPercent:    overallUsage,
+		CoresLogical:   logicalCores,
+		CoresPhysical:  physicalCores,
+		PerCorePercent: perCoreUsage,
+		Load1M:         loadAvg.Load1,
+		Load5M:         loadAvg.Load5,
+		Load15M:        loadAvg.Load15,
+	}, nil
 }
 
-func createMemoryEvent(now time.Time, sequence int) (shared.Event, int, error) {
+func createVirtualMemoryUsage() (shared.MemoryUsage, error) {
 	memory, err := mem.VirtualMemory()
 	if err != nil {
-		return shared.Event{}, sequence, err
+		return shared.MemoryUsage{}, err
 	}
 
-	return shared.Event{
-		ID:         "evt_" + eventID(now, sequence),
-		ObservedAt: now,
-		Memory: &shared.MemoryUsage{
-			UsedPercent:    memory.UsedPercent,
-			UsedBytes:      memory.Used,
-			AvailableBytes: memory.Available,
-			TotalBytes:     memory.Total,
-		},
-	}, sequence + 1, nil
+	return shared.MemoryUsage{
+		UsedPercent:    memory.UsedPercent,
+		UsedBytes:      memory.Used,
+		AvailableBytes: memory.Available,
+		TotalBytes:     memory.Total,
+	}, nil
 }
 
-func createDiskEvents(now time.Time, sequence int) ([]shared.Event, int, error) {
+func createSwapMemoryUsage() (shared.MemoryUsage, error) {
+	swap, err := mem.SwapMemory()
+	if err != nil {
+		return shared.MemoryUsage{}, err
+	}
+
+	return shared.MemoryUsage{
+		UsedPercent:    swap.UsedPercent,
+		UsedBytes:      swap.Used,
+		AvailableBytes: swap.Free,
+		TotalBytes:     swap.Total,
+	}, nil
+}
+
+func createDiskMetrics() (shared.DiskMetrics, error) {
 	partitions, err := disk.Partitions(false)
 	if err != nil {
-		return nil, sequence, err
+		return shared.DiskMetrics{}, err
 	}
 
-	events := make([]shared.Event, 0, len(partitions))
+	diskUsages := make([]shared.DiskUsage, 0, len(partitions))
 	for _, partition := range partitions {
+		if skipDiskPartition(partition) {
+			continue
+		}
+
 		usage, err := disk.Usage(partition.Mountpoint)
 		if err != nil {
-			return nil, sequence, err
+			return shared.DiskMetrics{}, err
 		}
-		events = append(events, shared.Event{
-			ID:         "evt_" + eventID(now, sequence),
-			ObservedAt: now,
-			Disk: &shared.DiskUsage{
-				Mount:       usage.Path,
-				Filesystem:  partition.Fstype,
-				UsedPercent: usage.UsedPercent,
-				UsedBytes:   usage.Used,
-				FreeBytes:   usage.Free,
-				TotalBytes:  usage.Total,
-			},
+
+		diskUsages = append(diskUsages, shared.DiskUsage{
+			Device:      partition.Device,
+			Mount:       usage.Path,
+			Filesystem:  partition.Fstype,
+			UsedPercent: usage.UsedPercent,
+			UsedBytes:   usage.Used,
+			FreeBytes:   usage.Free,
+			TotalBytes:  usage.Total,
 		})
-		sequence++
 	}
 
-	return events, sequence, nil
+	return shared.DiskMetrics{
+		Total:      createTotalDiskUsage(diskUsages),
+		Partitions: diskUsages,
+	}, nil
+}
+
+var (
+	skippedFilesystems = []string{
+		"autofs",
+		"cgroup",
+		"cgroup2",
+		"debugfs",
+		"devfs",
+		"devpts",
+		"devtmpfs",
+		"fusectl",
+		"mqueue",
+		"overlay",
+		"proc",
+		"pstore",
+		"ramfs",
+		"securityfs",
+		"squashfs",
+		"sysfs",
+		"tmpfs",
+		"tracefs",
+	}
+	skippedMountPrefixes = []string{
+		"/dev",
+		"/proc",
+		"/run",
+		"/snap",
+		"/sys",
+		"/var/lib/docker/overlay2",
+	}
+)
+
+func skipDiskPartition(partition disk.PartitionStat) bool {
+
+	filesystem := strings.ToLower(partition.Fstype)
+	if slices.Contains(skippedFilesystems, filesystem) {
+		return true
+	}
+	for _, prefix := range skippedMountPrefixes {
+		if partition.Mountpoint == prefix || strings.HasPrefix(partition.Mountpoint, prefix+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+func createTotalDiskUsage(partitions []shared.DiskUsage) shared.DiskUsage {
+	var total shared.DiskUsage
+	total.Mount = "__total__"
+	total.Filesystem = "mounted"
+	seenDevices := make(map[string]bool, len(partitions))
+	for _, partition := range partitions {
+		device := partition.Device
+		if device == "" {
+			device = partition.Mount
+		}
+		// Bind mounts and filesystem submounts can report the same backing device
+		// multiple times; count each device once so the aggregate stays usable-disk total.
+		if seenDevices[device] {
+			continue
+		}
+		seenDevices[device] = true
+
+		total.UsedBytes += partition.UsedBytes
+		total.FreeBytes += partition.FreeBytes
+		total.TotalBytes += partition.TotalBytes
+	}
+	if total.TotalBytes > 0 {
+		total.UsedPercent = float64(total.UsedBytes) / float64(total.TotalBytes) * 100
+	}
+	return total
 }
 
 func eventID(t time.Time, sequence int) string {

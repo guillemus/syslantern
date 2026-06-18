@@ -22,21 +22,31 @@ INSERT INTO cpu_samples (
 -- name: CreateMemorySampleQuery :exec
 INSERT INTO memory_samples (
     observed_at,
-    used_percent,
-    used_bytes,
-    available_bytes,
-    total_bytes
+    virtual_used_percent,
+    virtual_used_bytes,
+    virtual_available_bytes,
+    virtual_total_bytes,
+    swap_used_percent,
+    swap_used_bytes,
+    swap_available_bytes,
+    swap_total_bytes
 ) VALUES (
     @observed_at,
-    @used_percent,
-    @used_bytes,
-    @available_bytes,
-    @total_bytes
+    @virtual_used_percent,
+    @virtual_used_bytes,
+    @virtual_available_bytes,
+    @virtual_total_bytes,
+    @swap_used_percent,
+    @swap_used_bytes,
+    @swap_available_bytes,
+    @swap_total_bytes
 );
 
 -- name: CreateDiskSampleQuery :exec
 INSERT INTO disk_samples (
     observed_at,
+    is_total,
+    device,
     mount,
     filesystem,
     used_percent,
@@ -45,6 +55,8 @@ INSERT INTO disk_samples (
     total_bytes
 ) VALUES (
     @observed_at,
+    @is_total,
+    @device,
     @mount,
     @filesystem,
     @used_percent,

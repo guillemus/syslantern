@@ -53,10 +53,10 @@ func (c *Client) Connect(ctx context.Context) <-chan shared.Command {
 		defer close(commands)
 
 		for {
-			err := c.streamCommands(ctx, commands)
-			if ctx.Err() != nil {
+			if err := ctx.Err(); err != nil {
 				return
 			}
+			err := c.streamCommands(ctx, commands)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 			}
