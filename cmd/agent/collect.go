@@ -15,40 +15,47 @@ import (
 	"github.com/shirou/gopsutil/v4/mem"
 )
 
-func collectBatch() (shared.EventBatch, error) {
+func collectLiveSnapshot(agent shared.Agent, host shared.Host) (shared.LiveSnapshot, error) {
 	now := time.Now().UTC()
-	hostInfo, err := host.Info()
-	if err != nil {
-		return shared.EventBatch{}, err
-	}
 
-	hostname, err := os.Hostname()
-	if err != nil {
-		return shared.EventBatch{}, err
-	}
-
-	batch := shared.EventBatch{
-		ID: "batch_" + eventID(now, 0),
-		Agent: shared.Agent{
-			ID:      hostInfo.HostID,
-			Version: "0.1.0",
-		},
-		Host: shared.Host{
-			ID:   hostInfo.HostID,
-			Name: hostname,
-			OS:   hostInfo.OS,
-			Arch: hostInfo.KernelArch,
-		},
+	snapshot := shared.LiveSnapshot{
+		ID:     "snapshot_" + eventID(now, 0),
+		Agent:  agent,
+		Host:   host,
 		SentAt: now,
 	}
 
 	metrics, err := collectMetrics(now)
 	if err != nil {
-		return shared.EventBatch{}, err
+		return shared.LiveSnapshot{}, err
 	}
-	batch.Metrics = metrics
+	snapshot.Metrics = metrics
 
-	return batch, nil
+	return snapshot, nil
+}
+
+func collectAgentHost() (shared.Agent, shared.Host, error) {
+	hostInfo, err := host.Info()
+	if err != nil {
+		return shared.Agent{}, shared.Host{}, err
+	}
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		return shared.Agent{}, shared.Host{}, err
+	}
+
+	agent := shared.Agent{
+		ID:      shared.AgentID(hostInfo.HostID),
+		Version: "0.1.0",
+	}
+	host := shared.Host{
+		ID:   hostInfo.HostID,
+		Name: hostname,
+		OS:   hostInfo.OS,
+		Arch: hostInfo.KernelArch,
+	}
+	return agent, host, nil
 }
 
 func collectMetrics(now time.Time) (shared.MetricsSnapshot, error) {

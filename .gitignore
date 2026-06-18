@@ -5,6 +5,7 @@ dist/
 mockups/
 
 public/styles.css
+public/scripts.js
 
 .env
 .air/

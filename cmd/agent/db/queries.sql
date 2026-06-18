@@ -65,6 +65,52 @@ INSERT INTO disk_samples (
     @total_bytes
 );
 
+-- name: GetLatestCPUSampleQuery :one
+SELECT sqlc.embed(cpu_samples)
+FROM cpu_samples
+ORDER BY observed_at DESC
+LIMIT 1;
+
+-- name: ListCPUSamplesSinceQuery :many
+SELECT sqlc.embed(cpu_samples)
+FROM cpu_samples
+WHERE observed_at >= @since
+ORDER BY observed_at;
+
+-- name: GetLatestMemorySampleQuery :one
+SELECT sqlc.embed(memory_samples)
+FROM memory_samples
+ORDER BY observed_at DESC
+LIMIT 1;
+
+-- name: ListMemorySamplesSinceQuery :many
+SELECT sqlc.embed(memory_samples)
+FROM memory_samples
+WHERE observed_at >= @since
+ORDER BY observed_at;
+
+-- name: ListLatestDiskSamplesQuery :many
+SELECT sqlc.embed(disk_samples)
+FROM disk_samples
+WHERE observed_at = (
+    SELECT MAX(observed_at)
+    FROM disk_samples
+)
+ORDER BY is_total DESC, free_bytes, mount;
+
+-- name: ListDiskSamplesSinceQuery :many
+SELECT sqlc.embed(disk_samples)
+FROM disk_samples
+WHERE observed_at >= @since
+ORDER BY observed_at, is_total DESC, mount;
+
+-- name: ListDiskSamplesForMountSinceQuery :many
+SELECT sqlc.embed(disk_samples)
+FROM disk_samples
+WHERE mount = @mount
+  AND observed_at >= @since
+ORDER BY observed_at;
+
 -- name: DeleteOldCPUSamplesQuery :exec
 DELETE FROM cpu_samples
 WHERE observed_at < @cutoff;

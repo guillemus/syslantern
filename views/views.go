@@ -29,6 +29,14 @@ func (r *Renderer) Render(w io.Writer, node Node) {
 	}
 }
 
+func (r *Renderer) RenderString(node Node) string {
+	var body bytes.Buffer
+	if err := node.Render(&body); err != nil {
+		r.Logger.Error("render node to string error", "err", err)
+	}
+	return body.String()
+}
+
 func (r *Renderer) RenderPage(w io.Writer, title string, body Node) {
 	r.Render(w, r.Layout(title, body))
 }
@@ -45,17 +53,20 @@ func (r *Renderer) RenderSignUp(w io.Writer, data SignUpData) {
 	r.RenderPage(w, "Sign Up", r.SignUp(data))
 }
 
-func (r *Renderer) RenderDashboard(w io.Writer) {
-	r.RenderPage(w, "Dashboard", r.Dashboard())
+func (r *Renderer) RenderAgentsIndex(w io.Writer, data []DashboardData) {
+	r.RenderPage(w, "Machines", r.AgentsIndex(data))
+}
+
+func (r *Renderer) RenderDashboard(w io.Writer, data DashboardData) {
+	r.RenderPage(w, "Dashboard", r.Dashboard(data))
 }
 
 func (r *Renderer) RenderDashboardStatsHTML(data DashboardStatsData) string {
-	var body bytes.Buffer
-	node := DashboardStats(data)
-	if err := node.Render(&body); err != nil {
-		r.Logger.Error("render dashboard stats", "err", err)
-	}
-	return body.String()
+	return r.RenderString(DashboardStats(data))
+}
+
+func (r *Renderer) RenderDashboardHistorySignalsJSON(data DashboardData) []byte {
+	return []byte(dashboardHistorySignals(data))
 }
 
 func (r *Renderer) RenderDashboardExampleResultHTML(data DashboardExampleResultData) (string, error) {

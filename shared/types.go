@@ -2,12 +2,29 @@ package shared
 
 import "time"
 
-type EventBatch struct {
+type LiveSnapshot struct {
 	ID      string          `json:"id"`
 	Agent   Agent           `json:"agent"`
 	Host    Host            `json:"host"`
 	SentAt  time.Time       `json:"sent_at"`
 	Metrics MetricsSnapshot `json:"metrics"`
+}
+
+type IngestEvent struct {
+	LiveSnapshot *LiveSnapshot      `json:"live_snapshot,omitempty"`
+	Analytics    *AnalyticsSnapshot `json:"analytics,omitempty"`
+}
+
+type AnalyticsSnapshot struct {
+	ID     string    `json:"id"`
+	Agent  Agent     `json:"agent"`
+	Host   Host      `json:"host"`
+	SentAt time.Time `json:"sent_at"`
+	Since  time.Time `json:"since"`
+
+	CPU    []CPUAnalyticsSample    `json:"cpu"`
+	Memory []MemoryAnalyticsSample `json:"memory"`
+	Disks  []DiskAnalyticsSample   `json:"disks"`
 }
 
 type AgentID string
@@ -64,4 +81,32 @@ type DiskUsage struct {
 	TotalBytes  uint64  `json:"total_bytes"`
 }
 
-type Command struct{}
+type CPUAnalyticsSample struct {
+	ObservedAt time.Time `json:"observed_at"`
+	CPU        CPUUsage  `json:"cpu"`
+}
+
+type MemoryAnalyticsSample struct {
+	ObservedAt    time.Time   `json:"observed_at"`
+	VirtualMemory MemoryUsage `json:"virtual_memory"`
+	SwapMemory    MemoryUsage `json:"swap_memory"`
+}
+
+type DiskAnalyticsSample struct {
+	ObservedAt time.Time `json:"observed_at"`
+	IsTotal    bool      `json:"is_total"`
+	Disk       DiskUsage `json:"disk"`
+}
+
+type AgentCommand struct {
+	AgentID AgentID `json:"agent_id"`
+	Command Command `json:"command"`
+}
+
+type Command struct {
+	AnalyticsSnapshot *AnalyticsSnapshotCommand `json:"analytics_snapshot,omitempty"`
+}
+
+type AnalyticsSnapshotCommand struct {
+	Since time.Time `json:"since"`
+}

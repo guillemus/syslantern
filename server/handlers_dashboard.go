@@ -4,17 +4,32 @@ import (
 	"app/shared"
 	"app/views"
 	"net/http"
+	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/starfederation/datastar-go/datastar"
 )
 
+func (s *Server) HandleAgentsIndex(w http.ResponseWriter, r *http.Request) {
+	s.Renderer.RenderAgentsIndex(w, s.DashboardCache.List())
+}
+
 func (s *Server) HandleDashboard(w http.ResponseWriter, r *http.Request) {
-	s.Renderer.RenderDashboard(w)
+	agentID := shared.AgentID(chi.URLParam(r, "agentID"))
+	data, ok := s.DashboardCache.Get(agentID)
+	if !ok {
+		data.AgentID = string(agentID)
+	}
+	s.Renderer.RenderDashboard(w, data)
 }
 
 func (s *Server) HandleDashboardEvents(w http.ResponseWriter, r *http.Request) {
-	events := make(chan shared.EventBatch, 16)
-	cancel := s.BatchBus.Subscribe(r.Context(), func(evt shared.EventBatch) error {
+	agentID := shared.AgentID(chi.URLParam(r, "agentID"))
+	events := make(chan views.DashboardData, 16)
+	cancel := s.DashboardBus.Subscribe(r.Context(), func(evt views.DashboardData) error {
+		if evt.AgentID != string(agentID) {
+			return nil
+		}
 		select {
 		case events <- evt:
 		default:
@@ -25,49 +40,42 @@ func (s *Server) HandleDashboardEvents(w http.ResponseWriter, r *http.Request) {
 
 	sse := datastar.NewSSE(w, r)
 
-	// Send command to make client emit current status. This will give the user the latest state
-	// of the host machine.
-	s.CommandBus.Emit(r.Context(), shared.Command{})
+	data, ok := s.DashboardCache.Get(agentID)
+	if ok {
+		if err := sse.PatchElements(s.Renderer.RenderDashboardStatsHTML(data.Stats)); err != nil {
+			s.Logger.Warn("dashboard events: patch cached stats", "err", err)
+			return
+		}
+		if err := sse.PatchSignals(s.Renderer.RenderDashboardHistorySignalsJSON(data)); err != nil {
+			s.Logger.Warn("dashboard events: patch cached history signals", "err", err)
+			return
+		}
+	}
+	if !ok || !data.Analytics.HasAnalytics {
+		s.CommandBus.Emit(r.Context(), shared.AgentCommand{
+			AgentID: agentID,
+			Command: shared.Command{
+				AnalyticsSnapshot: &shared.AnalyticsSnapshotCommand{
+					Since: time.Now().UTC().Add(-1 * time.Hour),
+				},
+			},
+		})
+	}
 
 	for {
 		select {
 		case <-r.Context().Done():
 			return
-		case batch := <-events:
-			html := s.Renderer.RenderDashboardStatsHTML(dashboardStatsFromBatch(batch))
+		case data := <-events:
+			html := s.Renderer.RenderDashboardStatsHTML(data.Stats)
 			if err := sse.PatchElements(html); err != nil {
 				s.Logger.Warn("dashboard events: patch stats", "err", err)
 				return
 			}
+			if err := sse.PatchSignals(s.Renderer.RenderDashboardHistorySignalsJSON(data)); err != nil {
+				s.Logger.Warn("dashboard events: patch history signals", "err", err)
+				return
+			}
 		}
-	}
-}
-
-func dashboardStatsFromBatch(batch shared.EventBatch) views.DashboardStatsData {
-	metrics := batch.Metrics
-	disks := append([]shared.DiskUsage{metrics.Disk.Total}, metrics.Disk.Partitions...)
-	viewDisks := make([]views.DashboardDiskData, 0, len(disks))
-
-	for _, disk := range disks {
-		viewDisks = append(viewDisks, views.DashboardDiskData{
-			Mount:       disk.Mount,
-			FreeBytes:   disk.FreeBytes,
-			UsedPercent: disk.UsedPercent,
-			TotalBytes:  disk.TotalBytes,
-		})
-	}
-
-	return views.DashboardStatsData{
-		HasMetrics:           true,
-		HostName:             batch.Host.Name,
-		HostOS:               batch.Host.OS,
-		HostArch:             batch.Host.Arch,
-		SentAt:               batch.SentAt,
-		CPUUsedPercent:       metrics.CPU.UsedPercent,
-		CPUCoresLogical:      metrics.CPU.CoresLogical,
-		MemoryUsedBytes:      metrics.VirtualMemory.UsedBytes,
-		MemoryAvailableBytes: metrics.VirtualMemory.AvailableBytes,
-		MemoryTotalBytes:     metrics.VirtualMemory.TotalBytes,
-		Disks:                viewDisks,
 	}
 }

@@ -1,9 +1,13 @@
 package views
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/url"
 	"sort"
 	"time"
+
+	historyscripts "app/views/scripts"
 
 	. "maragu.dev/gomponents"
 	. "maragu.dev/gomponents/html"
@@ -23,6 +27,56 @@ type DashboardStatsData struct {
 	Disks                []DashboardDiskData
 }
 
+type DashboardData struct {
+	AgentID   string
+	Stats     DashboardStatsData
+	Analytics DashboardAnalyticsData
+}
+
+type DashboardAnalyticsData struct {
+	HasAnalytics bool
+	SentAt       time.Time
+	Since        time.Time
+	CPU          []DashboardCPUHistoryData
+	Memory       []DashboardMemoryHistoryData
+	Disks        []DashboardDiskHistoryData
+}
+
+type DashboardCPUHistoryData struct {
+	ObservedAt     time.Time
+	UsedPercent    float64
+	CoresLogical   int
+	CoresPhysical  int
+	PerCorePercent []float64
+	Load1M         float64
+	Load5M         float64
+	Load15M        float64
+}
+
+type DashboardMemoryHistoryData struct {
+	ObservedAt            time.Time
+	VirtualUsedPercent    float64
+	VirtualUsedBytes      uint64
+	VirtualAvailableBytes uint64
+	VirtualTotalBytes     uint64
+	SwapUsedPercent       float64
+	SwapUsedBytes         uint64
+	SwapAvailableBytes    uint64
+	SwapTotalBytes        uint64
+}
+
+type DashboardDiskHistoryData struct {
+	ObservedAt  time.Time
+	IsTotal     bool
+	Mount       string
+	Device      string
+	Filesystem  string
+	UsedPercent float64
+	UsedBytes   uint64
+	FreeBytes   uint64
+	TotalBytes  uint64
+}
+
 type DashboardDiskData struct {
 	Mount       string
 	FreeBytes   uint64
@@ -30,26 +84,96 @@ type DashboardDiskData struct {
 	TotalBytes  uint64
 }
 
-func (r *Renderer) Dashboard() Node {
+func (r *Renderer) AgentsIndex(data []DashboardData) Node {
+	rows := make([]Node, 0, len(data))
+	for _, dashboard := range data {
+		rows = append(rows, r.machineRow(dashboard))
+	}
+	if len(rows) == 0 {
+		rows = append(rows, Tr(
+			Td(ColSpan("5"), Class("py-6 text-zinc-500"), Text("No machines connected yet.")),
+		))
+	}
+
 	return Div(
 		Class("min-h-dvh bg-zinc-950 p-6 font-mono text-zinc-100"),
-		r.DataGet("init", "/dashboard/events"),
 		Main(
 			Class("mx-auto max-w-5xl space-y-6"),
-			DashboardStats(DashboardStatsData{}),
+			Header(
+				H1(Class("text-3xl font-semibold"), Text("Machines")),
+				P(Class("mt-2 text-sm text-zinc-500"), Text("Connected agents with cached dashboard state.")),
+			),
+			Div(
+				Class("overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"),
+				Table(
+					Class("w-full text-left text-sm"),
+					THead(Tr(
+						Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("Host")),
+						Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("Agent")),
+						Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("CPU")),
+						Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("Memory")),
+						Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("Updated")),
+					)),
+					TBody(rows...),
+				),
+			),
 		),
 	)
 }
 
+func (r *Renderer) machineRow(data DashboardData) Node {
+	href := r.URL("GET", "/agents/"+url.PathEscape(data.AgentID))
+	host := valueOr(data.Stats.HostName, "unknown")
+	cpu := "—"
+	memory := "—"
+	if data.Stats.HasMetrics {
+		cpu = percent(data.Stats.CPUUsedPercent)
+		memory = fmt.Sprintf("%s / %s", formatBytes(data.Stats.MemoryUsedBytes), formatBytes(data.Stats.MemoryTotalBytes))
+	}
+	return Tr(
+		Td(Class("border-b border-zinc-800 px-4 py-3"), A(Href(href), Class("font-semibold text-zinc-100 hover:text-emerald-300"), Text(host))),
+		Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text(data.AgentID)),
+		Td(Class("border-b border-zinc-800 px-4 py-3"), Text(cpu)),
+		Td(Class("border-b border-zinc-800 px-4 py-3"), Text(memory)),
+		Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text(updatedAt(data.Stats.SentAt))),
+	)
+}
+
+func (r *Renderer) Dashboard(data DashboardData) Node {
+	return Div(
+		Class("min-h-dvh bg-zinc-950 p-4 font-mono text-zinc-100 sm:p-6"),
+		Data("signals", dashboardHistorySignals(data)),
+		r.dashboardEventsDataGet(data),
+		Main(
+			Class("mx-auto flex max-w-7xl flex-col gap-4"),
+			dashboardHeader(data),
+			DashboardStats(data.Stats),
+			Section(
+				Class("grid gap-4 xl:grid-cols-[1.5fr_1fr]"),
+				historyscripts.CPUHistory("$dashboardHistory.cpu"),
+				historyscripts.MemoryPressure("$dashboardHistory.memory"),
+			),
+			historyscripts.DiskPressure("$dashboardHistory.disks"),
+		),
+	)
+}
+
+func (r *Renderer) dashboardEventsDataGet(data DashboardData) Node {
+	if data.AgentID == "" {
+		return Text("")
+	}
+	return r.DataGet("init", "/agents/"+url.PathEscape(data.AgentID)+"/events")
+}
+
 func DashboardStats(data DashboardStatsData) Node {
-	cpuHeadroom := "—"
+	cpuUsed := "—"
 	cpuDescription := "Waiting for CPU metrics"
-	memoryAvailable := "—"
+	memoryUsed := "—"
 	memoryDescription := "Waiting for memory metrics"
 	if data.HasMetrics {
-		cpuHeadroom = percent(100 - data.CPUUsedPercent)
-		cpuDescription = fmt.Sprintf("%s currently used across %d cores", percent(data.CPUUsedPercent), data.CPUCoresLogical)
-		memoryAvailable = formatBytes(data.MemoryAvailableBytes)
+		cpuUsed = percent(data.CPUUsedPercent)
+		cpuDescription = fmt.Sprintf("%d logical cores", data.CPUCoresLogical)
+		memoryUsed = percent(memoryUsedPercent(data))
 		memoryDescription = fmt.Sprintf("%s used of %s", formatBytes(data.MemoryUsedBytes), formatBytes(data.MemoryTotalBytes))
 	}
 	disks := sortedDisks(data.Disks)
@@ -63,23 +187,13 @@ func DashboardStats(data DashboardStatsData) Node {
 
 	return Section(
 		ID("dashboard-stats"),
-		Class("space-y-6"),
-		Header(
-			Class("flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"),
-			Div(
-				P(Class("text-sm text-zinc-500"), Text(headerMeta(data))),
-				H1(Class("text-3xl font-semibold"), Text("Resources available")),
-			),
-			Span(Class("rounded-full bg-emerald-500/15 px-3 py-1 text-sm text-emerald-300"), Text(updatedAt(data.SentAt))),
-		),
+		Class("overflow-hidden rounded-lg border border-zinc-700 bg-zinc-950"),
 		Div(
-			Class("grid overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 shadow md:grid-cols-3"),
-			availableStat("CPU headroom", cpuHeadroom, cpuDescription, "text-emerald-300"),
-			availableStat("RAM available", memoryAvailable, memoryDescription, "text-amber-300"),
-			availableStat("Lowest disk free", valueOr(lowestDiskFree, "—"), valueOr(lowestDiskDesc, "Waiting for disk metrics"), "text-red-300"),
+			Class("grid md:grid-cols-3"),
+			availableStat("CPU used", cpuUsed, cpuDescription, "text-emerald-400"),
+			availableStat("Memory used", memoryUsed, memoryDescription, "text-amber-400"),
+			availableStat("Lowest disk free", valueOr(lowestDiskFree, "—"), valueOr(lowestDiskDesc, "Waiting for disk metrics"), lowestDiskClass(disks)),
 		),
-		summaryCards(memoryAvailable, memoryDescription, cpuHeadroom, cpuDescription),
-		diskTable(disks),
 	)
 }
 
@@ -92,63 +206,19 @@ func availableStat(title string, value string, desc string, valueClass string) N
 	)
 }
 
-func summaryCards(memoryAvailable string, memoryDescription string, cpuHeadroom string, cpuDescription string) Node {
-	return Div(
-		Class("grid gap-4 md:grid-cols-2"),
+func dashboardHeader(data DashboardData) Node {
+	host := valueOr(data.Stats.HostName, "waiting for agent")
+	return Header(
+		Class("flex flex-col gap-3 border-b border-zinc-700 pb-4 lg:flex-row lg:items-end lg:justify-between"),
 		Div(
-			Class("rounded-xl border border-zinc-800 bg-zinc-900 p-5"),
-			H2(Class("text-xl font-semibold"), Text("Memory")),
-			P(Class("mt-3"), Span(Class("text-5xl font-semibold"), Text(memoryAvailable)), Span(Class("ml-2 text-zinc-500"), Text("available"))),
-			P(Class("mt-3 text-sm text-zinc-500"), Text(memoryDescription)),
-		),
-		Div(
-			Class("rounded-xl border border-zinc-800 bg-zinc-900 p-5"),
-			H2(Class("text-xl font-semibold"), Text("CPU")),
-			P(Class("mt-3"), Span(Class("text-5xl font-semibold"), Text(cpuHeadroom)), Span(Class("ml-2 text-zinc-500"), Text("headroom"))),
-			P(Class("mt-3 text-sm text-zinc-500"), Text(cpuDescription)),
-		),
-	)
-}
-
-func diskTable(disks []DashboardDiskData) Node {
-	if len(disks) == 0 {
-		return Div(
-			Class("rounded-xl border border-zinc-800 bg-zinc-900 p-5"),
-			H2(Class("text-xl font-semibold"), Text("Disks — free space first")),
-			P(Class("mt-3 text-zinc-500"), Text("Waiting for disk metrics")),
-		)
-	}
-
-	rows := make([]Node, 0, len(disks))
-	for _, disk := range disks {
-		used := disk.UsedPercent
-		rows = append(rows, Tr(
-			Td(Text(valueOr(disk.Mount, "—"))),
-			Td(Class("font-semibold "+diskStatusClass(used)), Text(formatBytes(disk.FreeBytes))),
-			Td(Text(percent(used))),
-			Td(Text(formatBytes(disk.TotalBytes))),
-			Td(Text(diskMeaning(used))),
-		))
-	}
-
-	return Div(
-		Class("rounded-xl border border-zinc-800 bg-zinc-900 p-5"),
-		H2(Class("text-xl font-semibold"), Text("Disks — free space first")),
-		P(Class("mt-1 text-sm text-zinc-500"), Text("Disk % is used space. Higher means less room left. 100% means full.")),
-		Div(
-			Class("mt-4 overflow-x-auto"),
-			Table(
-				Class("w-full text-left text-sm"),
-				THead(Tr(
-					Th(Class("border-b border-zinc-800 py-2 pr-4 text-zinc-500"), Text("Mount")),
-					Th(Class("border-b border-zinc-800 py-2 pr-4 text-zinc-500"), Text("Free")),
-					Th(Class("border-b border-zinc-800 py-2 pr-4 text-zinc-500"), Text("Used")),
-					Th(Class("border-b border-zinc-800 py-2 pr-4 text-zinc-500"), Text("Total")),
-					Th(Class("border-b border-zinc-800 py-2 pr-4 text-zinc-500"), Text("Meaning")),
-				)),
-				TBody(rows...),
+			Div(
+				Class("flex flex-wrap items-center gap-2 text-sm text-zinc-500"),
+				Span(Class("rounded border border-zinc-700 px-2 py-0.5"), Text(valueOr(data.AgentID, "agent"))),
+				Span(Text(headerMeta(data.Stats))),
 			),
+			H1(Class("mt-2 text-2xl font-semibold tracking-normal sm:text-3xl"), Text(host)),
 		),
+		Span(Class("text-sm text-zinc-500"), Text(updatedAt(data.Stats.SentAt))),
 	)
 }
 
@@ -189,6 +259,27 @@ func diskFreePercent(disk DashboardDiskData) float64 {
 	return 100 - disk.UsedPercent
 }
 
+func memoryUsedPercent(data DashboardStatsData) float64 {
+	if data.MemoryTotalBytes == 0 {
+		return 0
+	}
+	return float64(data.MemoryUsedBytes) / float64(data.MemoryTotalBytes) * 100
+}
+
+func lowestDiskClass(disks []DashboardDiskData) string {
+	if len(disks) == 0 {
+		return "text-zinc-400"
+	}
+	free := diskFreePercent(disks[0])
+	if free <= 15 {
+		return "text-red-400"
+	}
+	if free <= 30 {
+		return "text-amber-400"
+	}
+	return "text-emerald-400"
+}
+
 func percent(value float64) string {
 	return fmt.Sprintf("%.1f%%", value)
 }
@@ -208,24 +299,105 @@ func formatBytes(bytes uint64) string {
 	return fmt.Sprintf("%.1f EB", value/unit)
 }
 
-func diskMeaning(used float64) string {
-	if used >= 90 {
-		return "Near full"
-	}
-	if used >= 80 {
-		return "High usage, not full yet"
-	}
-	return "Healthy"
+type dashboardHistorySignalsData struct {
+	DashboardHistory dashboardHistorySignal `json:"dashboardHistory"`
 }
 
-func diskStatusClass(used float64) string {
-	if used >= 90 {
-		return "text-red-300"
+type dashboardHistorySignal struct {
+	CPU    []dashboardCPUHistorySignal    `json:"cpu"`
+	Memory []dashboardMemoryHistorySignal `json:"memory"`
+	Disks  []dashboardDiskHistorySignal   `json:"disks"`
+}
+
+type dashboardCPUHistorySignal struct {
+	ObservedAt     time.Time `json:"observedAt"`
+	UsedPercent    float64   `json:"usedPercent"`
+	CoresLogical   int       `json:"coresLogical"`
+	CoresPhysical  int       `json:"coresPhysical"`
+	PerCorePercent []float64 `json:"perCorePercent"`
+	Load1M         float64   `json:"load1M"`
+	Load5M         float64   `json:"load5M"`
+	Load15M        float64   `json:"load15M"`
+}
+
+type dashboardMemoryHistorySignal struct {
+	ObservedAt            time.Time `json:"observedAt"`
+	VirtualUsedPercent    float64   `json:"virtualUsedPercent"`
+	VirtualUsedBytes      uint64    `json:"virtualUsedBytes"`
+	VirtualAvailableBytes uint64    `json:"virtualAvailableBytes"`
+	VirtualTotalBytes     uint64    `json:"virtualTotalBytes"`
+	SwapUsedPercent       float64   `json:"swapUsedPercent"`
+	SwapUsedBytes         uint64    `json:"swapUsedBytes"`
+	SwapAvailableBytes    uint64    `json:"swapAvailableBytes"`
+	SwapTotalBytes        uint64    `json:"swapTotalBytes"`
+}
+
+type dashboardDiskHistorySignal struct {
+	ObservedAt  time.Time `json:"observedAt"`
+	IsTotal     bool      `json:"isTotal"`
+	Mount       string    `json:"mount"`
+	Device      string    `json:"device"`
+	Filesystem  string    `json:"filesystem"`
+	UsedPercent float64   `json:"usedPercent"`
+	UsedBytes   uint64    `json:"usedBytes"`
+	FreeBytes   uint64    `json:"freeBytes"`
+	TotalBytes  uint64    `json:"totalBytes"`
+}
+
+func dashboardHistorySignals(data DashboardData) string {
+	b, _ := json.Marshal(dashboardHistorySignalsData{
+		DashboardHistory: dashboardHistorySignalFromAnalytics(data.Analytics),
+	})
+	return string(b)
+}
+
+func dashboardHistorySignalFromAnalytics(data DashboardAnalyticsData) dashboardHistorySignal {
+	signal := dashboardHistorySignal{
+		CPU:    make([]dashboardCPUHistorySignal, 0, len(data.CPU)),
+		Memory: make([]dashboardMemoryHistorySignal, 0, len(data.Memory)),
+		Disks:  make([]dashboardDiskHistorySignal, 0, len(data.Disks)),
 	}
-	if used >= 80 {
-		return "text-amber-300"
+
+	for _, sample := range data.CPU {
+		signal.CPU = append(signal.CPU, dashboardCPUHistorySignal{
+			ObservedAt:     sample.ObservedAt,
+			UsedPercent:    sample.UsedPercent,
+			CoresLogical:   sample.CoresLogical,
+			CoresPhysical:  sample.CoresPhysical,
+			PerCorePercent: sample.PerCorePercent,
+			Load1M:         sample.Load1M,
+			Load5M:         sample.Load5M,
+			Load15M:        sample.Load15M,
+		})
 	}
-	return "text-emerald-300"
+	for _, sample := range data.Memory {
+		signal.Memory = append(signal.Memory, dashboardMemoryHistorySignal{
+			ObservedAt:            sample.ObservedAt,
+			VirtualUsedPercent:    sample.VirtualUsedPercent,
+			VirtualUsedBytes:      sample.VirtualUsedBytes,
+			VirtualAvailableBytes: sample.VirtualAvailableBytes,
+			VirtualTotalBytes:     sample.VirtualTotalBytes,
+			SwapUsedPercent:       sample.SwapUsedPercent,
+			SwapUsedBytes:         sample.SwapUsedBytes,
+			SwapAvailableBytes:    sample.SwapAvailableBytes,
+			SwapTotalBytes:        sample.SwapTotalBytes,
+		})
+	}
+	for _, sample := range data.Disks {
+		signal.Disks = append(signal.Disks, dashboardDiskHistorySignal{
+			ObservedAt:  sample.ObservedAt,
+			IsTotal:     sample.IsTotal,
+			Mount:       sample.Mount,
+			Device:      sample.Device,
+			Filesystem:  sample.Filesystem,
+			UsedPercent: sample.UsedPercent,
+			UsedBytes:   sample.UsedBytes,
+			FreeBytes:   sample.FreeBytes,
+			TotalBytes:  sample.TotalBytes,
+		})
+	}
+
+	return signal
 }
 
 type DashboardExampleResultData struct {

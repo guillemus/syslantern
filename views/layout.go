@@ -21,7 +21,11 @@ func (r *Renderer) Layout(title string, body Node) Node {
 			),
 			Script(
 				Attr("type", "module"),
-				Attr("src", "https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.7/bundles/datastar.js"),
+				Attr("src", "https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.2/bundles/datastar.js"),
+			),
+			Script(
+				Attr("type", "module"),
+				Attr("src", fmt.Sprintf("%s?v=%s", r.URL("GET", "/public/scripts.js"), r.AssetVersion)),
 			),
 		},
 		Body: []Node{body},

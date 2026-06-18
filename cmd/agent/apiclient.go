@@ -24,29 +24,51 @@ func NewClient() *Client {
 	}
 }
 
-func (c *Client) SendBatch(ctx context.Context, batch shared.EventBatch) error {
+func (c *Client) SendLiveSnapshot(ctx context.Context, snapshot shared.LiveSnapshot) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	resp, err := c.resty.R().
 		SetContext(ctx).
 		SetHeader("Content-Type", "application/json").
-		SetBody(batch).
-		Post("/batch")
+		SetBody(shared.IngestEvent{LiveSnapshot: &snapshot}).
+		Post("/ingest")
 	if err != nil {
-		return fmt.Errorf("send event batch: %w", err)
+		return fmt.Errorf("send live snapshot: %w", err)
 	}
 
 	if resp.IsError() {
 		return fmt.Errorf(
-			"send event batch: %s: %s",
+			"send live snapshot: %s: %s",
 			resp.Status(), strings.TrimSpace(string(resp.Body())))
 	}
 
 	return nil
 }
 
-func (c *Client) Connect(ctx context.Context) <-chan shared.Command {
+func (c *Client) SendAnalytics(ctx context.Context, analytics shared.AnalyticsSnapshot) error {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	resp, err := c.resty.R().
+		SetContext(ctx).
+		SetHeader("Content-Type", "application/json").
+		SetBody(shared.IngestEvent{Analytics: &analytics}).
+		Post("/ingest")
+	if err != nil {
+		return fmt.Errorf("send analytics: %w", err)
+	}
+
+	if resp.IsError() {
+		return fmt.Errorf(
+			"send analytics: %s: %s",
+			resp.Status(), strings.TrimSpace(string(resp.Body())))
+	}
+
+	return nil
+}
+
+func (c *Client) Connect(ctx context.Context, agentID shared.AgentID) <-chan shared.Command {
 	commands := make(chan shared.Command)
 
 	go func() {
@@ -56,7 +78,7 @@ func (c *Client) Connect(ctx context.Context) <-chan shared.Command {
 			if err := ctx.Err(); err != nil {
 				return
 			}
-			err := c.streamCommands(ctx, commands)
+			err := c.streamCommands(ctx, agentID, commands)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 			}
@@ -71,10 +93,11 @@ func (c *Client) Connect(ctx context.Context) <-chan shared.Command {
 	return commands
 }
 
-func (c *Client) streamCommands(ctx context.Context, commands chan<- shared.Command) error {
+func (c *Client) streamCommands(ctx context.Context, agentID shared.AgentID, commands chan<- shared.Command) error {
 	resp, err := c.resty.R().
 		SetContext(ctx).
 		SetDoNotParseResponse(true).
+		SetQueryParam("agent_id", string(agentID)).
 		Get("/connect")
 	if err != nil {
 		return fmt.Errorf("open command stream: %w", err)

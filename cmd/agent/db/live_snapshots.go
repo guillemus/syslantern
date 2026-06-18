@@ -9,7 +9,7 @@ import (
 
 const sampleRetention = 30 * 24 * time.Hour
 
-func (c *Conn) SaveBatch(ctx context.Context, batch shared.EventBatch) error {
+func (c *Conn) SaveLiveSnapshot(ctx context.Context, snapshot shared.LiveSnapshot) error {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -17,7 +17,7 @@ func (c *Conn) SaveBatch(ctx context.Context, batch shared.EventBatch) error {
 	defer tx.Rollback()
 
 	queries := c.Queries.WithTx(tx)
-	metrics := batch.Metrics
+	metrics := snapshot.Metrics
 	observedAt := metrics.ObservedAt.Format(time.RFC3339Nano)
 
 	perCorePercent, err := json.Marshal(metrics.CPU.PerCorePercent)
@@ -60,7 +60,7 @@ func (c *Conn) SaveBatch(ctx context.Context, batch shared.EventBatch) error {
 		}
 	}
 
-	cutoff := batch.SentAt.Add(-sampleRetention).Format(time.RFC3339Nano)
+	cutoff := snapshot.SentAt.Add(-sampleRetention).Format(time.RFC3339Nano)
 	if err := queries.DeleteOldCPUSamplesQuery(ctx, cutoff); err != nil {
 		return err
 	}

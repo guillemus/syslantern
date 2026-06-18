@@ -1,11 +1,19 @@
 dev:
-    bunx concurrently -k -n go,css "air" "bunx @tailwindcss/cli -i ./views/styles.css -o ./public/styles.css --watch"
+    bunx concurrently -k \
+      -n go,css,js \
+      "air" \
+      "bunx @tailwindcss/cli -i ./views/styles.css -o ./public/styles.css --watch" \
+      "bunx esbuild ./views/scripts/scripts.ts --bundle --minify --outfile=./public/scripts.js --watch"
 
 build-assets:
 	bunx @tailwindcss/cli -i ./views/styles.css -o ./public/styles.css --minify
+	bunx esbuild ./views/scripts/scripts.ts --bundle --minify --outfile=./public/scripts.js
 
 sqlc:
     sqlc generate
+
+typecheck:
+	bunx tsc --noEmit
 
 check-schema:
 	atlas schema validate \

@@ -187,3 +187,293 @@ func (q *Queries) DeleteOldMemorySamplesQuery(ctx context.Context, cutoff string
 	_, err := q.db.ExecContext(ctx, deleteOldMemorySamplesQuery, cutoff)
 	return err
 }
+
+const getLatestCPUSampleQuery = `-- name: GetLatestCPUSampleQuery :one
+SELECT cpu_samples.id, cpu_samples.observed_at, cpu_samples.used_percent, cpu_samples.cores_logical, cpu_samples.cores_physical, cpu_samples.per_core_percent, cpu_samples.load_1m, cpu_samples.load_5m, cpu_samples.load_15m
+FROM cpu_samples
+ORDER BY observed_at DESC
+LIMIT 1
+`
+
+type GetLatestCPUSampleQueryRow struct {
+	CpuSample CpuSample `db:"cpu_sample"`
+}
+
+func (q *Queries) GetLatestCPUSampleQuery(ctx context.Context) (GetLatestCPUSampleQueryRow, error) {
+	row := q.db.QueryRowContext(ctx, getLatestCPUSampleQuery)
+	var i GetLatestCPUSampleQueryRow
+	err := row.Scan(
+		&i.CpuSample.ID,
+		&i.CpuSample.ObservedAt,
+		&i.CpuSample.UsedPercent,
+		&i.CpuSample.CoresLogical,
+		&i.CpuSample.CoresPhysical,
+		&i.CpuSample.PerCorePercent,
+		&i.CpuSample.Load1m,
+		&i.CpuSample.Load5m,
+		&i.CpuSample.Load15m,
+	)
+	return i, err
+}
+
+const getLatestMemorySampleQuery = `-- name: GetLatestMemorySampleQuery :one
+SELECT memory_samples.id, memory_samples.observed_at, memory_samples.virtual_used_percent, memory_samples.virtual_used_bytes, memory_samples.virtual_available_bytes, memory_samples.virtual_total_bytes, memory_samples.swap_used_percent, memory_samples.swap_used_bytes, memory_samples.swap_available_bytes, memory_samples.swap_total_bytes
+FROM memory_samples
+ORDER BY observed_at DESC
+LIMIT 1
+`
+
+type GetLatestMemorySampleQueryRow struct {
+	MemorySample MemorySample `db:"memory_sample"`
+}
+
+func (q *Queries) GetLatestMemorySampleQuery(ctx context.Context) (GetLatestMemorySampleQueryRow, error) {
+	row := q.db.QueryRowContext(ctx, getLatestMemorySampleQuery)
+	var i GetLatestMemorySampleQueryRow
+	err := row.Scan(
+		&i.MemorySample.ID,
+		&i.MemorySample.ObservedAt,
+		&i.MemorySample.VirtualUsedPercent,
+		&i.MemorySample.VirtualUsedBytes,
+		&i.MemorySample.VirtualAvailableBytes,
+		&i.MemorySample.VirtualTotalBytes,
+		&i.MemorySample.SwapUsedPercent,
+		&i.MemorySample.SwapUsedBytes,
+		&i.MemorySample.SwapAvailableBytes,
+		&i.MemorySample.SwapTotalBytes,
+	)
+	return i, err
+}
+
+const listCPUSamplesSinceQuery = `-- name: ListCPUSamplesSinceQuery :many
+SELECT cpu_samples.id, cpu_samples.observed_at, cpu_samples.used_percent, cpu_samples.cores_logical, cpu_samples.cores_physical, cpu_samples.per_core_percent, cpu_samples.load_1m, cpu_samples.load_5m, cpu_samples.load_15m
+FROM cpu_samples
+WHERE observed_at >= ?1
+ORDER BY observed_at
+`
+
+type ListCPUSamplesSinceQueryRow struct {
+	CpuSample CpuSample `db:"cpu_sample"`
+}
+
+func (q *Queries) ListCPUSamplesSinceQuery(ctx context.Context, since string) ([]ListCPUSamplesSinceQueryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCPUSamplesSinceQuery, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCPUSamplesSinceQueryRow
+	for rows.Next() {
+		var i ListCPUSamplesSinceQueryRow
+		if err := rows.Scan(
+			&i.CpuSample.ID,
+			&i.CpuSample.ObservedAt,
+			&i.CpuSample.UsedPercent,
+			&i.CpuSample.CoresLogical,
+			&i.CpuSample.CoresPhysical,
+			&i.CpuSample.PerCorePercent,
+			&i.CpuSample.Load1m,
+			&i.CpuSample.Load5m,
+			&i.CpuSample.Load15m,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDiskSamplesForMountSinceQuery = `-- name: ListDiskSamplesForMountSinceQuery :many
+SELECT disk_samples.id, disk_samples.observed_at, disk_samples.is_total, disk_samples.device, disk_samples.mount, disk_samples.filesystem, disk_samples.used_percent, disk_samples.used_bytes, disk_samples.free_bytes, disk_samples.total_bytes
+FROM disk_samples
+WHERE mount = ?1
+  AND observed_at >= ?2
+ORDER BY observed_at
+`
+
+type ListDiskSamplesForMountSinceQueryParams struct {
+	Mount string `db:"mount"`
+	Since string `db:"since"`
+}
+
+type ListDiskSamplesForMountSinceQueryRow struct {
+	DiskSample DiskSample `db:"disk_sample"`
+}
+
+func (q *Queries) ListDiskSamplesForMountSinceQuery(ctx context.Context, arg ListDiskSamplesForMountSinceQueryParams) ([]ListDiskSamplesForMountSinceQueryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listDiskSamplesForMountSinceQuery, arg.Mount, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDiskSamplesForMountSinceQueryRow
+	for rows.Next() {
+		var i ListDiskSamplesForMountSinceQueryRow
+		if err := rows.Scan(
+			&i.DiskSample.ID,
+			&i.DiskSample.ObservedAt,
+			&i.DiskSample.IsTotal,
+			&i.DiskSample.Device,
+			&i.DiskSample.Mount,
+			&i.DiskSample.Filesystem,
+			&i.DiskSample.UsedPercent,
+			&i.DiskSample.UsedBytes,
+			&i.DiskSample.FreeBytes,
+			&i.DiskSample.TotalBytes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDiskSamplesSinceQuery = `-- name: ListDiskSamplesSinceQuery :many
+SELECT disk_samples.id, disk_samples.observed_at, disk_samples.is_total, disk_samples.device, disk_samples.mount, disk_samples.filesystem, disk_samples.used_percent, disk_samples.used_bytes, disk_samples.free_bytes, disk_samples.total_bytes
+FROM disk_samples
+WHERE observed_at >= ?1
+ORDER BY observed_at, is_total DESC, mount
+`
+
+type ListDiskSamplesSinceQueryRow struct {
+	DiskSample DiskSample `db:"disk_sample"`
+}
+
+func (q *Queries) ListDiskSamplesSinceQuery(ctx context.Context, since string) ([]ListDiskSamplesSinceQueryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listDiskSamplesSinceQuery, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDiskSamplesSinceQueryRow
+	for rows.Next() {
+		var i ListDiskSamplesSinceQueryRow
+		if err := rows.Scan(
+			&i.DiskSample.ID,
+			&i.DiskSample.ObservedAt,
+			&i.DiskSample.IsTotal,
+			&i.DiskSample.Device,
+			&i.DiskSample.Mount,
+			&i.DiskSample.Filesystem,
+			&i.DiskSample.UsedPercent,
+			&i.DiskSample.UsedBytes,
+			&i.DiskSample.FreeBytes,
+			&i.DiskSample.TotalBytes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLatestDiskSamplesQuery = `-- name: ListLatestDiskSamplesQuery :many
+SELECT disk_samples.id, disk_samples.observed_at, disk_samples.is_total, disk_samples.device, disk_samples.mount, disk_samples.filesystem, disk_samples.used_percent, disk_samples.used_bytes, disk_samples.free_bytes, disk_samples.total_bytes
+FROM disk_samples
+WHERE observed_at = (
+    SELECT MAX(observed_at)
+    FROM disk_samples
+)
+ORDER BY is_total DESC, free_bytes, mount
+`
+
+type ListLatestDiskSamplesQueryRow struct {
+	DiskSample DiskSample `db:"disk_sample"`
+}
+
+func (q *Queries) ListLatestDiskSamplesQuery(ctx context.Context) ([]ListLatestDiskSamplesQueryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLatestDiskSamplesQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLatestDiskSamplesQueryRow
+	for rows.Next() {
+		var i ListLatestDiskSamplesQueryRow
+		if err := rows.Scan(
+			&i.DiskSample.ID,
+			&i.DiskSample.ObservedAt,
+			&i.DiskSample.IsTotal,
+			&i.DiskSample.Device,
+			&i.DiskSample.Mount,
+			&i.DiskSample.Filesystem,
+			&i.DiskSample.UsedPercent,
+			&i.DiskSample.UsedBytes,
+			&i.DiskSample.FreeBytes,
+			&i.DiskSample.TotalBytes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMemorySamplesSinceQuery = `-- name: ListMemorySamplesSinceQuery :many
+SELECT memory_samples.id, memory_samples.observed_at, memory_samples.virtual_used_percent, memory_samples.virtual_used_bytes, memory_samples.virtual_available_bytes, memory_samples.virtual_total_bytes, memory_samples.swap_used_percent, memory_samples.swap_used_bytes, memory_samples.swap_available_bytes, memory_samples.swap_total_bytes
+FROM memory_samples
+WHERE observed_at >= ?1
+ORDER BY observed_at
+`
+
+type ListMemorySamplesSinceQueryRow struct {
+	MemorySample MemorySample `db:"memory_sample"`
+}
+
+func (q *Queries) ListMemorySamplesSinceQuery(ctx context.Context, since string) ([]ListMemorySamplesSinceQueryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listMemorySamplesSinceQuery, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMemorySamplesSinceQueryRow
+	for rows.Next() {
+		var i ListMemorySamplesSinceQueryRow
+		if err := rows.Scan(
+			&i.MemorySample.ID,
+			&i.MemorySample.ObservedAt,
+			&i.MemorySample.VirtualUsedPercent,
+			&i.MemorySample.VirtualUsedBytes,
+			&i.MemorySample.VirtualAvailableBytes,
+			&i.MemorySample.VirtualTotalBytes,
+			&i.MemorySample.SwapUsedPercent,
+			&i.MemorySample.SwapUsedBytes,
+			&i.MemorySample.SwapAvailableBytes,
+			&i.MemorySample.SwapTotalBytes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

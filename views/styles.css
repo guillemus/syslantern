@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @source "./**/*.go";
+@source "./scripts/**/*.ts";
 
 @font-face {
     font-family: "JetBrains Mono";
@@ -10,4 +11,36 @@
 
 @theme {
     --font-mono: "JetBrains Mono", monospace;
+}
+
+.graph-grid {
+    background-image:
+        linear-gradient(to right, rgb(212 212 216 / 8%) 1px, transparent 1px),
+        linear-gradient(to bottom, rgb(212 212 216 / 8%) 1px, transparent 1px);
+    background-size: 32px 100%, 100% 25%;
+}
+
+.history-canvas {
+    display: block;
+    height: 100%;
+    width: 100%;
+}
+
+.meter-cell {
+    min-width: 2px;
+    flex: 1 1 0;
+    border-radius: 1px;
+    background: rgb(212 212 216 / 12%);
+}
+
+.meter-cell.on-low {
+    background: rgb(52 211 153);
+}
+
+.meter-cell.on-mid {
+    background: rgb(251 191 36);
+}
+
+.meter-cell.on-high {
+    background: rgb(248 113 113);
 }

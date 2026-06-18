@@ -8,27 +8,48 @@ import (
 	"github.com/bytedance/sonic"
 )
 
-func (s *Server) HandleBatch(w http.ResponseWriter, r *http.Request) {
-	var payload shared.EventBatch
+func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
+	var payload shared.IngestEvent
 
 	if err := validate.Unmarshal(r.Body, &payload); err != nil {
-		s.Logger.Warn("receive stats: parse request", "err", err)
-		http.Error(w, "Send an event batch as JSON.", http.StatusBadRequest)
+		s.Logger.Warn("ingest: parse request", "err", err)
+		http.Error(w, "Send an ingest event as JSON.", http.StatusBadRequest)
 		return
 	}
 
-	if err := s.BatchBus.Emit(r.Context(), payload); err != nil {
-		s.Logger.Warn("receive stats: emit batch", "err", err)
+	switch {
+	case payload.LiveSnapshot != nil:
+		data := s.DashboardCache.UpsertLiveSnapshot(*payload.LiveSnapshot)
+		if err := s.DashboardBus.Emit(r.Context(), data); err != nil {
+			s.Logger.Warn("ingest: emit dashboard live snapshot", "err", err)
+		}
+	case payload.Analytics != nil:
+		data := s.DashboardCache.UpsertAnalytics(*payload.Analytics)
+		if err := s.DashboardBus.Emit(r.Context(), data); err != nil {
+			s.Logger.Warn("ingest: emit dashboard analytics", "err", err)
+		}
+	default:
+		http.Error(w, "Send a live snapshot or analytics event.", http.StatusBadRequest)
+		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) HandleConnect(w http.ResponseWriter, r *http.Request) {
+	agentID := shared.AgentID(r.URL.Query().Get("agent_id"))
+	if agentID == "" {
+		http.Error(w, "Send agent_id.", http.StatusBadRequest)
+		return
+	}
+
 	commandsC := make(chan shared.Command, 16)
-	cancel := s.CommandBus.Subscribe(r.Context(), func(evt shared.Command) error {
+	cancel := s.CommandBus.Subscribe(r.Context(), func(evt shared.AgentCommand) error {
+		if evt.AgentID != agentID {
+			return nil
+		}
 		select {
-		case commandsC <- evt:
+		case commandsC <- evt.Command:
 		default:
 		}
 		return nil
@@ -37,6 +58,7 @@ func (s *Server) HandleConnect(w http.ResponseWriter, r *http.Request) {
 
 	flusher := w.(http.Flusher)
 
+	// TODO: Are we sure we don't need more headers? are these appropiate?
 	w.Header().Set("Content-Type", "application/x-ndjson")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Accel-Buffering", "no")

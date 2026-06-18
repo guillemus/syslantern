@@ -26,8 +26,9 @@ type Server struct {
 	Port                  string
 	Logger                *slog.Logger
 
-	CommandBus EventBus[shared.Command]
-	BatchBus   EventBus[shared.EventBatch]
+	DashboardCache *DashboardCache
+	CommandBus     EventBus[shared.AgentCommand]
+	DashboardBus   EventBus[views.DashboardData]
 }
 
 func NewServer() *Server {
@@ -58,19 +59,21 @@ func NewServer() *Server {
 		Port:                  cfg.Port,
 		Logger:                log,
 
-		CommandBus: NewEventBusAsync[shared.Command](),
-		BatchBus:   NewEventBusAsync[shared.EventBatch](),
+		DashboardCache: NewDashboardCache(),
+		CommandBus:     NewEventBusAsync[shared.AgentCommand](),
+		DashboardBus:   NewEventBusAsync[views.DashboardData](),
 	}
 
 	s.Router.Use(s.CrossOriginProtection.Handler)
 	s.Router.Use(s.Sessions.LoadAndSave)
 	s.Router.Get("/public/*", app.GetPublicHandler(cfg).ServeHTTP)
 
-	s.Router.Post("/batch", s.HandleBatch)
+	s.Router.Post("/ingest", s.HandleIngest)
 	s.Router.Get("/connect", s.HandleConnect)
 
-	s.Router.Get("/dashboard", s.HandleDashboard)
-	s.Router.Get("/dashboard/events", s.HandleDashboardEvents)
+	s.Router.Get("/", s.HandleAgentsIndex)
+	s.Router.Get("/agents/{agentID}", s.HandleDashboard)
+	s.Router.Get("/agents/{agentID}/events", s.HandleDashboardEvents)
 
 	s.Router.Get("/sign-in", s.HandleSignInPage)
 	s.Router.Post("/sign-in", s.HandleSignIn)
