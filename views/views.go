@@ -65,8 +65,8 @@ func (r *Renderer) RenderDashboardStatsHTML(data DashboardStatsData) string {
 	return r.RenderString(DashboardStats(data))
 }
 
-func (r *Renderer) RenderDashboardHistorySignalsJSON(data DashboardData) []byte {
-	return []byte(dashboardHistorySignals(data))
+func (r *Renderer) RenderDashboardHistoryHTML(data DashboardAnalyticsData) string {
+	return r.RenderString(DashboardHistory(data))
 }
 
 func (r *Renderer) RenderDashboardExampleResultHTML(data DashboardExampleResultData) (string, error) {

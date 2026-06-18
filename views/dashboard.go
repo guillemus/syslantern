@@ -1,13 +1,10 @@
 package views
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"sort"
 	"time"
-
-	historyscripts "app/views/scripts"
 
 	. "maragu.dev/gomponents"
 	. "maragu.dev/gomponents/html"
@@ -142,18 +139,12 @@ func (r *Renderer) machineRow(data DashboardData) Node {
 func (r *Renderer) Dashboard(data DashboardData) Node {
 	return Div(
 		Class("min-h-dvh bg-zinc-950 p-4 font-mono text-zinc-100 sm:p-6"),
-		Data("signals", dashboardHistorySignals(data)),
 		r.dashboardEventsDataGet(data),
 		Main(
 			Class("mx-auto flex max-w-7xl flex-col gap-4"),
 			dashboardHeader(data),
 			DashboardStats(data.Stats),
-			Section(
-				Class("grid gap-4 xl:grid-cols-[1.5fr_1fr]"),
-				historyscripts.CPUHistory("$dashboardHistory.cpu"),
-				historyscripts.MemoryPressure("$dashboardHistory.memory"),
-			),
-			historyscripts.DiskPressure("$dashboardHistory.disks"),
+			DashboardHistory(data.Analytics),
 		),
 	)
 }
@@ -297,107 +288,6 @@ func formatBytes(bytes uint64) string {
 		}
 	}
 	return fmt.Sprintf("%.1f EB", value/unit)
-}
-
-type dashboardHistorySignalsData struct {
-	DashboardHistory dashboardHistorySignal `json:"dashboardHistory"`
-}
-
-type dashboardHistorySignal struct {
-	CPU    []dashboardCPUHistorySignal    `json:"cpu"`
-	Memory []dashboardMemoryHistorySignal `json:"memory"`
-	Disks  []dashboardDiskHistorySignal   `json:"disks"`
-}
-
-type dashboardCPUHistorySignal struct {
-	ObservedAt     time.Time `json:"observedAt"`
-	UsedPercent    float64   `json:"usedPercent"`
-	CoresLogical   int       `json:"coresLogical"`
-	CoresPhysical  int       `json:"coresPhysical"`
-	PerCorePercent []float64 `json:"perCorePercent"`
-	Load1M         float64   `json:"load1M"`
-	Load5M         float64   `json:"load5M"`
-	Load15M        float64   `json:"load15M"`
-}
-
-type dashboardMemoryHistorySignal struct {
-	ObservedAt            time.Time `json:"observedAt"`
-	VirtualUsedPercent    float64   `json:"virtualUsedPercent"`
-	VirtualUsedBytes      uint64    `json:"virtualUsedBytes"`
-	VirtualAvailableBytes uint64    `json:"virtualAvailableBytes"`
-	VirtualTotalBytes     uint64    `json:"virtualTotalBytes"`
-	SwapUsedPercent       float64   `json:"swapUsedPercent"`
-	SwapUsedBytes         uint64    `json:"swapUsedBytes"`
-	SwapAvailableBytes    uint64    `json:"swapAvailableBytes"`
-	SwapTotalBytes        uint64    `json:"swapTotalBytes"`
-}
-
-type dashboardDiskHistorySignal struct {
-	ObservedAt  time.Time `json:"observedAt"`
-	IsTotal     bool      `json:"isTotal"`
-	Mount       string    `json:"mount"`
-	Device      string    `json:"device"`
-	Filesystem  string    `json:"filesystem"`
-	UsedPercent float64   `json:"usedPercent"`
-	UsedBytes   uint64    `json:"usedBytes"`
-	FreeBytes   uint64    `json:"freeBytes"`
-	TotalBytes  uint64    `json:"totalBytes"`
-}
-
-func dashboardHistorySignals(data DashboardData) string {
-	b, _ := json.Marshal(dashboardHistorySignalsData{
-		DashboardHistory: dashboardHistorySignalFromAnalytics(data.Analytics),
-	})
-	return string(b)
-}
-
-func dashboardHistorySignalFromAnalytics(data DashboardAnalyticsData) dashboardHistorySignal {
-	signal := dashboardHistorySignal{
-		CPU:    make([]dashboardCPUHistorySignal, 0, len(data.CPU)),
-		Memory: make([]dashboardMemoryHistorySignal, 0, len(data.Memory)),
-		Disks:  make([]dashboardDiskHistorySignal, 0, len(data.Disks)),
-	}
-
-	for _, sample := range data.CPU {
-		signal.CPU = append(signal.CPU, dashboardCPUHistorySignal{
-			ObservedAt:     sample.ObservedAt,
-			UsedPercent:    sample.UsedPercent,
-			CoresLogical:   sample.CoresLogical,
-			CoresPhysical:  sample.CoresPhysical,
-			PerCorePercent: sample.PerCorePercent,
-			Load1M:         sample.Load1M,
-			Load5M:         sample.Load5M,
-			Load15M:        sample.Load15M,
-		})
-	}
-	for _, sample := range data.Memory {
-		signal.Memory = append(signal.Memory, dashboardMemoryHistorySignal{
-			ObservedAt:            sample.ObservedAt,
-			VirtualUsedPercent:    sample.VirtualUsedPercent,
-			VirtualUsedBytes:      sample.VirtualUsedBytes,
-			VirtualAvailableBytes: sample.VirtualAvailableBytes,
-			VirtualTotalBytes:     sample.VirtualTotalBytes,
-			SwapUsedPercent:       sample.SwapUsedPercent,
-			SwapUsedBytes:         sample.SwapUsedBytes,
-			SwapAvailableBytes:    sample.SwapAvailableBytes,
-			SwapTotalBytes:        sample.SwapTotalBytes,
-		})
-	}
-	for _, sample := range data.Disks {
-		signal.Disks = append(signal.Disks, dashboardDiskHistorySignal{
-			ObservedAt:  sample.ObservedAt,
-			IsTotal:     sample.IsTotal,
-			Mount:       sample.Mount,
-			Device:      sample.Device,
-			Filesystem:  sample.Filesystem,
-			UsedPercent: sample.UsedPercent,
-			UsedBytes:   sample.UsedBytes,
-			FreeBytes:   sample.FreeBytes,
-			TotalBytes:  sample.TotalBytes,
-		})
-	}
-
-	return signal
 }
 
 type DashboardExampleResultData struct {

@@ -46,8 +46,8 @@ func (s *Server) HandleDashboardEvents(w http.ResponseWriter, r *http.Request) {
 			s.Logger.Warn("dashboard events: patch cached stats", "err", err)
 			return
 		}
-		if err := sse.PatchSignals(s.Renderer.RenderDashboardHistorySignalsJSON(data)); err != nil {
-			s.Logger.Warn("dashboard events: patch cached history signals", "err", err)
+		if err := sse.PatchElements(s.Renderer.RenderDashboardHistoryHTML(data.Analytics)); err != nil {
+			s.Logger.Warn("dashboard events: patch cached history", "err", err)
 			return
 		}
 	}
@@ -72,8 +72,8 @@ func (s *Server) HandleDashboardEvents(w http.ResponseWriter, r *http.Request) {
 				s.Logger.Warn("dashboard events: patch stats", "err", err)
 				return
 			}
-			if err := sse.PatchSignals(s.Renderer.RenderDashboardHistorySignalsJSON(data)); err != nil {
-				s.Logger.Warn("dashboard events: patch history signals", "err", err)
+			if err := sse.PatchElements(s.Renderer.RenderDashboardHistoryHTML(data.Analytics)); err != nil {
+				s.Logger.Warn("dashboard events: patch history", "err", err)
 				return
 			}
 		}
