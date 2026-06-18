@@ -17,14 +17,14 @@ func StartAgent(ctx context.Context) {
 
 	client := NewClient()
 
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
+	collectMetricsTick := time.NewTicker(2 * time.Second)
+	defer collectMetricsTick.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-collectMetricsTick.C:
 			fmt.Println("ticked, sending batch")
 			if err := collectSaveSend(ctx, store, client); err != nil {
 				fmt.Println("collectSaveSend err:", err)

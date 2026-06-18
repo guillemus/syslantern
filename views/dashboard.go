@@ -1,7 +1,6 @@
 package views
 
 import (
-	"app/shared"
 	"fmt"
 	"sort"
 	"time"
@@ -11,72 +10,24 @@ import (
 )
 
 type DashboardStatsData struct {
-	HostName          string
-	HostDetail        string
-	UpdatedAt         string
-	CPUHeadroom       string
-	CPUDescription    string
-	MemoryAvailable   string
-	MemoryDescription string
-	LowestDiskFree    string
-	LowestDiskDesc    string
-	Disks             []DashboardDiskData
+	HasMetrics           bool
+	HostName             string
+	HostOS               string
+	HostArch             string
+	SentAt               time.Time
+	CPUUsedPercent       float64
+	CPUCoresLogical      int
+	MemoryUsedBytes      uint64
+	MemoryAvailableBytes uint64
+	MemoryTotalBytes     uint64
+	Disks                []DashboardDiskData
 }
 
 type DashboardDiskData struct {
-	Mount            string
-	Free             string
-	FreeBytes        uint64
-	FreePercent      string
-	FreePercentValue float64
-	Used             string
-	Total            string
-	Meaning          string
-	StatusClass      string
-}
-
-func DashboardStatsFromBatch(batch shared.EventBatch) DashboardStatsData {
-	stats := DashboardStatsData{
-		HostName:   batch.Host.Name,
-		HostDetail: fmt.Sprintf("%s %s", batch.Host.OS, batch.Host.Arch),
-		UpdatedAt:  fmt.Sprintf("updated %s", batch.SentAt.Format(time.RFC3339)),
-		Disks:      []DashboardDiskData{},
-	}
-
-	metrics := batch.Metrics
-	stats.CPUHeadroom = percent(100 - metrics.CPU.UsedPercent)
-	stats.CPUDescription = fmt.Sprintf("%s currently used across %d cores", percent(metrics.CPU.UsedPercent), metrics.CPU.CoresLogical)
-	stats.MemoryAvailable = formatBytes(metrics.VirtualMemory.AvailableBytes)
-	stats.MemoryDescription = fmt.Sprintf("%s used of %s", formatBytes(metrics.VirtualMemory.UsedBytes), formatBytes(metrics.VirtualMemory.TotalBytes))
-
-	disks := append([]shared.DiskUsage{metrics.Disk.Total}, metrics.Disk.Partitions...)
-	for _, disk := range disks {
-		used := disk.UsedPercent
-		freePercent := 100 - used
-		stats.Disks = append(stats.Disks, DashboardDiskData{
-			Mount:            disk.Mount,
-			Free:             formatBytes(disk.FreeBytes),
-			FreeBytes:        disk.FreeBytes,
-			FreePercent:      percent(freePercent),
-			FreePercentValue: freePercent,
-			Used:             percent(used),
-			Total:            formatBytes(disk.TotalBytes),
-			Meaning:          diskMeaning(used),
-			StatusClass:      diskStatusClass(used),
-		})
-	}
-
-	sort.Slice(stats.Disks, func(i, j int) bool {
-		return stats.Disks[i].FreePercentValue < stats.Disks[j].FreePercentValue
-	})
-
-	if len(stats.Disks) > 0 {
-		lowest := stats.Disks[0]
-		stats.LowestDiskFree = lowest.FreePercent
-		stats.LowestDiskDesc = fmt.Sprintf("%s has %s free", lowest.Mount, lowest.Free)
-	}
-
-	return stats
+	Mount       string
+	FreeBytes   uint64
+	UsedPercent float64
+	TotalBytes  uint64
 }
 
 func (r *Renderer) Dashboard() Node {
@@ -91,6 +42,25 @@ func (r *Renderer) Dashboard() Node {
 }
 
 func DashboardStats(data DashboardStatsData) Node {
+	cpuHeadroom := "—"
+	cpuDescription := "Waiting for CPU metrics"
+	memoryAvailable := "—"
+	memoryDescription := "Waiting for memory metrics"
+	if data.HasMetrics {
+		cpuHeadroom = percent(100 - data.CPUUsedPercent)
+		cpuDescription = fmt.Sprintf("%s currently used across %d cores", percent(data.CPUUsedPercent), data.CPUCoresLogical)
+		memoryAvailable = formatBytes(data.MemoryAvailableBytes)
+		memoryDescription = fmt.Sprintf("%s used of %s", formatBytes(data.MemoryUsedBytes), formatBytes(data.MemoryTotalBytes))
+	}
+	disks := sortedDisks(data.Disks)
+	lowestDiskFree := ""
+	lowestDiskDesc := ""
+	if len(disks) > 0 {
+		lowest := disks[0]
+		lowestDiskFree = percent(diskFreePercent(lowest))
+		lowestDiskDesc = fmt.Sprintf("%s has %s free", lowest.Mount, formatBytes(lowest.FreeBytes))
+	}
+
 	return Section(
 		ID("dashboard-stats"),
 		Class("space-y-6"),
@@ -100,16 +70,16 @@ func DashboardStats(data DashboardStatsData) Node {
 				P(Class("text-sm text-zinc-500"), Text(headerMeta(data))),
 				H1(Class("text-3xl font-semibold"), Text("Resources available")),
 			),
-			Span(Class("rounded-full bg-emerald-500/15 px-3 py-1 text-sm text-emerald-300"), Text(valueOr(data.UpdatedAt, "waiting"))),
+			Span(Class("rounded-full bg-emerald-500/15 px-3 py-1 text-sm text-emerald-300"), Text(updatedAt(data.SentAt))),
 		),
 		Div(
 			Class("grid overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 shadow md:grid-cols-3"),
-			availableStat("CPU headroom", valueOr(data.CPUHeadroom, "—"), valueOr(data.CPUDescription, "Waiting for CPU metrics"), "text-emerald-300"),
-			availableStat("RAM available", valueOr(data.MemoryAvailable, "—"), valueOr(data.MemoryDescription, "Waiting for memory metrics"), "text-amber-300"),
-			availableStat("Lowest disk free", valueOr(data.LowestDiskFree, "—"), valueOr(data.LowestDiskDesc, "Waiting for disk metrics"), "text-red-300"),
+			availableStat("CPU headroom", cpuHeadroom, cpuDescription, "text-emerald-300"),
+			availableStat("RAM available", memoryAvailable, memoryDescription, "text-amber-300"),
+			availableStat("Lowest disk free", valueOr(lowestDiskFree, "—"), valueOr(lowestDiskDesc, "Waiting for disk metrics"), "text-red-300"),
 		),
-		summaryCards(data),
-		diskTable(data.Disks),
+		summaryCards(memoryAvailable, memoryDescription, cpuHeadroom, cpuDescription),
+		diskTable(disks),
 	)
 }
 
@@ -122,20 +92,20 @@ func availableStat(title string, value string, desc string, valueClass string) N
 	)
 }
 
-func summaryCards(data DashboardStatsData) Node {
+func summaryCards(memoryAvailable string, memoryDescription string, cpuHeadroom string, cpuDescription string) Node {
 	return Div(
 		Class("grid gap-4 md:grid-cols-2"),
 		Div(
 			Class("rounded-xl border border-zinc-800 bg-zinc-900 p-5"),
 			H2(Class("text-xl font-semibold"), Text("Memory")),
-			P(Class("mt-3"), Span(Class("text-5xl font-semibold"), Text(valueOr(data.MemoryAvailable, "—"))), Span(Class("ml-2 text-zinc-500"), Text("available"))),
-			P(Class("mt-3 text-sm text-zinc-500"), Text(valueOr(data.MemoryDescription, "Waiting for memory metrics"))),
+			P(Class("mt-3"), Span(Class("text-5xl font-semibold"), Text(memoryAvailable)), Span(Class("ml-2 text-zinc-500"), Text("available"))),
+			P(Class("mt-3 text-sm text-zinc-500"), Text(memoryDescription)),
 		),
 		Div(
 			Class("rounded-xl border border-zinc-800 bg-zinc-900 p-5"),
 			H2(Class("text-xl font-semibold"), Text("CPU")),
-			P(Class("mt-3"), Span(Class("text-5xl font-semibold"), Text(valueOr(data.CPUHeadroom, "—"))), Span(Class("ml-2 text-zinc-500"), Text("headroom"))),
-			P(Class("mt-3 text-sm text-zinc-500"), Text(valueOr(data.CPUDescription, "Waiting for CPU metrics"))),
+			P(Class("mt-3"), Span(Class("text-5xl font-semibold"), Text(cpuHeadroom)), Span(Class("ml-2 text-zinc-500"), Text("headroom"))),
+			P(Class("mt-3 text-sm text-zinc-500"), Text(cpuDescription)),
 		),
 	)
 }
@@ -151,12 +121,13 @@ func diskTable(disks []DashboardDiskData) Node {
 
 	rows := make([]Node, 0, len(disks))
 	for _, disk := range disks {
+		used := disk.UsedPercent
 		rows = append(rows, Tr(
 			Td(Text(valueOr(disk.Mount, "—"))),
-			Td(Class("font-semibold "+disk.StatusClass), Text(disk.Free)),
-			Td(Text(disk.Used)),
-			Td(Text(disk.Total)),
-			Td(Text(disk.Meaning)),
+			Td(Class("font-semibold "+diskStatusClass(used)), Text(formatBytes(disk.FreeBytes))),
+			Td(Text(percent(used))),
+			Td(Text(formatBytes(disk.TotalBytes))),
+			Td(Text(diskMeaning(used))),
 		))
 	}
 
@@ -185,10 +156,11 @@ func headerMeta(data DashboardStatsData) string {
 	if data.HostName == "" {
 		return "No host connected"
 	}
-	if data.HostDetail == "" {
+	hostDetail := fmt.Sprintf("%s %s", data.HostOS, data.HostArch)
+	if hostDetail == " " {
 		return data.HostName
 	}
-	return data.HostName + " · " + data.HostDetail
+	return data.HostName + " · " + hostDetail
 }
 
 func valueOr(value string, fallback string) string {
@@ -196,6 +168,25 @@ func valueOr(value string, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func updatedAt(sentAt time.Time) string {
+	if sentAt.IsZero() {
+		return "waiting"
+	}
+	return fmt.Sprintf("updated %s", sentAt.Format(time.RFC3339))
+}
+
+func sortedDisks(disks []DashboardDiskData) []DashboardDiskData {
+	sorted := append([]DashboardDiskData{}, disks...)
+	sort.Slice(sorted, func(i, j int) bool {
+		return diskFreePercent(sorted[i]) < diskFreePercent(sorted[j])
+	})
+	return sorted
+}
+
+func diskFreePercent(disk DashboardDiskData) float64 {
+	return 100 - disk.UsedPercent
 }
 
 func percent(value float64) string {

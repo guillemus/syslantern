@@ -34,11 +34,40 @@ func (s *Server) HandleDashboardEvents(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case batch := <-events:
-			html := s.Renderer.RenderDashboardStatsHTML(views.DashboardStatsFromBatch(batch))
+			html := s.Renderer.RenderDashboardStatsHTML(dashboardStatsFromBatch(batch))
 			if err := sse.PatchElements(html); err != nil {
 				s.Logger.Warn("dashboard events: patch stats", "err", err)
 				return
 			}
 		}
+	}
+}
+
+func dashboardStatsFromBatch(batch shared.EventBatch) views.DashboardStatsData {
+	metrics := batch.Metrics
+	disks := append([]shared.DiskUsage{metrics.Disk.Total}, metrics.Disk.Partitions...)
+	viewDisks := make([]views.DashboardDiskData, 0, len(disks))
+
+	for _, disk := range disks {
+		viewDisks = append(viewDisks, views.DashboardDiskData{
+			Mount:       disk.Mount,
+			FreeBytes:   disk.FreeBytes,
+			UsedPercent: disk.UsedPercent,
+			TotalBytes:  disk.TotalBytes,
+		})
+	}
+
+	return views.DashboardStatsData{
+		HasMetrics:           true,
+		HostName:             batch.Host.Name,
+		HostOS:               batch.Host.OS,
+		HostArch:             batch.Host.Arch,
+		SentAt:               batch.SentAt,
+		CPUUsedPercent:       metrics.CPU.UsedPercent,
+		CPUCoresLogical:      metrics.CPU.CoresLogical,
+		MemoryUsedBytes:      metrics.VirtualMemory.UsedBytes,
+		MemoryAvailableBytes: metrics.VirtualMemory.AvailableBytes,
+		MemoryTotalBytes:     metrics.VirtualMemory.TotalBytes,
+		Disks:                viewDisks,
 	}
 }

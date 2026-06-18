@@ -10,9 +10,11 @@ type EventBatch struct {
 	Metrics MetricsSnapshot `json:"metrics"`
 }
 
+type AgentID string
+
 type Agent struct {
-	ID      string `json:"id"`
-	Version string `json:"version"`
+	ID      AgentID `json:"id"`
+	Version string  `json:"version"`
 }
 
 type Host struct {

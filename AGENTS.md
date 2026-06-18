@@ -1,5 +1,6 @@
 Run `just typecheck` to typecheck typescript code.
 When modifying `db/schema.sql` or `db/queries.sql`, regenerate SQLC models/queries with `just sqlc`.
+Do generate html mockups at ./mockups/ folder.
 
 # Architecture
 
