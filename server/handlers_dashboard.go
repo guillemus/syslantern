@@ -26,15 +26,11 @@ func (s *Server) HandleDashboard(w http.ResponseWriter, r *http.Request) {
 func (s *Server) HandleDashboardEvents(w http.ResponseWriter, r *http.Request) {
 	agentID := shared.AgentID(chi.URLParam(r, "agentID"))
 	events := make(chan views.DashboardData, 16)
-	cancel := s.DashboardBus.Subscribe(r.Context(), func(evt views.DashboardData) error {
+	cancel := s.DashboardBus.Subscribe(r.Context(), func(evt views.DashboardData) {
 		if evt.AgentID != string(agentID) {
-			return nil
+			return
 		}
-		select {
-		case events <- evt:
-		default:
-		}
-		return nil
+		events <- evt
 	})
 	defer cancel()
 

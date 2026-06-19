@@ -4,6 +4,7 @@ import (
 	"app/shared"
 	"app/validate"
 	"net/http"
+	"time"
 
 	"github.com/bytedance/sonic"
 )
@@ -20,14 +21,10 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case payload.LiveSnapshot != nil:
 		data := s.DashboardCache.UpsertLiveSnapshot(*payload.LiveSnapshot)
-		if err := s.DashboardBus.Emit(r.Context(), data); err != nil {
-			s.Logger.Warn("ingest: emit dashboard live snapshot", "err", err)
-		}
+		s.DashboardBus.Emit(r.Context(), data)
 	case payload.Analytics != nil:
 		data := s.DashboardCache.UpsertAnalytics(*payload.Analytics)
-		if err := s.DashboardBus.Emit(r.Context(), data); err != nil {
-			s.Logger.Warn("ingest: emit dashboard analytics", "err", err)
-		}
+		s.DashboardBus.Emit(r.Context(), data)
 	default:
 		http.Error(w, "Send a live snapshot or analytics event.", http.StatusBadRequest)
 		return
@@ -44,15 +41,11 @@ func (s *Server) HandleConnect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	commandsC := make(chan shared.Command, 16)
-	cancel := s.CommandBus.Subscribe(r.Context(), func(evt shared.AgentCommand) error {
+	cancel := s.CommandBus.Subscribe(r.Context(), func(evt shared.AgentCommand) {
 		if evt.AgentID != agentID {
-			return nil
+			return
 		}
-		select {
-		case commandsC <- evt.Command:
-		default:
-		}
-		return nil
+		commandsC <- evt.Command
 	})
 	defer cancel()
 
@@ -64,6 +57,11 @@ func (s *Server) HandleConnect(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Accel-Buffering", "no")
 
 	ctx := r.Context()
+	commandsC <- shared.Command{
+		AnalyticsSnapshot: &shared.AnalyticsSnapshotCommand{
+			Since: time.Now().UTC().Add(-1 * time.Hour),
+		},
+	}
 
 	for {
 		select {

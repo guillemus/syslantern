@@ -27,8 +27,8 @@ type Server struct {
 	Logger                *slog.Logger
 
 	DashboardCache *DashboardCache
-	CommandBus     EventBus[shared.AgentCommand]
-	DashboardBus   EventBus[views.DashboardData]
+	CommandBus     *EventBus[shared.AgentCommand]
+	DashboardBus   *EventBus[views.DashboardData]
 }
 
 func NewServer() *Server {
@@ -39,7 +39,7 @@ func NewServer() *Server {
 		log.Fatalf("db: %v", err)
 	}
 
-	log := logger.NewLogger(cfg)
+	log := logger.NewLogger(cfg.Dev)
 
 	sessionManager := scs.New()
 	sessionManager.Store = conn
@@ -60,8 +60,8 @@ func NewServer() *Server {
 		Logger:                log,
 
 		DashboardCache: NewDashboardCache(),
-		CommandBus:     NewEventBusAsync[shared.AgentCommand](),
-		DashboardBus:   NewEventBusAsync[views.DashboardData](),
+		CommandBus:     NewEventBus[shared.AgentCommand](),
+		DashboardBus:   NewEventBus[views.DashboardData](),
 	}
 
 	s.Router.Use(s.CrossOriginProtection.Handler)

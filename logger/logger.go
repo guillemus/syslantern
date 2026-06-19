@@ -4,16 +4,14 @@ import (
 	"log/slog"
 	"os"
 
-	"app/config"
-
 	"github.com/bytedance/sonic"
 	"github.com/lmittmann/tint"
 )
 
-func NewLogger(cfg config.Config) *slog.Logger {
+func NewLogger(debug bool) *slog.Logger {
 	w := os.Stderr
 
-	if cfg.Dev {
+	if debug {
 		opts := &tint.Options{
 			Level:     slog.LevelDebug,
 			AddSource: true,
