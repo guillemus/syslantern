@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"app/db"
-	"app/views"
+	"syslantern/db"
+	"syslantern/views"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -33,7 +33,7 @@ func (s *Server) HandleSignIn(w http.ResponseWriter, r *http.Request) {
 
 	user, err := s.DB.GetUserByEmail(ctx, email)
 	if err != nil {
-		if db.IsNotFound(err) {
+		if errors.Is(err, sql.ErrNoRows) {
 			s.Logger.Warn("sign in: user not found", "email", email)
 			s.Renderer.RenderSignIn(w, views.SignInData{
 				Email: email,

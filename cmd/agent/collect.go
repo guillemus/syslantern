@@ -1,11 +1,11 @@
 package main
 
 import (
-	"app/shared"
 	"fmt"
 	"os"
 	"slices"
 	"strings"
+	"syslantern/shared"
 	"time"
 
 	"github.com/shirou/gopsutil/v4/cpu"

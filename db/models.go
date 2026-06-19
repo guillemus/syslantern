@@ -5,32 +5,45 @@
 package db
 
 import (
-	"database/sql"
 	"time"
 )
 
-type Agent struct {
-	ID          int64     `db:"id"`
-	WorkspaceID int64     `db:"workspace_id"`
-	WidgetID    string    `db:"widget_id"`
-	Name        string    `db:"name"`
-	CreatedAt   time.Time `db:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at"`
+type CpuSample struct {
+	ID             int64   `db:"id"`
+	ObservedAt     string  `db:"observed_at"`
+	UsedPercent    float64 `db:"used_percent"`
+	CoresLogical   int64   `db:"cores_logical"`
+	CoresPhysical  int64   `db:"cores_physical"`
+	PerCorePercent string  `db:"per_core_percent"`
+	Load1m         float64 `db:"load_1m"`
+	Load5m         float64 `db:"load_5m"`
+	Load15m        float64 `db:"load_15m"`
 }
 
-type Conversation struct {
-	ID        int64     `db:"id"`
-	VisitorID string    `db:"visitor_id"`
-	CreatedAt time.Time `db:"created_at"`
-	UpdatedAt time.Time `db:"updated_at"`
+type DiskSample struct {
+	ID          int64   `db:"id"`
+	ObservedAt  string  `db:"observed_at"`
+	IsTotal     int64   `db:"is_total"`
+	Device      string  `db:"device"`
+	Mount       string  `db:"mount"`
+	Filesystem  string  `db:"filesystem"`
+	UsedPercent float64 `db:"used_percent"`
+	UsedBytes   int64   `db:"used_bytes"`
+	FreeBytes   int64   `db:"free_bytes"`
+	TotalBytes  int64   `db:"total_bytes"`
 }
 
-type Message struct {
-	ID             int64     `db:"id"`
-	ConversationID int64     `db:"conversation_id"`
-	Role           string    `db:"role"`
-	Text           string    `db:"text"`
-	CreatedAt      time.Time `db:"created_at"`
+type MemorySample struct {
+	ID                    int64   `db:"id"`
+	ObservedAt            string  `db:"observed_at"`
+	VirtualUsedPercent    float64 `db:"virtual_used_percent"`
+	VirtualUsedBytes      int64   `db:"virtual_used_bytes"`
+	VirtualAvailableBytes int64   `db:"virtual_available_bytes"`
+	VirtualTotalBytes     int64   `db:"virtual_total_bytes"`
+	SwapUsedPercent       float64 `db:"swap_used_percent"`
+	SwapUsedBytes         int64   `db:"swap_used_bytes"`
+	SwapAvailableBytes    int64   `db:"swap_available_bytes"`
+	SwapTotalBytes        int64   `db:"swap_total_bytes"`
 }
 
 type Session struct {
@@ -39,75 +52,10 @@ type Session struct {
 	Expiry time.Time `db:"expiry"`
 }
 
-type SourceFile struct {
-	SourceID    int64          `db:"source_id"`
-	WorkspaceID int64          `db:"workspace_id"`
-	FileName    string         `db:"file_name"`
-	MimeType    sql.NullString `db:"mime_type"`
-	Content     string         `db:"content"`
-	ByteCount   int64          `db:"byte_count"`
-	CreatedAt   time.Time      `db:"created_at"`
-	UpdatedAt   time.Time      `db:"updated_at"`
-}
-
-type SourceQa struct {
-	SourceID    int64     `db:"source_id"`
-	WorkspaceID int64     `db:"workspace_id"`
-	Question    string    `db:"question"`
-	Answer      string    `db:"answer"`
-	CreatedAt   time.Time `db:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at"`
-}
-
-type SourceWebsite struct {
-	SourceID    int64          `db:"source_id"`
-	WorkspaceID int64          `db:"workspace_id"`
-	RootURL     string         `db:"root_url"`
-	Name        sql.NullString `db:"name"`
-	FaviconURL  sql.NullString `db:"favicon_url"`
-	ThemeColor  sql.NullString `db:"theme_color"`
-	CreatedAt   time.Time      `db:"created_at"`
-	UpdatedAt   time.Time      `db:"updated_at"`
-}
-
-type SourceWebsitePage struct {
-	ID              int64     `db:"id"`
-	SourceWebsiteID int64     `db:"source_website_id"`
-	URL             string    `db:"url"`
-	Title           string    `db:"title"`
-	Content         string    `db:"content"`
-	ByteCount       int64     `db:"byte_count"`
-	CreatedAt       time.Time `db:"created_at"`
-	UpdatedAt       time.Time `db:"updated_at"`
-}
-
 type User struct {
 	ID           int64     `db:"id"`
 	Email        string    `db:"email"`
 	PasswordHash string    `db:"password_hash"`
 	CreatedAt    time.Time `db:"created_at"`
 	UpdatedAt    time.Time `db:"updated_at"`
-}
-
-type Visitor struct {
-	ID          string         `db:"id"`
-	WidgetID    string         `db:"widget_id"`
-	CountryCode sql.NullString `db:"country_code"`
-	CreatedAt   time.Time      `db:"created_at"`
-	LastSeenAt  time.Time      `db:"last_seen_at"`
-}
-
-type Workspace struct {
-	ID        int64     `db:"id"`
-	Name      string    `db:"name"`
-	CreatedAt time.Time `db:"created_at"`
-	UpdatedAt time.Time `db:"updated_at"`
-}
-
-type WorkspaceMember struct {
-	WorkspaceID int64     `db:"workspace_id"`
-	UserID      int64     `db:"user_id"`
-	Role        string    `db:"role"`
-	CreatedAt   time.Time `db:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at"`
 }

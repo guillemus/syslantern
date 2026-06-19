@@ -1,11 +1,11 @@
-package app
+package syslantern
 
 import (
-	"app/config"
 	"embed"
 	"io/fs"
 	"log"
 	"net/http"
+	"syslantern/config"
 )
 
 //go:embed public/*

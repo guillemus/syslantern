@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"app/shared"
+	"syslantern/shared"
 
 	"github.com/bytedance/sonic"
 	"github.com/go-resty/resty/v2"
@@ -40,28 +40,6 @@ func (c *Client) SendLiveSnapshot(ctx context.Context, snapshot shared.LiveSnaps
 	if resp.IsError() {
 		return fmt.Errorf(
 			"send live snapshot: %s: %s",
-			resp.Status(), strings.TrimSpace(string(resp.Body())))
-	}
-
-	return nil
-}
-
-func (c *Client) SendAnalytics(ctx context.Context, analytics shared.AnalyticsSnapshot) error {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	resp, err := c.resty.R().
-		SetContext(ctx).
-		SetHeader("Content-Type", "application/json").
-		SetBody(shared.IngestEvent{Analytics: &analytics}).
-		Post("/ingest")
-	if err != nil {
-		return fmt.Errorf("send analytics: %w", err)
-	}
-
-	if resp.IsError() {
-		return fmt.Errorf(
-			"send analytics: %s: %s",
 			resp.Status(), strings.TrimSpace(string(resp.Body())))
 	}
 

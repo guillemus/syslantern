@@ -57,7 +57,7 @@ function drawHistory(
     ctx.fill()
 }
 
-class OpenLogsHistoryCanvas extends HTMLElement {
+class SyslanternHistoryCanvas extends HTMLElement {
     static observedAttributes = ['data-points', 'data-value-key', 'data-stroke', 'data-fill']
     private readonly root: ShadowRoot
     private readonly canvas: HTMLCanvasElement
@@ -106,6 +106,6 @@ class OpenLogsHistoryCanvas extends HTMLElement {
     }
 }
 
-if (!customElements.get('openlogs-history-canvas')) {
-    customElements.define('openlogs-history-canvas', OpenLogsHistoryCanvas)
+if (!customElements.get('syslantern-history-canvas')) {
+    customElements.define('syslantern-history-canvas', SyslanternHistoryCanvas)
 }

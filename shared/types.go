@@ -2,29 +2,16 @@ package shared
 
 import "time"
 
+type IngestEvent struct {
+	LiveSnapshot *LiveSnapshot `json:"live_snapshot,omitempty"`
+}
+
 type LiveSnapshot struct {
 	ID      string          `json:"id"`
 	Agent   Agent           `json:"agent"`
 	Host    Host            `json:"host"`
 	SentAt  time.Time       `json:"sent_at"`
 	Metrics MetricsSnapshot `json:"metrics"`
-}
-
-type IngestEvent struct {
-	LiveSnapshot *LiveSnapshot      `json:"live_snapshot,omitempty"`
-	Analytics    *AnalyticsSnapshot `json:"analytics,omitempty"`
-}
-
-type AnalyticsSnapshot struct {
-	ID     string    `json:"id"`
-	Agent  Agent     `json:"agent"`
-	Host   Host      `json:"host"`
-	SentAt time.Time `json:"sent_at"`
-	Since  time.Time `json:"since"`
-
-	CPU    []CPUAnalyticsSample    `json:"cpu"`
-	Memory []MemoryAnalyticsSample `json:"memory"`
-	Disks  []DiskAnalyticsSample   `json:"disks"`
 }
 
 type AgentID string

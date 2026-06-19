@@ -248,7 +248,7 @@ func diskRow(disk DashboardDiskHistoryData) Node {
 
 func historyCanvas(points string, valueKey string, stroke string, fill string, label string) Node {
 	return El(
-		"openlogs-history-canvas",
+		"syslantern-history-canvas",
 		Class("history-canvas"),
 		Data("points", points),
 		Data("value-key", valueKey),

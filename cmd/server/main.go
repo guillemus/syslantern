@@ -1,7 +1,7 @@
 package main
 
 import (
-	"app/server"
+	"syslantern/server"
 )
 
 func main() {

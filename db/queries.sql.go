@@ -10,22 +10,6 @@ import (
 	"time"
 )
 
-const addWorkspaceMemberQuery = `-- name: AddWorkspaceMemberQuery :exec
-INSERT INTO workspace_members (workspace_id, user_id, role)
-VALUES (?1, ?2, ?3)
-`
-
-type AddWorkspaceMemberQueryParams struct {
-	WorkspaceID int64  `db:"workspace_id"`
-	UserID      int64  `db:"user_id"`
-	Role        string `db:"role"`
-}
-
-func (q *Queries) AddWorkspaceMemberQuery(ctx context.Context, arg AddWorkspaceMemberQueryParams) error {
-	_, err := q.db.ExecContext(ctx, addWorkspaceMemberQuery, arg.WorkspaceID, arg.UserID, arg.Role)
-	return err
-}
-
 const commitSessionQuery = `-- name: CommitSessionQuery :exec
 INSERT INTO sessions (token, data, expiry)
 VALUES (?1, ?2, ?3)
@@ -43,73 +27,153 @@ func (q *Queries) CommitSessionQuery(ctx context.Context, arg CommitSessionQuery
 	return err
 }
 
-const createAgentQuery = `-- name: CreateAgentQuery :one
-INSERT INTO agents (workspace_id, widget_id, name)
-VALUES (?1, ?2, ?3)
-RETURNING id, workspace_id, widget_id, name, created_at, updated_at
+const createCPUSampleQuery = `-- name: CreateCPUSampleQuery :exec
+INSERT INTO cpu_samples (
+    observed_at,
+    used_percent,
+    cores_logical,
+    cores_physical,
+    per_core_percent,
+    load_1m,
+    load_5m,
+    load_15m
+) VALUES (
+    ?1,
+    ?2,
+    ?3,
+    ?4,
+    ?5,
+    ?6,
+    ?7,
+    ?8
+)
 `
 
-type CreateAgentQueryParams struct {
-	WorkspaceID int64  `db:"workspace_id"`
-	WidgetID    string `db:"widget_id"`
-	Name        string `db:"name"`
+type CreateCPUSampleQueryParams struct {
+	ObservedAt     string  `db:"observed_at"`
+	UsedPercent    float64 `db:"used_percent"`
+	CoresLogical   int64   `db:"cores_logical"`
+	CoresPhysical  int64   `db:"cores_physical"`
+	PerCorePercent string  `db:"per_core_percent"`
+	Load1m         float64 `db:"load_1m"`
+	Load5m         float64 `db:"load_5m"`
+	Load15m        float64 `db:"load_15m"`
 }
 
-func (q *Queries) CreateAgentQuery(ctx context.Context, arg CreateAgentQueryParams) (Agent, error) {
-	row := q.db.QueryRowContext(ctx, createAgentQuery, arg.WorkspaceID, arg.WidgetID, arg.Name)
-	var i Agent
-	err := row.Scan(
-		&i.ID,
-		&i.WorkspaceID,
-		&i.WidgetID,
-		&i.Name,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+func (q *Queries) CreateCPUSampleQuery(ctx context.Context, arg CreateCPUSampleQueryParams) error {
+	_, err := q.db.ExecContext(ctx, createCPUSampleQuery,
+		arg.ObservedAt,
+		arg.UsedPercent,
+		arg.CoresLogical,
+		arg.CoresPhysical,
+		arg.PerCorePercent,
+		arg.Load1m,
+		arg.Load5m,
+		arg.Load15m,
 	)
-	return i, err
-}
-
-const createMessageQuery = `-- name: CreateMessageQuery :exec
-INSERT INTO messages (conversation_id, role, text)
-VALUES (?1, ?2, ?3)
-`
-
-type CreateMessageQueryParams struct {
-	ConversationID int64  `db:"conversation_id"`
-	Role           string `db:"role"`
-	Text           string `db:"text"`
-}
-
-func (q *Queries) CreateMessageQuery(ctx context.Context, arg CreateMessageQueryParams) error {
-	_, err := q.db.ExecContext(ctx, createMessageQuery, arg.ConversationID, arg.Role, arg.Text)
 	return err
 }
 
-const createSourceWebsiteQuery = `-- name: CreateSourceWebsiteQuery :one
-INSERT INTO source_websites (workspace_id, root_url)
-VALUES (?1, ?2)
-RETURNING source_id, workspace_id, root_url, name, favicon_url, theme_color, created_at, updated_at
+const createDiskSampleQuery = `-- name: CreateDiskSampleQuery :exec
+INSERT INTO disk_samples (
+    observed_at,
+    is_total,
+    device,
+    mount,
+    filesystem,
+    used_percent,
+    used_bytes,
+    free_bytes,
+    total_bytes
+) VALUES (
+    ?1,
+    ?2,
+    ?3,
+    ?4,
+    ?5,
+    ?6,
+    ?7,
+    ?8,
+    ?9
+)
 `
 
-type CreateSourceWebsiteQueryParams struct {
-	WorkspaceID int64  `db:"workspace_id"`
-	RootURL     string `db:"root_url"`
+type CreateDiskSampleQueryParams struct {
+	ObservedAt  string  `db:"observed_at"`
+	IsTotal     int64   `db:"is_total"`
+	Device      string  `db:"device"`
+	Mount       string  `db:"mount"`
+	Filesystem  string  `db:"filesystem"`
+	UsedPercent float64 `db:"used_percent"`
+	UsedBytes   int64   `db:"used_bytes"`
+	FreeBytes   int64   `db:"free_bytes"`
+	TotalBytes  int64   `db:"total_bytes"`
 }
 
-func (q *Queries) CreateSourceWebsiteQuery(ctx context.Context, arg CreateSourceWebsiteQueryParams) (SourceWebsite, error) {
-	row := q.db.QueryRowContext(ctx, createSourceWebsiteQuery, arg.WorkspaceID, arg.RootURL)
-	var i SourceWebsite
-	err := row.Scan(
-		&i.SourceID,
-		&i.WorkspaceID,
-		&i.RootURL,
-		&i.Name,
-		&i.FaviconURL,
-		&i.ThemeColor,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+func (q *Queries) CreateDiskSampleQuery(ctx context.Context, arg CreateDiskSampleQueryParams) error {
+	_, err := q.db.ExecContext(ctx, createDiskSampleQuery,
+		arg.ObservedAt,
+		arg.IsTotal,
+		arg.Device,
+		arg.Mount,
+		arg.Filesystem,
+		arg.UsedPercent,
+		arg.UsedBytes,
+		arg.FreeBytes,
+		arg.TotalBytes,
 	)
-	return i, err
+	return err
+}
+
+const createMemorySampleQuery = `-- name: CreateMemorySampleQuery :exec
+INSERT INTO memory_samples (
+    observed_at,
+    virtual_used_percent,
+    virtual_used_bytes,
+    virtual_available_bytes,
+    virtual_total_bytes,
+    swap_used_percent,
+    swap_used_bytes,
+    swap_available_bytes,
+    swap_total_bytes
+) VALUES (
+    ?1,
+    ?2,
+    ?3,
+    ?4,
+    ?5,
+    ?6,
+    ?7,
+    ?8,
+    ?9
+)
+`
+
+type CreateMemorySampleQueryParams struct {
+	ObservedAt            string  `db:"observed_at"`
+	VirtualUsedPercent    float64 `db:"virtual_used_percent"`
+	VirtualUsedBytes      int64   `db:"virtual_used_bytes"`
+	VirtualAvailableBytes int64   `db:"virtual_available_bytes"`
+	VirtualTotalBytes     int64   `db:"virtual_total_bytes"`
+	SwapUsedPercent       float64 `db:"swap_used_percent"`
+	SwapUsedBytes         int64   `db:"swap_used_bytes"`
+	SwapAvailableBytes    int64   `db:"swap_available_bytes"`
+	SwapTotalBytes        int64   `db:"swap_total_bytes"`
+}
+
+func (q *Queries) CreateMemorySampleQuery(ctx context.Context, arg CreateMemorySampleQueryParams) error {
+	_, err := q.db.ExecContext(ctx, createMemorySampleQuery,
+		arg.ObservedAt,
+		arg.VirtualUsedPercent,
+		arg.VirtualUsedBytes,
+		arg.VirtualAvailableBytes,
+		arg.VirtualTotalBytes,
+		arg.SwapUsedPercent,
+		arg.SwapUsedBytes,
+		arg.SwapAvailableBytes,
+		arg.SwapTotalBytes,
+	)
+	return err
 }
 
 const createUserQuery = `-- name: CreateUserQuery :one
@@ -136,22 +200,34 @@ func (q *Queries) CreateUserQuery(ctx context.Context, arg CreateUserQueryParams
 	return i, err
 }
 
-const createWorkspaceQuery = `-- name: CreateWorkspaceQuery :one
-INSERT INTO workspaces (name)
-VALUES (?1)
-RETURNING id, name, created_at, updated_at
+const deleteOldCPUSamplesQuery = `-- name: DeleteOldCPUSamplesQuery :exec
+DELETE FROM cpu_samples
+WHERE observed_at < ?1
 `
 
-func (q *Queries) CreateWorkspaceQuery(ctx context.Context, name string) (Workspace, error) {
-	row := q.db.QueryRowContext(ctx, createWorkspaceQuery, name)
-	var i Workspace
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
+func (q *Queries) DeleteOldCPUSamplesQuery(ctx context.Context, cutoff string) error {
+	_, err := q.db.ExecContext(ctx, deleteOldCPUSamplesQuery, cutoff)
+	return err
+}
+
+const deleteOldDiskSamplesQuery = `-- name: DeleteOldDiskSamplesQuery :exec
+DELETE FROM disk_samples
+WHERE observed_at < ?1
+`
+
+func (q *Queries) DeleteOldDiskSamplesQuery(ctx context.Context, cutoff string) error {
+	_, err := q.db.ExecContext(ctx, deleteOldDiskSamplesQuery, cutoff)
+	return err
+}
+
+const deleteOldMemorySamplesQuery = `-- name: DeleteOldMemorySamplesQuery :exec
+DELETE FROM memory_samples
+WHERE observed_at < ?1
+`
+
+func (q *Queries) DeleteOldMemorySamplesQuery(ctx context.Context, cutoff string) error {
+	_, err := q.db.ExecContext(ctx, deleteOldMemorySamplesQuery, cutoff)
+	return err
 }
 
 const deleteSessionQuery = `-- name: DeleteSessionQuery :exec
@@ -183,62 +259,59 @@ func (q *Queries) FindSessionQuery(ctx context.Context, arg FindSessionQueryPara
 	return data, err
 }
 
-const getAgentQuery = `-- name: GetAgentQuery :one
-SELECT agents.id, agents.workspace_id, agents.widget_id, agents.name, agents.created_at, agents.updated_at
-FROM agents
-WHERE workspace_id = ?1 AND id = ?2
+const getLatestCPUSampleQuery = `-- name: GetLatestCPUSampleQuery :one
+SELECT cpu_samples.id, cpu_samples.observed_at, cpu_samples.used_percent, cpu_samples.cores_logical, cpu_samples.cores_physical, cpu_samples.per_core_percent, cpu_samples.load_1m, cpu_samples.load_5m, cpu_samples.load_15m
+FROM cpu_samples
+ORDER BY observed_at DESC
+LIMIT 1
 `
 
-type GetAgentQueryParams struct {
-	WorkspaceID int64 `db:"workspace_id"`
-	AgentID     int64 `db:"agent_id"`
+type GetLatestCPUSampleQueryRow struct {
+	CpuSample CpuSample `db:"cpu_sample"`
 }
 
-type GetAgentQueryRow struct {
-	Agent Agent `db:"agent"`
-}
-
-func (q *Queries) GetAgentQuery(ctx context.Context, arg GetAgentQueryParams) (GetAgentQueryRow, error) {
-	row := q.db.QueryRowContext(ctx, getAgentQuery, arg.WorkspaceID, arg.AgentID)
-	var i GetAgentQueryRow
+func (q *Queries) GetLatestCPUSampleQuery(ctx context.Context) (GetLatestCPUSampleQueryRow, error) {
+	row := q.db.QueryRowContext(ctx, getLatestCPUSampleQuery)
+	var i GetLatestCPUSampleQueryRow
 	err := row.Scan(
-		&i.Agent.ID,
-		&i.Agent.WorkspaceID,
-		&i.Agent.WidgetID,
-		&i.Agent.Name,
-		&i.Agent.CreatedAt,
-		&i.Agent.UpdatedAt,
+		&i.CpuSample.ID,
+		&i.CpuSample.ObservedAt,
+		&i.CpuSample.UsedPercent,
+		&i.CpuSample.CoresLogical,
+		&i.CpuSample.CoresPhysical,
+		&i.CpuSample.PerCorePercent,
+		&i.CpuSample.Load1m,
+		&i.CpuSample.Load5m,
+		&i.CpuSample.Load15m,
 	)
 	return i, err
 }
 
-const getSourceWebsiteQuery = `-- name: GetSourceWebsiteQuery :one
-SELECT source_websites.source_id, source_websites.workspace_id, source_websites.root_url, source_websites.name, source_websites.favicon_url, source_websites.theme_color, source_websites.created_at, source_websites.updated_at
-FROM source_websites
-WHERE workspace_id = ?1 AND root_url = ?2
+const getLatestMemorySampleQuery = `-- name: GetLatestMemorySampleQuery :one
+SELECT memory_samples.id, memory_samples.observed_at, memory_samples.virtual_used_percent, memory_samples.virtual_used_bytes, memory_samples.virtual_available_bytes, memory_samples.virtual_total_bytes, memory_samples.swap_used_percent, memory_samples.swap_used_bytes, memory_samples.swap_available_bytes, memory_samples.swap_total_bytes
+FROM memory_samples
+ORDER BY observed_at DESC
+LIMIT 1
 `
 
-type GetSourceWebsiteQueryParams struct {
-	WorkspaceID int64  `db:"workspace_id"`
-	RootURL     string `db:"root_url"`
+type GetLatestMemorySampleQueryRow struct {
+	MemorySample MemorySample `db:"memory_sample"`
 }
 
-type GetSourceWebsiteQueryRow struct {
-	SourceWebsite SourceWebsite `db:"source_website"`
-}
-
-func (q *Queries) GetSourceWebsiteQuery(ctx context.Context, arg GetSourceWebsiteQueryParams) (GetSourceWebsiteQueryRow, error) {
-	row := q.db.QueryRowContext(ctx, getSourceWebsiteQuery, arg.WorkspaceID, arg.RootURL)
-	var i GetSourceWebsiteQueryRow
+func (q *Queries) GetLatestMemorySampleQuery(ctx context.Context) (GetLatestMemorySampleQueryRow, error) {
+	row := q.db.QueryRowContext(ctx, getLatestMemorySampleQuery)
+	var i GetLatestMemorySampleQueryRow
 	err := row.Scan(
-		&i.SourceWebsite.SourceID,
-		&i.SourceWebsite.WorkspaceID,
-		&i.SourceWebsite.RootURL,
-		&i.SourceWebsite.Name,
-		&i.SourceWebsite.FaviconURL,
-		&i.SourceWebsite.ThemeColor,
-		&i.SourceWebsite.CreatedAt,
-		&i.SourceWebsite.UpdatedAt,
+		&i.MemorySample.ID,
+		&i.MemorySample.ObservedAt,
+		&i.MemorySample.VirtualUsedPercent,
+		&i.MemorySample.VirtualUsedBytes,
+		&i.MemorySample.VirtualAvailableBytes,
+		&i.MemorySample.VirtualTotalBytes,
+		&i.MemorySample.SwapUsedPercent,
+		&i.MemorySample.SwapUsedBytes,
+		&i.MemorySample.SwapAvailableBytes,
+		&i.MemorySample.SwapTotalBytes,
 	)
 	return i, err
 }
@@ -289,57 +362,36 @@ func (q *Queries) GetUserByIDQuery(ctx context.Context, id int64) (GetUserByIDQu
 	return i, err
 }
 
-const getUserDefaultWorkspaceQuery = `-- name: GetUserDefaultWorkspaceQuery :one
-SELECT workspaces.id, workspaces.name, workspaces.created_at, workspaces.updated_at
-FROM workspaces
-JOIN workspace_members ON workspace_members.workspace_id = workspaces.id
-WHERE workspace_members.user_id = ?1
-ORDER BY workspace_members.created_at, workspaces.id
-LIMIT 1
+const listCPUSamplesSinceQuery = `-- name: ListCPUSamplesSinceQuery :many
+SELECT cpu_samples.id, cpu_samples.observed_at, cpu_samples.used_percent, cpu_samples.cores_logical, cpu_samples.cores_physical, cpu_samples.per_core_percent, cpu_samples.load_1m, cpu_samples.load_5m, cpu_samples.load_15m
+FROM cpu_samples
+WHERE observed_at >= ?1
+ORDER BY observed_at
 `
 
-type GetUserDefaultWorkspaceQueryRow struct {
-	Workspace Workspace `db:"workspace"`
+type ListCPUSamplesSinceQueryRow struct {
+	CpuSample CpuSample `db:"cpu_sample"`
 }
 
-func (q *Queries) GetUserDefaultWorkspaceQuery(ctx context.Context, userID int64) (GetUserDefaultWorkspaceQueryRow, error) {
-	row := q.db.QueryRowContext(ctx, getUserDefaultWorkspaceQuery, userID)
-	var i GetUserDefaultWorkspaceQueryRow
-	err := row.Scan(
-		&i.Workspace.ID,
-		&i.Workspace.Name,
-		&i.Workspace.CreatedAt,
-		&i.Workspace.UpdatedAt,
-	)
-	return i, err
-}
-
-const listMessagesQuery = `-- name: ListMessagesQuery :many
-SELECT messages.id, messages.conversation_id, messages.role, messages.text, messages.created_at
-FROM messages
-WHERE conversation_id = ?1
-ORDER BY created_at, id
-`
-
-type ListMessagesQueryRow struct {
-	Message Message `db:"message"`
-}
-
-func (q *Queries) ListMessagesQuery(ctx context.Context, conversationID int64) ([]ListMessagesQueryRow, error) {
-	rows, err := q.db.QueryContext(ctx, listMessagesQuery, conversationID)
+func (q *Queries) ListCPUSamplesSinceQuery(ctx context.Context, since string) ([]ListCPUSamplesSinceQueryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCPUSamplesSinceQuery, since)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListMessagesQueryRow
+	var items []ListCPUSamplesSinceQueryRow
 	for rows.Next() {
-		var i ListMessagesQueryRow
+		var i ListCPUSamplesSinceQueryRow
 		if err := rows.Scan(
-			&i.Message.ID,
-			&i.Message.ConversationID,
-			&i.Message.Role,
-			&i.Message.Text,
-			&i.Message.CreatedAt,
+			&i.CpuSample.ID,
+			&i.CpuSample.ObservedAt,
+			&i.CpuSample.UsedPercent,
+			&i.CpuSample.CoresLogical,
+			&i.CpuSample.CoresPhysical,
+			&i.CpuSample.PerCorePercent,
+			&i.CpuSample.Load1m,
+			&i.CpuSample.Load5m,
+			&i.CpuSample.Load15m,
 		); err != nil {
 			return nil, err
 		}
@@ -354,102 +406,191 @@ func (q *Queries) ListMessagesQuery(ctx context.Context, conversationID int64) (
 	return items, nil
 }
 
-const touchConversationQuery = `-- name: TouchConversationQuery :exec
-UPDATE conversations
-SET updated_at = CURRENT_TIMESTAMP
-WHERE id = ?1
+const listDiskSamplesForMountSinceQuery = `-- name: ListDiskSamplesForMountSinceQuery :many
+SELECT disk_samples.id, disk_samples.observed_at, disk_samples.is_total, disk_samples.device, disk_samples.mount, disk_samples.filesystem, disk_samples.used_percent, disk_samples.used_bytes, disk_samples.free_bytes, disk_samples.total_bytes
+FROM disk_samples
+WHERE mount = ?1
+  AND observed_at >= ?2
+ORDER BY observed_at
 `
 
-func (q *Queries) TouchConversationQuery(ctx context.Context, conversationID int64) error {
-	_, err := q.db.ExecContext(ctx, touchConversationQuery, conversationID)
-	return err
+type ListDiskSamplesForMountSinceQueryParams struct {
+	Mount string `db:"mount"`
+	Since string `db:"since"`
 }
 
-const upsertConversationQuery = `-- name: UpsertConversationQuery :one
-INSERT INTO conversations (visitor_id)
-VALUES (?1)
-ON CONFLICT(visitor_id) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
-RETURNING id, visitor_id, created_at, updated_at
+type ListDiskSamplesForMountSinceQueryRow struct {
+	DiskSample DiskSample `db:"disk_sample"`
+}
+
+func (q *Queries) ListDiskSamplesForMountSinceQuery(ctx context.Context, arg ListDiskSamplesForMountSinceQueryParams) ([]ListDiskSamplesForMountSinceQueryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listDiskSamplesForMountSinceQuery, arg.Mount, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDiskSamplesForMountSinceQueryRow
+	for rows.Next() {
+		var i ListDiskSamplesForMountSinceQueryRow
+		if err := rows.Scan(
+			&i.DiskSample.ID,
+			&i.DiskSample.ObservedAt,
+			&i.DiskSample.IsTotal,
+			&i.DiskSample.Device,
+			&i.DiskSample.Mount,
+			&i.DiskSample.Filesystem,
+			&i.DiskSample.UsedPercent,
+			&i.DiskSample.UsedBytes,
+			&i.DiskSample.FreeBytes,
+			&i.DiskSample.TotalBytes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDiskSamplesSinceQuery = `-- name: ListDiskSamplesSinceQuery :many
+SELECT disk_samples.id, disk_samples.observed_at, disk_samples.is_total, disk_samples.device, disk_samples.mount, disk_samples.filesystem, disk_samples.used_percent, disk_samples.used_bytes, disk_samples.free_bytes, disk_samples.total_bytes
+FROM disk_samples
+WHERE observed_at >= ?1
+ORDER BY observed_at, is_total DESC, mount
 `
 
-func (q *Queries) UpsertConversationQuery(ctx context.Context, visitorID string) (Conversation, error) {
-	row := q.db.QueryRowContext(ctx, upsertConversationQuery, visitorID)
-	var i Conversation
-	err := row.Scan(
-		&i.ID,
-		&i.VisitorID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
+type ListDiskSamplesSinceQueryRow struct {
+	DiskSample DiskSample `db:"disk_sample"`
 }
 
-const upsertSourceWebsitePageQuery = `-- name: UpsertSourceWebsitePageQuery :exec
-INSERT INTO source_website_pages (
-    source_website_id,
-    url,
-    title,
-    content,
-    byte_count
+func (q *Queries) ListDiskSamplesSinceQuery(ctx context.Context, since string) ([]ListDiskSamplesSinceQueryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listDiskSamplesSinceQuery, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDiskSamplesSinceQueryRow
+	for rows.Next() {
+		var i ListDiskSamplesSinceQueryRow
+		if err := rows.Scan(
+			&i.DiskSample.ID,
+			&i.DiskSample.ObservedAt,
+			&i.DiskSample.IsTotal,
+			&i.DiskSample.Device,
+			&i.DiskSample.Mount,
+			&i.DiskSample.Filesystem,
+			&i.DiskSample.UsedPercent,
+			&i.DiskSample.UsedBytes,
+			&i.DiskSample.FreeBytes,
+			&i.DiskSample.TotalBytes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLatestDiskSamplesQuery = `-- name: ListLatestDiskSamplesQuery :many
+SELECT disk_samples.id, disk_samples.observed_at, disk_samples.is_total, disk_samples.device, disk_samples.mount, disk_samples.filesystem, disk_samples.used_percent, disk_samples.used_bytes, disk_samples.free_bytes, disk_samples.total_bytes
+FROM disk_samples
+WHERE observed_at = (
+    SELECT MAX(observed_at)
+    FROM disk_samples
 )
-VALUES (
-    ?1,
-    ?2,
-    ?3,
-    ?4,
-    ?5
-)
-ON CONFLICT(source_website_id, url) DO UPDATE SET
-    title = excluded.title,
-    content = excluded.content,
-    byte_count = excluded.byte_count,
-    updated_at = CURRENT_TIMESTAMP
+ORDER BY is_total DESC, free_bytes, mount
 `
 
-type UpsertSourceWebsitePageQueryParams struct {
-	SourceWebsiteID int64  `db:"source_website_id"`
-	URL             string `db:"url"`
-	Title           string `db:"title"`
-	Content         string `db:"content"`
-	ByteCount       int64  `db:"byte_count"`
+type ListLatestDiskSamplesQueryRow struct {
+	DiskSample DiskSample `db:"disk_sample"`
 }
 
-func (q *Queries) UpsertSourceWebsitePageQuery(ctx context.Context, arg UpsertSourceWebsitePageQueryParams) error {
-	_, err := q.db.ExecContext(ctx, upsertSourceWebsitePageQuery,
-		arg.SourceWebsiteID,
-		arg.URL,
-		arg.Title,
-		arg.Content,
-		arg.ByteCount,
-	)
-	return err
+func (q *Queries) ListLatestDiskSamplesQuery(ctx context.Context) ([]ListLatestDiskSamplesQueryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLatestDiskSamplesQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLatestDiskSamplesQueryRow
+	for rows.Next() {
+		var i ListLatestDiskSamplesQueryRow
+		if err := rows.Scan(
+			&i.DiskSample.ID,
+			&i.DiskSample.ObservedAt,
+			&i.DiskSample.IsTotal,
+			&i.DiskSample.Device,
+			&i.DiskSample.Mount,
+			&i.DiskSample.Filesystem,
+			&i.DiskSample.UsedPercent,
+			&i.DiskSample.UsedBytes,
+			&i.DiskSample.FreeBytes,
+			&i.DiskSample.TotalBytes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
-const upsertVisitorQuery = `-- name: UpsertVisitorQuery :exec
-INSERT INTO visitors (id, widget_id)
-VALUES (?1, ?2)
-ON CONFLICT(id) DO UPDATE SET last_seen_at = CURRENT_TIMESTAMP
+const listMemorySamplesSinceQuery = `-- name: ListMemorySamplesSinceQuery :many
+SELECT memory_samples.id, memory_samples.observed_at, memory_samples.virtual_used_percent, memory_samples.virtual_used_bytes, memory_samples.virtual_available_bytes, memory_samples.virtual_total_bytes, memory_samples.swap_used_percent, memory_samples.swap_used_bytes, memory_samples.swap_available_bytes, memory_samples.swap_total_bytes
+FROM memory_samples
+WHERE observed_at >= ?1
+ORDER BY observed_at
 `
 
-type UpsertVisitorQueryParams struct {
-	VisitorID string `db:"visitor_id"`
-	WidgetID  string `db:"widget_id"`
+type ListMemorySamplesSinceQueryRow struct {
+	MemorySample MemorySample `db:"memory_sample"`
 }
 
-func (q *Queries) UpsertVisitorQuery(ctx context.Context, arg UpsertVisitorQueryParams) error {
-	_, err := q.db.ExecContext(ctx, upsertVisitorQuery, arg.VisitorID, arg.WidgetID)
-	return err
-}
-
-const widgetExistsQuery = `-- name: WidgetExistsQuery :one
-SELECT 1
-FROM agents
-WHERE widget_id = ?1
-`
-
-func (q *Queries) WidgetExistsQuery(ctx context.Context, widgetID string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, widgetExistsQuery, widgetID)
-	var column_1 int64
-	err := row.Scan(&column_1)
-	return column_1, err
+func (q *Queries) ListMemorySamplesSinceQuery(ctx context.Context, since string) ([]ListMemorySamplesSinceQueryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listMemorySamplesSinceQuery, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMemorySamplesSinceQueryRow
+	for rows.Next() {
+		var i ListMemorySamplesSinceQueryRow
+		if err := rows.Scan(
+			&i.MemorySample.ID,
+			&i.MemorySample.ObservedAt,
+			&i.MemorySample.VirtualUsedPercent,
+			&i.MemorySample.VirtualUsedBytes,
+			&i.MemorySample.VirtualAvailableBytes,
+			&i.MemorySample.VirtualTotalBytes,
+			&i.MemorySample.SwapUsedPercent,
+			&i.MemorySample.SwapUsedBytes,
+			&i.MemorySample.SwapAvailableBytes,
+			&i.MemorySample.SwapTotalBytes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

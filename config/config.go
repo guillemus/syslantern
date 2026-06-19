@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"app/validate"
 	"github.com/joho/godotenv"
+	"syslantern/validate"
 )
 
 type Config struct {
@@ -22,7 +22,7 @@ func ParseConfig() Config {
 	}
 
 	cfg := Config{
-		DBPath:       GetEnvOr("DB_PATH", "./tmp/app.db"),
+		DBPath:       GetEnvOr("DB_PATH", "./tmp/syslantern.db"),
 		Port:         GetEnvOr("PORT", "3000"),
 		AssetVersion: fmt.Sprintf("%d", time.Now().Unix()),
 		Dev:          os.Getenv("DEV") == "true",

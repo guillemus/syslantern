@@ -1,9 +1,9 @@
 package db
 
 import (
-	"app/shared"
 	"context"
 	"encoding/json"
+	"syslantern/shared"
 	"time"
 )
 

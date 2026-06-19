@@ -1,4 +1,4 @@
-module app
+module syslantern
 
 go 1.25.0
 

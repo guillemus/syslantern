@@ -1,59 +1,10 @@
 package db
 
 import (
-	"app/shared"
-	"context"
 	"encoding/json"
+	"syslantern/shared"
 	"time"
 )
-
-func (c *Conn) LoadAnalytics(ctx context.Context, since time.Time) (shared.AnalyticsSnapshot, error) {
-	sinceText := since.Format(time.RFC3339Nano)
-
-	cpuRows, err := c.ListCPUSamplesSinceQuery(ctx, sinceText)
-	if err != nil {
-		return shared.AnalyticsSnapshot{}, err
-	}
-	memoryRows, err := c.ListMemorySamplesSinceQuery(ctx, sinceText)
-	if err != nil {
-		return shared.AnalyticsSnapshot{}, err
-	}
-	diskRows, err := c.ListDiskSamplesSinceQuery(ctx, sinceText)
-	if err != nil {
-		return shared.AnalyticsSnapshot{}, err
-	}
-
-	snapshot := shared.AnalyticsSnapshot{
-		Since:  since,
-		CPU:    make([]shared.CPUAnalyticsSample, 0, len(cpuRows)),
-		Memory: make([]shared.MemoryAnalyticsSample, 0, len(memoryRows)),
-		Disks:  make([]shared.DiskAnalyticsSample, 0, len(diskRows)),
-	}
-
-	for _, row := range cpuRows {
-		sample, err := cpuAnalyticsSample(row.CpuSample)
-		if err != nil {
-			return shared.AnalyticsSnapshot{}, err
-		}
-		snapshot.CPU = append(snapshot.CPU, sample)
-	}
-	for _, row := range memoryRows {
-		sample, err := memoryAnalyticsSample(row.MemorySample)
-		if err != nil {
-			return shared.AnalyticsSnapshot{}, err
-		}
-		snapshot.Memory = append(snapshot.Memory, sample)
-	}
-	for _, row := range diskRows {
-		sample, err := diskAnalyticsSample(row.DiskSample)
-		if err != nil {
-			return shared.AnalyticsSnapshot{}, err
-		}
-		snapshot.Disks = append(snapshot.Disks, sample)
-	}
-
-	return snapshot, nil
-}
 
 func cpuAnalyticsSample(row CpuSample) (shared.CPUAnalyticsSample, error) {
 	observedAt, err := time.Parse(time.RFC3339Nano, row.ObservedAt)

@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"time"
 
-	"app"
-	"app/config"
-	"app/db"
-	"app/logger"
-	"app/shared"
-	"app/views"
+	"syslantern"
+	"syslantern/config"
+	"syslantern/db"
+	"syslantern/logger"
+	"syslantern/shared"
+	"syslantern/views"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
@@ -26,9 +26,8 @@ type Server struct {
 	Port                  string
 	Logger                *slog.Logger
 
-	DashboardCache *DashboardCache
-	CommandBus     *EventBus[shared.AgentCommand]
-	DashboardBus   *EventBus[views.DashboardData]
+	CommandBus   *EventBus[shared.AgentCommand]
+	DashboardBus *EventBus[views.DashboardData]
 }
 
 func NewServer() *Server {
@@ -59,14 +58,13 @@ func NewServer() *Server {
 		Port:                  cfg.Port,
 		Logger:                log,
 
-		DashboardCache: NewDashboardCache(),
-		CommandBus:     NewEventBus[shared.AgentCommand](),
-		DashboardBus:   NewEventBus[views.DashboardData](),
+		CommandBus:   NewEventBus[shared.AgentCommand](),
+		DashboardBus: NewEventBus[views.DashboardData](),
 	}
 
 	s.Router.Use(s.CrossOriginProtection.Handler)
 	s.Router.Use(s.Sessions.LoadAndSave)
-	s.Router.Get("/public/*", app.GetPublicHandler(cfg).ServeHTTP)
+	s.Router.Get("/public/*", syslantern.GetPublicHandler(cfg).ServeHTTP)
 
 	s.Router.Post("/ingest", s.HandleIngest)
 	s.Router.Get("/connect", s.HandleConnect)

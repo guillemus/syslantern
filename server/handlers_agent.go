@@ -1,9 +1,9 @@
 package server
 
 import (
-	"app/shared"
-	"app/validate"
 	"net/http"
+	"syslantern/shared"
+	"syslantern/validate"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -18,17 +18,12 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	switch {
-	case payload.LiveSnapshot != nil:
-		data := s.DashboardCache.UpsertLiveSnapshot(*payload.LiveSnapshot)
-		s.DashboardBus.Emit(r.Context(), data)
-	case payload.Analytics != nil:
-		data := s.DashboardCache.UpsertAnalytics(*payload.Analytics)
-		s.DashboardBus.Emit(r.Context(), data)
-	default:
-		http.Error(w, "Send a live snapshot or analytics event.", http.StatusBadRequest)
+	if err := s.DB.SaveLiveSnapshot(r.Context(), *payload.LiveSnapshot); err != nil {
+		// fixme: pritn err
 		return
 	}
+
+	// fixme: emit live snapshot loaded event
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -41,14 +36,6 @@ func (s *Server) HandleConnect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	commandsC := make(chan shared.Command, 16)
-	cancel := s.CommandBus.Subscribe(r.Context(), func(evt shared.AgentCommand) {
-		if evt.AgentID != agentID {
-			return
-		}
-		commandsC <- evt.Command
-	})
-	defer cancel()
-
 	flusher := w.(http.Flusher)
 
 	// TODO: Are we sure we don't need more headers? are these appropiate?

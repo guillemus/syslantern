@@ -23,13 +23,13 @@ check-schema:
 migrate:
 	atlas schema apply \
 	  --to "file://db/schema.sql" \
-	  --url "sqlite://tmp/app.db" \
+	  --url "sqlite://tmp/syslantern.db" \
 	  --dev-url "sqlite://dev?mode=memory" \
 	  --auto-approve
 
 build-linux: build-assets
 	mkdir -p dist
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o dist/app ./cmd/server
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o dist/syslantern ./cmd/server
 
 agent-build:
 	@mkdir -p dist
@@ -38,7 +38,7 @@ agent-build:
 	@multipass exec linuxbox -- chmod +x /home/ubuntu/agent
 
 agent-start: agent-build
-    multipass exec linuxbox -- ./agent start
+    multipass exec linuxbox -- ./agent
 
 agent-open:
     @ip=$(multipass info linuxbox --format json | jq -r '.info.linuxbox.ipv4[0]'); open "http://$ip:3000"
