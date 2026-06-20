@@ -2,7 +2,6 @@ tmp/
 node_modules/
 data/
 dist/
-mockups/
 
 public/styles.css
 public/scripts.js

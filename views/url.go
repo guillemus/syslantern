@@ -14,7 +14,7 @@ func (r *Renderer) MatchPath(method, path string) {
 		ctx := chi.NewRouteContext()
 		matches := chi.Routes.Match(r.Routes, ctx, method, path)
 		if !matches {
-			panic(fmt.Sprintf("method: %s, path: %s is not registered", method, path))
+			panic(fmt.Sprintf("\033[31mmethod %s, path: %s is not registered\033[0m", method, path))
 		}
 	}
 }

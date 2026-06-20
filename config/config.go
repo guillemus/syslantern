@@ -17,7 +17,7 @@ type Config struct {
 }
 
 func ParseConfig() Config {
-	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
+	if err := godotenv.Load(); err != nil {
 		panic(fmt.Sprintf("load .env file: %v", err))
 	}
 

@@ -9,10 +9,10 @@ import (
 )
 
 //go:embed public/*
-var publicFS embed.FS
+var PublicFS embed.FS
 
 func GetPublicHandler(cfg config.Config) http.Handler {
-	embeddedPublic, err := fs.Sub(publicFS, "public")
+	embeddedPublic, err := fs.Sub(PublicFS, "public")
 	if err != nil {
 		log.Fatalf("sub public fs: %v", err)
 	}
