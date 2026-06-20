@@ -16,6 +16,11 @@ func (r *Renderer) Layout(title string, body Node) Node {
 			Meta(Attr("charset", "UTF-8")),
 			Meta(Attr("name", "viewport"), Attr("content", "width=device-width, initial-scale=1.0")),
 			Link(
+				Attr("rel", "icon"),
+				Attr("type", "image/x-icon"),
+				Attr("href", fmt.Sprintf("%s?v=%s", r.URL("GET", "/public/favicon.ico"), r.AssetVersion)),
+			),
+			Link(
 				Attr("rel", "stylesheet"),
 				Attr("href", fmt.Sprintf("%s?v=%s", r.URL("GET", "/public/styles.css"), r.AssetVersion)),
 			),
