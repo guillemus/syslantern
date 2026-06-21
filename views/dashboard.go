@@ -30,6 +30,11 @@ type DashboardData struct {
 	Analytics DashboardAnalyticsData
 }
 
+type AgentsIndexPageData struct {
+	Agents         []AgentsIndexData
+	InstallCommand string
+}
+
 type AgentsIndexData struct {
 	ID        string
 	Name      string
@@ -88,9 +93,9 @@ type DashboardDiskData struct {
 	TotalBytes  uint64
 }
 
-func (r *Renderer) AgentsIndex(data []AgentsIndexData) Node {
-	rows := make([]Node, 0, len(data))
-	for _, agent := range data {
+func (r *Renderer) AgentsIndex(data AgentsIndexPageData) Node {
+	rows := make([]Node, 0, len(data.Agents))
+	for _, agent := range data.Agents {
 		rows = append(rows, r.agentRow(agent))
 	}
 	if len(rows) == 0 {
@@ -104,9 +109,18 @@ func (r *Renderer) AgentsIndex(data []AgentsIndexData) Node {
 		Main(
 			Class("mx-auto max-w-5xl space-y-6"),
 			Header(
-				H1(Class("text-3xl font-semibold"), Text("Agents")),
-				P(Class("mt-2 text-sm text-zinc-500"), Text("Agents available for your account.")),
+				Class("flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"),
+				Div(
+					H1(Class("text-3xl font-semibold"), Text("Agents")),
+					P(Class("mt-2 text-sm text-zinc-500"), Text("Agents available for your account.")),
+				),
+				Button(
+					Class("rounded-md bg-orange-600 px-3 py-2 text-sm font-medium text-white transition hover:brightness-110"),
+					Attr("onclick", "agent_install_dialog.showModal()"),
+					Text("Add agent"),
+				),
 			),
+			agentInstallDialog(data.InstallCommand),
 			Div(
 				Class("overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"),
 				Table(
@@ -119,6 +133,27 @@ func (r *Renderer) AgentsIndex(data []AgentsIndexData) Node {
 					)),
 					TBody(rows...),
 				),
+			),
+		),
+	)
+}
+
+func agentInstallDialog(command string) Node {
+	return Dialog(
+		ID("agent_install_dialog"),
+		Class("fixed inset-0 m-auto w-[min(42rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)] rounded-xl border border-zinc-800 bg-zinc-900 p-0 text-zinc-100 shadow-2xl backdrop:bg-black/70"),
+		Div(
+			Class("p-6"),
+			H2(Class("text-xl font-semibold"), Text("Install an agent")),
+			P(Class("mt-2 text-sm text-zinc-500"), Text("Run this command on the VPS you want to monitor.")),
+			Div(
+				Class("mt-4 rounded-lg border border-zinc-800 bg-zinc-950 p-4"),
+				Pre(Class("whitespace-pre-wrap break-all text-sm leading-6 text-zinc-100"), Code(Text(command))),
+			),
+			Form(
+				Class("mt-5 flex justify-end"),
+				Attr("method", "dialog"),
+				Button(Class("rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-800"), Text("Close")),
 			),
 		),
 	)

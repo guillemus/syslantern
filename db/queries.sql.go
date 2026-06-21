@@ -210,17 +210,23 @@ func (q *Queries) CreateMemorySampleQuery(ctx context.Context, arg CreateMemoryS
 }
 
 const createTeamQuery = `-- name: CreateTeamQuery :one
-INSERT INTO teams (name)
-VALUES (?1)
-RETURNING id, name, created_at, updated_at
+INSERT INTO teams (name, agent_api_key)
+VALUES (?1, ?2)
+RETURNING id, name, agent_api_key, created_at, updated_at
 `
 
-func (q *Queries) CreateTeamQuery(ctx context.Context, name string) (Team, error) {
-	row := q.db.QueryRowContext(ctx, createTeamQuery, name)
+type CreateTeamQueryParams struct {
+	Name        string `db:"name"`
+	AgentApiKey string `db:"agent_api_key"`
+}
+
+func (q *Queries) CreateTeamQuery(ctx context.Context, arg CreateTeamQueryParams) (Team, error) {
+	row := q.db.QueryRowContext(ctx, createTeamQuery, arg.Name, arg.AgentApiKey)
 	var i Team
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.AgentApiKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -395,6 +401,52 @@ func (q *Queries) GetLatestMemorySampleQuery(ctx context.Context) (GetLatestMemo
 		&i.MemorySample.SwapUsedBytes,
 		&i.MemorySample.SwapAvailableBytes,
 		&i.MemorySample.SwapTotalBytes,
+	)
+	return i, err
+}
+
+const getTeamByAgentAPIKeyQuery = `-- name: GetTeamByAgentAPIKeyQuery :one
+SELECT teams.id, teams.name, teams.agent_api_key, teams.created_at, teams.updated_at
+FROM teams
+WHERE agent_api_key = ?1
+`
+
+type GetTeamByAgentAPIKeyQueryRow struct {
+	Team Team `db:"team"`
+}
+
+func (q *Queries) GetTeamByAgentAPIKeyQuery(ctx context.Context, agentApiKey string) (GetTeamByAgentAPIKeyQueryRow, error) {
+	row := q.db.QueryRowContext(ctx, getTeamByAgentAPIKeyQuery, agentApiKey)
+	var i GetTeamByAgentAPIKeyQueryRow
+	err := row.Scan(
+		&i.Team.ID,
+		&i.Team.Name,
+		&i.Team.AgentApiKey,
+		&i.Team.CreatedAt,
+		&i.Team.UpdatedAt,
+	)
+	return i, err
+}
+
+const getTeamByIDQuery = `-- name: GetTeamByIDQuery :one
+SELECT teams.id, teams.name, teams.agent_api_key, teams.created_at, teams.updated_at
+FROM teams
+WHERE id = ?1
+`
+
+type GetTeamByIDQueryRow struct {
+	Team Team `db:"team"`
+}
+
+func (q *Queries) GetTeamByIDQuery(ctx context.Context, id int64) (GetTeamByIDQueryRow, error) {
+	row := q.db.QueryRowContext(ctx, getTeamByIDQuery, id)
+	var i GetTeamByIDQueryRow
+	err := row.Scan(
+		&i.Team.ID,
+		&i.Team.Name,
+		&i.Team.AgentApiKey,
+		&i.Team.CreatedAt,
+		&i.Team.UpdatedAt,
 	)
 	return i, err
 }

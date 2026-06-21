@@ -43,7 +43,7 @@ func (r *Renderer) RenderPage(w http.ResponseWriter, title string, body Node) {
 	r.Render(w, r.Layout(title, body))
 }
 
-func (r *Renderer) RenderAgentsIndex(w http.ResponseWriter, data []AgentsIndexData) {
+func (r *Renderer) RenderAgentsIndex(w http.ResponseWriter, data AgentsIndexPageData) {
 	r.RenderPage(w, "Agents", r.AgentsIndex(data))
 }
 

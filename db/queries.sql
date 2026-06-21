@@ -8,9 +8,14 @@ SELECT sqlc.embed(users)
 FROM users
 WHERE id = @id;
 
+-- name: GetTeamByIDQuery :one
+SELECT sqlc.embed(teams)
+FROM teams
+WHERE id = @id;
+
 -- name: CreateTeamQuery :one
-INSERT INTO teams (name)
-VALUES (@name)
+INSERT INTO teams (name, agent_api_key)
+VALUES (@name, @agent_api_key)
 RETURNING *;
 
 -- name: CreateUserQuery :one
@@ -32,6 +37,11 @@ AND expiry > @now;
 INSERT INTO sessions (token, data, expiry)
 VALUES (@token, @data, @expiry)
 ON CONFLICT(token) DO UPDATE SET data = excluded.data, expiry = excluded.expiry;
+
+-- name: GetTeamByAgentAPIKeyQuery :one
+SELECT sqlc.embed(teams)
+FROM teams
+WHERE agent_api_key = @agent_api_key;
 
 -- name: CreateAgentQuery :one
 INSERT INTO agents (id, user_id, name, version)

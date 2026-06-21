@@ -2,8 +2,11 @@ package db
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -28,7 +31,12 @@ func (c *Conn) CreateUserAndTeam(ctx context.Context, email, passwordHash string
 
 	q := c.Queries.WithTx(tx)
 
-	team, err := q.CreateTeamQuery(ctx, "My Team")
+	agentAPIKey, err := newAgentAPIKey()
+	if err != nil {
+		return User{}, err
+	}
+
+	team, err := q.CreateTeamQuery(ctx, CreateTeamQueryParams{Name: "My Team", AgentApiKey: agentAPIKey})
 	if err != nil {
 		return User{}, err
 	}
@@ -46,4 +54,12 @@ func (c *Conn) CreateUserAndTeam(ctx context.Context, email, passwordHash string
 	}
 
 	return user, nil
+}
+
+func newAgentAPIKey() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generate agent api key: %w", err)
+	}
+	return "sla_" + base64.RawURLEncoding.EncodeToString(b), nil
 }

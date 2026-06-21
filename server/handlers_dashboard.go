@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"syslantern/shared"
 	"syslantern/views"
@@ -23,9 +24,19 @@ func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := make([]views.AgentsIndexData, 0, len(agents))
+	team, err := s.DB.GetTeamByID(r.Context(), user.TeamID)
+	if err != nil {
+		s.Logger.Warn("agents index: get team", "err", err)
+		http.Error(w, "Could not load your team.", http.StatusInternalServerError)
+		return
+	}
+
+	data := views.AgentsIndexPageData{
+		Agents:         make([]views.AgentsIndexData, 0, len(agents)),
+		InstallCommand: agentInstallCommand(r, team.ID, team.AgentApiKey),
+	}
 	for _, agent := range agents {
-		data = append(data, views.AgentsIndexData{
+		data.Agents = append(data.Agents, views.AgentsIndexData{
 			ID:        agent.ID,
 			Name:      agent.Name,
 			Version:   agent.Version,
@@ -34,6 +45,18 @@ func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.Renderer.RenderAgentsIndex(w, data)
+}
+
+func agentInstallCommand(r *http.Request, teamID int64, agentAPIKey string) string {
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	if forwardedProto := r.Header.Get("X-Forwarded-Proto"); forwardedProto != "" {
+		scheme = forwardedProto
+	}
+	hubURL := fmt.Sprintf("%s://%s", scheme, r.Host)
+	return fmt.Sprintf("SYSLANTERN_HUB_URL=%q SYSLANTERN_TEAM_ID=%d SYSLANTERN_AGENT_API_KEY=%q syslantern-agent", hubURL, teamID, agentAPIKey)
 }
 
 func (s *Server) HandleAgentPage(w http.ResponseWriter, r *http.Request) {
