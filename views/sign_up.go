@@ -1,7 +1,7 @@
 package views
 
 import (
-	"io"
+	"net/http"
 
 	. "maragu.dev/gomponents"
 	. "maragu.dev/gomponents/html"
@@ -12,11 +12,11 @@ type SignUpSignals struct {
 	Password string `json:"password"`
 }
 
-func (r *Renderer) RenderSignUpGenericAuthErr(w io.Writer, email string) {
+func (r *Renderer) RenderSignUpGenericAuthErr(w http.ResponseWriter, email string) {
 	r.RenderPage(w, "sign up", r.SignUp(email, "Something went wrong. Please try again."))
 }
 
-func (r *Renderer) RenderSignUp(w io.Writer) {
+func (r *Renderer) RenderSignUp(w http.ResponseWriter) {
 	r.RenderPage(w, "sign up", r.SignUp("", ""))
 }
 

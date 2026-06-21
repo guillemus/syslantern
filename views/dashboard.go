@@ -95,7 +95,7 @@ func (r *Renderer) AgentsIndex(data []AgentsIndexData) Node {
 	}
 	if len(rows) == 0 {
 		rows = append(rows, Tr(
-			Td(ColSpan("4"), Class("py-6 text-zinc-500"), Text("No agents added yet.")),
+			Td(ColSpan("4"), Class("p-6 text-zinc-500"), Text("No agents added yet.")),
 		))
 	}
 

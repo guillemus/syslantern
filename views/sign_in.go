@@ -1,7 +1,7 @@
 package views
 
 import (
-	"io"
+	"net/http"
 
 	. "maragu.dev/gomponents"
 	. "maragu.dev/gomponents/html"
@@ -12,16 +12,16 @@ type SignInSignals struct {
 	Password string `json:"password"`
 }
 
-func (r *Renderer) RenderSignInGenericAuthErr(w io.Writer, email string) {
+func (r *Renderer) RenderSignInGenericAuthErr(w http.ResponseWriter, email string) {
 	r.RenderPage(w, "sign in", r.SignIn(email, "Something went wrong. Please try again."))
 
 }
 
-func (r *Renderer) RenderSignInInvalidCredsErr(w io.Writer, email string) {
+func (r *Renderer) RenderSignInInvalidCredsErr(w http.ResponseWriter, email string) {
 	r.RenderPage(w, "sign in", r.SignIn(email, "Invalid email or password."))
 }
 
-func (r *Renderer) RenderSignIn(w io.Writer) {
+func (r *Renderer) RenderSignIn(w http.ResponseWriter) {
 	r.RenderPage(w, "sign in", r.SignIn("", ""))
 }
 

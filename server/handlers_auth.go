@@ -23,7 +23,8 @@ func (s *Server) HandleSignIn(w http.ResponseWriter, r *http.Request) {
 
 	var payload views.SignInSignals
 	if err := datastar.ReadSignals(r, &payload); err != nil {
-		// fixme: handle err
+		s.Logger.Warn("sign in: read signals", "err", err)
+		s.Renderer.RenderSignInGenericAuthErr(w, payload.Email)
 		return
 	}
 
@@ -87,7 +88,8 @@ func (s *Server) HandleSignUp(w http.ResponseWriter, r *http.Request) {
 
 	var payload views.SignUpSignals
 	if err := datastar.ReadSignals(r, &payload); err != nil {
-		// fixme: handle err
+		s.Logger.Warn("sign up: read signals", "err", err)
+		s.Renderer.RenderSignUpGenericAuthErr(w, payload.Email)
 		return
 	}
 
@@ -119,8 +121,8 @@ func (s *Server) HandleSignUp(w http.ResponseWriter, r *http.Request) {
 	s.Sessions.Put(ctx, "user_id", user.ID)
 
 	if err := s.WriteSessionCookie(ctx, w); err != nil {
-		s.Logger.Error("sign in: commit session", "err", err)
-		s.Renderer.RenderSignInInvalidCredsErr(w, payload.Email)
+		s.Logger.Error("sign up: commit session", "err", err)
+		s.Renderer.RenderSignUpGenericAuthErr(w, payload.Email)
 		return
 	}
 

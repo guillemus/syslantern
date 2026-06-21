@@ -19,7 +19,8 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.DB.SaveLiveSnapshot(r.Context(), *payload.LiveSnapshot); err != nil {
-		// fixme: pritn err
+		s.Logger.Error("ingest: save live snapshot", "err", err)
+		http.Error(w, "Could not save ingest event.", http.StatusInternalServerError)
 		return
 	}
 

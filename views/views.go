@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/url"
 
 	"github.com/go-chi/chi/v5"
@@ -37,15 +38,16 @@ func (r *Renderer) RenderString(node Node) string {
 	return body.String()
 }
 
-func (r *Renderer) RenderPage(w io.Writer, title string, body Node) {
+func (r *Renderer) RenderPage(w http.ResponseWriter, title string, body Node) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	r.Render(w, r.Layout(title, body))
 }
 
-func (r *Renderer) RenderAgentsIndex(w io.Writer, data []AgentsIndexData) {
+func (r *Renderer) RenderAgentsIndex(w http.ResponseWriter, data []AgentsIndexData) {
 	r.RenderPage(w, "Agents", r.AgentsIndex(data))
 }
 
-func (r *Renderer) RenderDashboard(w io.Writer, data DashboardData) {
+func (r *Renderer) RenderDashboard(w http.ResponseWriter, data DashboardData) {
 	r.RenderPage(w, "Dashboard", r.Dashboard(data))
 }
 
