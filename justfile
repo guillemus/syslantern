@@ -32,13 +32,13 @@ build-linux: build-assets
 	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o dist/syslantern ./cmd/server
 
 agent-build:
-	@mkdir -p dist
-	@GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o dist/agent ./cmd/agent
-	@multipass transfer dist/agent linuxbox:/home/ubuntu/agent
-	@multipass exec linuxbox -- chmod +x /home/ubuntu/agent
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o dist/syslantern-agent ./cmd/agent
 
-agent-start: agent-build
-    multipass exec linuxbox -- ./agent
+agent-install: agent-build
+	multipass transfer dist/syslantern-agent linuxbox:/tmp/syslantern-agent
+	multipass transfer scripts/install-multipass-agent.sh linuxbox:/tmp/install-multipass-agent.sh
+	multipass exec linuxbox -- chmod +x /tmp/install-multipass-agent.sh
+	multipass exec linuxbox -- sudo /tmp/install-multipass-agent.sh
 
 agent-open:
-    @ip=$(multipass info linuxbox --format json | jq -r '.info.linuxbox.ipv4[0]'); open "http://$ip:3000"
+    ip=$(multipass info linuxbox --format json | jq -r '.info.linuxbox.ipv4[0]'); open "http://$ip:3000"
