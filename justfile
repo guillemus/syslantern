@@ -1,6 +1,7 @@
 dev:
     bunx concurrently -k \
       -n go,css,js \
+      -c green,cyan,magenta \
       "air" \
       "bunx @tailwindcss/cli -i ./views/styles.css -o ./public/styles.css --watch" \
       "bunx esbuild ./views/scripts/scripts.ts --bundle --minify --outfile=./public/scripts.js --watch"
@@ -39,6 +40,3 @@ agent-install: agent-build
 	multipass transfer scripts/install-multipass-agent.sh linuxbox:/tmp/install-multipass-agent.sh
 	multipass exec linuxbox -- chmod +x /tmp/install-multipass-agent.sh
 	multipass exec linuxbox -- sudo /tmp/install-multipass-agent.sh
-
-agent-open:
-    ip=$(multipass info linuxbox --format json | jq -r '.info.linuxbox.ipv4[0]'); open "http://$ip:3000"

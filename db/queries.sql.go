@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"time"
 )
 
@@ -25,6 +26,38 @@ type CommitSessionQueryParams struct {
 func (q *Queries) CommitSessionQuery(ctx context.Context, arg CommitSessionQueryParams) error {
 	_, err := q.db.ExecContext(ctx, commitSessionQuery, arg.Token, arg.Data, arg.Expiry)
 	return err
+}
+
+const createAgentQuery = `-- name: CreateAgentQuery :one
+INSERT INTO agents (id, user_id, name, version)
+VALUES (?1, ?2, ?3, ?4)
+RETURNING id, user_id, name, version, created_at, updated_at
+`
+
+type CreateAgentQueryParams struct {
+	ID      string `db:"id"`
+	UserID  int64  `db:"user_id"`
+	Name    string `db:"name"`
+	Version string `db:"version"`
+}
+
+func (q *Queries) CreateAgentQuery(ctx context.Context, arg CreateAgentQueryParams) (Agent, error) {
+	row := q.db.QueryRowContext(ctx, createAgentQuery,
+		arg.ID,
+		arg.UserID,
+		arg.Name,
+		arg.Version,
+	)
+	var i Agent
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Version,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const createCPUSampleQuery = `-- name: CreateCPUSampleQuery :exec
@@ -176,22 +209,42 @@ func (q *Queries) CreateMemorySampleQuery(ctx context.Context, arg CreateMemoryS
 	return err
 }
 
+const createTeamQuery = `-- name: CreateTeamQuery :one
+INSERT INTO teams (name)
+VALUES (?1)
+RETURNING id, name, created_at, updated_at
+`
+
+func (q *Queries) CreateTeamQuery(ctx context.Context, name string) (Team, error) {
+	row := q.db.QueryRowContext(ctx, createTeamQuery, name)
+	var i Team
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createUserQuery = `-- name: CreateUserQuery :one
-INSERT INTO users (email, password_hash)
-VALUES (?1, ?2)
-RETURNING id, email, password_hash, created_at, updated_at
+INSERT INTO users (team_id, email, password_hash)
+VALUES (?1, ?2, ?3)
+RETURNING id, team_id, email, password_hash, created_at, updated_at
 `
 
 type CreateUserQueryParams struct {
-	Email        string `db:"email"`
-	PasswordHash string `db:"password_hash"`
+	TeamID       int64          `db:"team_id"`
+	Email        string         `db:"email"`
+	PasswordHash sql.NullString `db:"password_hash"`
 }
 
 func (q *Queries) CreateUserQuery(ctx context.Context, arg CreateUserQueryParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, createUserQuery, arg.Email, arg.PasswordHash)
+	row := q.db.QueryRowContext(ctx, createUserQuery, arg.TeamID, arg.Email, arg.PasswordHash)
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.TeamID,
 		&i.Email,
 		&i.PasswordHash,
 		&i.CreatedAt,
@@ -259,6 +312,36 @@ func (q *Queries) FindSessionQuery(ctx context.Context, arg FindSessionQueryPara
 	return data, err
 }
 
+const getAgentForUserQuery = `-- name: GetAgentForUserQuery :one
+SELECT agents.id, agents.user_id, agents.name, agents.version, agents.created_at, agents.updated_at
+FROM agents
+WHERE id = ?1
+AND user_id = ?2
+`
+
+type GetAgentForUserQueryParams struct {
+	ID     string `db:"id"`
+	UserID int64  `db:"user_id"`
+}
+
+type GetAgentForUserQueryRow struct {
+	Agent Agent `db:"agent"`
+}
+
+func (q *Queries) GetAgentForUserQuery(ctx context.Context, arg GetAgentForUserQueryParams) (GetAgentForUserQueryRow, error) {
+	row := q.db.QueryRowContext(ctx, getAgentForUserQuery, arg.ID, arg.UserID)
+	var i GetAgentForUserQueryRow
+	err := row.Scan(
+		&i.Agent.ID,
+		&i.Agent.UserID,
+		&i.Agent.Name,
+		&i.Agent.Version,
+		&i.Agent.CreatedAt,
+		&i.Agent.UpdatedAt,
+	)
+	return i, err
+}
+
 const getLatestCPUSampleQuery = `-- name: GetLatestCPUSampleQuery :one
 SELECT cpu_samples.id, cpu_samples.observed_at, cpu_samples.used_percent, cpu_samples.cores_logical, cpu_samples.cores_physical, cpu_samples.per_core_percent, cpu_samples.load_1m, cpu_samples.load_5m, cpu_samples.load_15m
 FROM cpu_samples
@@ -317,7 +400,7 @@ func (q *Queries) GetLatestMemorySampleQuery(ctx context.Context) (GetLatestMemo
 }
 
 const getUserByEmailQuery = `-- name: GetUserByEmailQuery :one
-SELECT users.id, users.email, users.password_hash, users.created_at, users.updated_at
+SELECT users.id, users.team_id, users.email, users.password_hash, users.created_at, users.updated_at
 FROM users
 WHERE email = ?1
 `
@@ -331,6 +414,7 @@ func (q *Queries) GetUserByEmailQuery(ctx context.Context, email string) (GetUse
 	var i GetUserByEmailQueryRow
 	err := row.Scan(
 		&i.User.ID,
+		&i.User.TeamID,
 		&i.User.Email,
 		&i.User.PasswordHash,
 		&i.User.CreatedAt,
@@ -340,7 +424,7 @@ func (q *Queries) GetUserByEmailQuery(ctx context.Context, email string) (GetUse
 }
 
 const getUserByIDQuery = `-- name: GetUserByIDQuery :one
-SELECT users.id, users.email, users.password_hash, users.created_at, users.updated_at
+SELECT users.id, users.team_id, users.email, users.password_hash, users.created_at, users.updated_at
 FROM users
 WHERE id = ?1
 `
@@ -354,12 +438,54 @@ func (q *Queries) GetUserByIDQuery(ctx context.Context, id int64) (GetUserByIDQu
 	var i GetUserByIDQueryRow
 	err := row.Scan(
 		&i.User.ID,
+		&i.User.TeamID,
 		&i.User.Email,
 		&i.User.PasswordHash,
 		&i.User.CreatedAt,
 		&i.User.UpdatedAt,
 	)
 	return i, err
+}
+
+const listAgentsForUserQuery = `-- name: ListAgentsForUserQuery :many
+SELECT agents.id, agents.user_id, agents.name, agents.version, agents.created_at, agents.updated_at
+FROM agents
+WHERE user_id = ?1
+ORDER BY updated_at DESC
+`
+
+type ListAgentsForUserQueryRow struct {
+	Agent Agent `db:"agent"`
+}
+
+func (q *Queries) ListAgentsForUserQuery(ctx context.Context, userID int64) ([]ListAgentsForUserQueryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAgentsForUserQuery, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAgentsForUserQueryRow
+	for rows.Next() {
+		var i ListAgentsForUserQueryRow
+		if err := rows.Scan(
+			&i.Agent.ID,
+			&i.Agent.UserID,
+			&i.Agent.Name,
+			&i.Agent.Version,
+			&i.Agent.CreatedAt,
+			&i.Agent.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listCPUSamplesSinceQuery = `-- name: ListCPUSamplesSinceQuery :many
@@ -593,4 +719,21 @@ func (q *Queries) ListMemorySamplesSinceQuery(ctx context.Context, since string)
 		return nil, err
 	}
 	return items, nil
+}
+
+const touchAgentQuery = `-- name: TouchAgentQuery :exec
+UPDATE agents
+SET version = ?1,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = ?2
+`
+
+type TouchAgentQueryParams struct {
+	Version string `db:"version"`
+	ID      string `db:"id"`
+}
+
+func (q *Queries) TouchAgentQuery(ctx context.Context, arg TouchAgentQueryParams) error {
+	_, err := q.db.ExecContext(ctx, touchAgentQuery, arg.Version, arg.ID)
+	return err
 }

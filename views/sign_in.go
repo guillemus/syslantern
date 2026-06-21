@@ -1,26 +1,39 @@
 package views
 
 import (
+	"io"
+
 	. "maragu.dev/gomponents"
 	. "maragu.dev/gomponents/html"
 )
 
-type SignInData struct {
-	Email string
-	Error string
+type SignInSignals struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
-func (r *Renderer) SignIn(data SignInData) Node {
+func (r *Renderer) RenderSignInGenericAuthErr(w io.Writer, email string) {
+	r.RenderPage(w, "sign in", r.SignIn(email, "Something went wrong. Please try again."))
+
+}
+
+func (r *Renderer) RenderSignInInvalidCredsErr(w io.Writer, email string) {
+	r.RenderPage(w, "sign in", r.SignIn(email, "Invalid email or password."))
+}
+
+func (r *Renderer) RenderSignIn(w io.Writer) {
+	r.RenderPage(w, "sign in", r.SignIn("", ""))
+}
+
+func (r *Renderer) SignIn(email string, err string) Node {
 	return Div(
 		Class("flex h-dvh items-center justify-center bg-zinc-950 px-4 font-mono text-zinc-100"),
 		Div(
 			Class("w-full max-w-sm rounded-xl border border-zinc-800 bg-zinc-900 p-6"),
 			H1(Class("mb-4 text-2xl font-semibold tracking-tight"), Text("Sign In")),
-			ErrorParagraph(data.Error),
-			Form(
+			ErrorParagraph(err),
+			Div(
 				Class("space-y-3"),
-				Method("POST"),
-				Action(r.URL("POST", "/sign-in")),
 				Label(
 					Class("block text-sm text-zinc-400"),
 					For("email"),
@@ -30,8 +43,7 @@ func (r *Renderer) SignIn(data SignInData) Node {
 					Class("w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-zinc-100 outline-none focus:border-orange-500"),
 					Type("email"),
 					ID("email"),
-					Name("email"),
-					Value(data.Email),
+					Data("bind:email", ""),
 					Required(),
 					AutoFocus(),
 				),
@@ -44,12 +56,12 @@ func (r *Renderer) SignIn(data SignInData) Node {
 					Class("w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-zinc-100 outline-none focus:border-orange-500"),
 					Type("password"),
 					ID("password"),
-					Name("password"),
+					Data("bind:password", ""),
 					Required(),
 				),
 				Button(
 					Class("w-full rounded-md bg-orange-600 px-3 py-2 font-medium text-white transition hover:brightness-110"),
-					Attr("type", "submit"),
+					r.DataPost("on:click", "/sign-in"),
 					Text("Sign In"),
 				),
 			),

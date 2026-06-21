@@ -30,6 +30,13 @@ type DashboardData struct {
 	Analytics DashboardAnalyticsData
 }
 
+type AgentsIndexData struct {
+	ID        string
+	Name      string
+	Version   string
+	UpdatedAt time.Time
+}
+
 type DashboardAnalyticsData struct {
 	HasAnalytics bool
 	SentAt       time.Time
@@ -81,14 +88,14 @@ type DashboardDiskData struct {
 	TotalBytes  uint64
 }
 
-func (r *Renderer) AgentsIndex(data []DashboardData) Node {
+func (r *Renderer) AgentsIndex(data []AgentsIndexData) Node {
 	rows := make([]Node, 0, len(data))
-	for _, dashboard := range data {
-		rows = append(rows, r.machineRow(dashboard))
+	for _, agent := range data {
+		rows = append(rows, r.agentRow(agent))
 	}
 	if len(rows) == 0 {
 		rows = append(rows, Tr(
-			Td(ColSpan("5"), Class("py-6 text-zinc-500"), Text("No machines connected yet.")),
+			Td(ColSpan("4"), Class("py-6 text-zinc-500"), Text("No agents added yet.")),
 		))
 	}
 
@@ -97,18 +104,17 @@ func (r *Renderer) AgentsIndex(data []DashboardData) Node {
 		Main(
 			Class("mx-auto max-w-5xl space-y-6"),
 			Header(
-				H1(Class("text-3xl font-semibold"), Text("Machines")),
-				P(Class("mt-2 text-sm text-zinc-500"), Text("Connected agents with cached dashboard state.")),
+				H1(Class("text-3xl font-semibold"), Text("Agents")),
+				P(Class("mt-2 text-sm text-zinc-500"), Text("Agents available for your account.")),
 			),
 			Div(
 				Class("overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"),
 				Table(
 					Class("w-full text-left text-sm"),
 					THead(Tr(
-						Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("Host")),
-						Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("Agent")),
-						Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("CPU")),
-						Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("Memory")),
+						Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("Name")),
+						Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("Agent ID")),
+						Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("Version")),
 						Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("Updated")),
 					)),
 					TBody(rows...),
@@ -118,21 +124,13 @@ func (r *Renderer) AgentsIndex(data []DashboardData) Node {
 	)
 }
 
-func (r *Renderer) machineRow(data DashboardData) Node {
-	href := r.URL("GET", "/agents/"+url.PathEscape(data.AgentID))
-	host := valueOr(data.Stats.HostName, "unknown")
-	cpu := "—"
-	memory := "—"
-	if data.Stats.HasMetrics {
-		cpu = percent(data.Stats.CPUUsedPercent)
-		memory = fmt.Sprintf("%s / %s", formatBytes(data.Stats.MemoryUsedBytes), formatBytes(data.Stats.MemoryTotalBytes))
-	}
+func (r *Renderer) agentRow(data AgentsIndexData) Node {
+	href := r.URL("GET", "/agents/"+url.PathEscape(data.ID))
 	return Tr(
-		Td(Class("border-b border-zinc-800 px-4 py-3"), A(Href(href), Class("font-semibold text-zinc-100 hover:text-emerald-300"), Text(host))),
-		Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text(data.AgentID)),
-		Td(Class("border-b border-zinc-800 px-4 py-3"), Text(cpu)),
-		Td(Class("border-b border-zinc-800 px-4 py-3"), Text(memory)),
-		Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text(updatedAt(data.Stats.SentAt))),
+		Td(Class("border-b border-zinc-800 px-4 py-3"), A(Href(href), Class("font-semibold text-zinc-100 hover:text-emerald-300"), Text(valueOr(data.Name, "unnamed")))),
+		Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text(data.ID)),
+		Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text(valueOr(data.Version, "—"))),
+		Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text(updatedAt(data.UpdatedAt))),
 	)
 }
 

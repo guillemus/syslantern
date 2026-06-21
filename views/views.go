@@ -41,20 +41,8 @@ func (r *Renderer) RenderPage(w io.Writer, title string, body Node) {
 	r.Render(w, r.Layout(title, body))
 }
 
-func (r *Renderer) RenderLanding(w io.Writer) {
-	r.RenderPage(w, "Landing", r.Landing())
-}
-
-func (r *Renderer) RenderSignIn(w io.Writer, data SignInData) {
-	r.RenderPage(w, "Sign In", r.SignIn(data))
-}
-
-func (r *Renderer) RenderSignUp(w io.Writer, data SignUpData) {
-	r.RenderPage(w, "Sign Up", r.SignUp(data))
-}
-
-func (r *Renderer) RenderAgentsIndex(w io.Writer, data []DashboardData) {
-	r.RenderPage(w, "Machines", r.AgentsIndex(data))
+func (r *Renderer) RenderAgentsIndex(w io.Writer, data []AgentsIndexData) {
+	r.RenderPage(w, "Agents", r.AgentsIndex(data))
 }
 
 func (r *Renderer) RenderDashboard(w io.Writer, data DashboardData) {

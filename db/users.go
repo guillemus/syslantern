@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"strings"
 )
@@ -18,13 +19,31 @@ func (c *Conn) GetUserByID(ctx context.Context, id int64) (User, error) {
 	return row.User, err
 }
 
-func (c *Conn) CreateUser(ctx context.Context, email, passwordHash string) (User, error) {
-	user, err := c.CreateUserQuery(ctx, CreateUserQueryParams{Email: email, PasswordHash: passwordHash})
+func (c *Conn) CreateUserAndTeam(ctx context.Context, email, passwordHash string) (User, error) {
+	tx, err := c.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return User{}, err
+	}
+	defer tx.Rollback()
+
+	q := c.Queries.WithTx(tx)
+
+	team, err := q.CreateTeamQuery(ctx, "My Team")
+	if err != nil {
+		return User{}, err
+	}
+
+	user, err := q.CreateUserQuery(ctx, CreateUserQueryParams{TeamID: team.ID, Email: email, PasswordHash: sql.NullString{String: passwordHash, Valid: true}})
 	if err != nil {
 		if strings.Contains(err.Error(), "users_email_lower_idx") || strings.Contains(err.Error(), "UNIQUE constraint failed") {
 			return User{}, ErrDuplicateEmail
 		}
 		return User{}, err
 	}
+
+	if err := tx.Commit(); err != nil {
+		return User{}, err
+	}
+
 	return user, nil
 }

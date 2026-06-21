@@ -5,8 +5,18 @@
 package db
 
 import (
+	"database/sql"
 	"time"
 )
+
+type Agent struct {
+	ID        string    `db:"id"`
+	UserID    int64     `db:"user_id"`
+	Name      string    `db:"name"`
+	Version   string    `db:"version"`
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
+}
 
 type CpuSample struct {
 	ID             int64   `db:"id"`
@@ -52,10 +62,18 @@ type Session struct {
 	Expiry time.Time `db:"expiry"`
 }
 
+type Team struct {
+	ID        int64     `db:"id"`
+	Name      string    `db:"name"`
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
+}
+
 type User struct {
-	ID           int64     `db:"id"`
-	Email        string    `db:"email"`
-	PasswordHash string    `db:"password_hash"`
-	CreatedAt    time.Time `db:"created_at"`
-	UpdatedAt    time.Time `db:"updated_at"`
+	ID           int64          `db:"id"`
+	TeamID       int64          `db:"team_id"`
+	Email        string         `db:"email"`
+	PasswordHash sql.NullString `db:"password_hash"`
+	CreatedAt    time.Time      `db:"created_at"`
+	UpdatedAt    time.Time      `db:"updated_at"`
 }

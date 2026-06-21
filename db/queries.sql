@@ -8,9 +8,14 @@ SELECT sqlc.embed(users)
 FROM users
 WHERE id = @id;
 
+-- name: CreateTeamQuery :one
+INSERT INTO teams (name)
+VALUES (@name)
+RETURNING *;
+
 -- name: CreateUserQuery :one
-INSERT INTO users (email, password_hash)
-VALUES (@email, @password_hash)
+INSERT INTO users (team_id, email, password_hash)
+VALUES (@team_id, @email, @password_hash)
 RETURNING *;
 
 -- name: DeleteSessionQuery :exec
@@ -27,6 +32,29 @@ AND expiry > @now;
 INSERT INTO sessions (token, data, expiry)
 VALUES (@token, @data, @expiry)
 ON CONFLICT(token) DO UPDATE SET data = excluded.data, expiry = excluded.expiry;
+
+-- name: CreateAgentQuery :one
+INSERT INTO agents (id, user_id, name, version)
+VALUES (@id, @user_id, @name, @version)
+RETURNING *;
+
+-- name: ListAgentsForUserQuery :many
+SELECT sqlc.embed(agents)
+FROM agents
+WHERE user_id = @user_id
+ORDER BY updated_at DESC;
+
+-- name: GetAgentForUserQuery :one
+SELECT sqlc.embed(agents)
+FROM agents
+WHERE id = @id
+AND user_id = @user_id;
+
+-- name: TouchAgentQuery :exec
+UPDATE agents
+SET version = @version,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = @id;
 
 -- name: CreateCPUSampleQuery :exec
 INSERT INTO cpu_samples (

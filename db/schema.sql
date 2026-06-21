@@ -1,17 +1,24 @@
------ USERS -----
+CREATE TABLE teams (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT
+    CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT
+    CURRENT_TIMESTAMP
+);
 
--- Users are human support or admin members.
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    team_id INTEGER NOT NULL REFERENCES teams(id) ON
+    DELETE RESTRICT,
     email TEXT NOT NULL,
-    password_hash TEXT NOT NULL,
+    password_hash TEXT, -- TODO: we will support oauth connections aswell later. 
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE UNIQUE INDEX users_email_lower_idx ON users (lower(email));
 
--- Sessions store authenticated browser sessions.
 CREATE TABLE sessions (
     token TEXT PRIMARY KEY,
     data BLOB NOT NULL,
@@ -19,6 +26,17 @@ CREATE TABLE sessions (
 );
 
 CREATE INDEX sessions_expiry_idx ON sessions (expiry);
+
+CREATE TABLE agents (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    version TEXT NOT NULL DEFAULT '',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX agents_user_id_idx ON agents (user_id);
 
 CREATE TABLE IF NOT EXISTS cpu_samples (
     id INTEGER PRIMARY KEY,

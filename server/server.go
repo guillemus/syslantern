@@ -66,18 +66,18 @@ func NewServer() *Server {
 	s.Router.Use(s.Sessions.LoadAndSave)
 	s.Router.Get("/public/*", syslantern.GetPublicHandler(cfg).ServeHTTP)
 
-	s.Router.Post("/ingest", s.HandleIngest)
-	s.Router.Get("/connect", s.HandleConnect)
-
-	s.Router.Get("/", s.HandleAgentsIndex)
-	s.Router.Get("/agents/{agentID}", s.HandleDashboard)
-	s.Router.Get("/agents/{agentID}/events", s.HandleDashboardEvents)
-
+	s.Router.Get("/", s.HandleIndexPage)
 	s.Router.Get("/sign-in", s.HandleSignInPage)
 	s.Router.Post("/sign-in", s.HandleSignIn)
 	s.Router.Get("/sign-up", s.HandleSignUpPage)
 	s.Router.Post("/sign-up", s.HandleSignUp)
 	s.Router.Post("/logout", s.HandleLogout)
+
+	s.Router.Post("/ingest", s.HandleIngest)
+	s.Router.Get("/connect", s.HandleConnect)
+
+	s.Router.Get("/agents/{agentID}", s.HandleAgentPage)
+	s.Router.Get("/agents/{agentID}/events", s.HandleDashboardEvents)
 
 	s.Renderer.Routes = s.Router
 
