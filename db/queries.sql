@@ -8,13 +8,6 @@ SELECT sqlc.embed(users)
 FROM users
 WHERE id = @id;
 
--- name: GetFirstUserByTeamIDQuery :one
-SELECT sqlc.embed(users)
-FROM users
-WHERE team_id = @team_id
-ORDER BY id
-LIMIT 1;
-
 -- name: GetTeamByIDQuery :one
 SELECT sqlc.embed(teams)
 FROM teams
@@ -50,27 +43,27 @@ SELECT sqlc.embed(teams)
 FROM teams
 WHERE agent_api_key = @agent_api_key;
 
--- name: UpsertAgentForUserQuery :one
-INSERT INTO agents (id, user_id, name, version)
-VALUES (@id, @user_id, @name, @version)
+-- name: UpsertAgentForTeamQuery :one
+INSERT INTO agents (id, team_id, name, version)
+VALUES (@id, @team_id, @name, @version)
 ON CONFLICT(id) DO UPDATE SET
     name = excluded.name,
     version = excluded.version,
     updated_at = CURRENT_TIMESTAMP
-WHERE agents.user_id = excluded.user_id
+WHERE agents.team_id = excluded.team_id
 RETURNING *;
 
--- name: ListAgentsForUserQuery :many
+-- name: ListAgentsForTeamQuery :many
 SELECT sqlc.embed(agents)
 FROM agents
-WHERE user_id = @user_id
+WHERE team_id = @team_id
 ORDER BY updated_at DESC;
 
--- name: GetAgentForUserQuery :one
+-- name: GetAgentForTeamQuery :one
 SELECT sqlc.embed(agents)
 FROM agents
 WHERE id = @id
-AND user_id = @user_id;
+AND team_id = @team_id;
 
 -- name: TouchAgentQuery :exec
 UPDATE agents

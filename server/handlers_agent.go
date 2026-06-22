@@ -56,13 +56,13 @@ func (s *Server) HandleConnect(w http.ResponseWriter, r *http.Request) {
 		agentName = string(agentID)
 	}
 
-	agent, err := s.DB.RegisterAgentForTeam(r.Context(), team.ID, string(agentID), agentName, agentVersion)
+	_, err := s.DB.RegisterAgentForTeam(r.Context(), team.ID, db.AgentID(agentID), agentName, agentVersion)
 	if err != nil {
 		s.Logger.Warn("connect: register agent", "err", err)
 		http.Error(w, "Could not register agent.", http.StatusInternalServerError)
 		return
 	}
-	s.AgentRegisteredBus.Emit(r.Context(), AgentRegisteredEvent{UserID: agent.UserID})
+	s.AgentRegisteredBus.Emit(r.Context(), AgentRegisteredEvent{TeamID: team.ID})
 
 	commandsC := make(chan shared.Command, 16)
 	flusher := w.(http.Flusher)

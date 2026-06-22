@@ -1,0 +1,2 @@
+- Remember to rerun `sqlc` when editing sql files.
+- In order to do local migrations use `just migrate`

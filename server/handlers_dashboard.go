@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"syslantern/db"
 	"syslantern/shared"
 	"syslantern/views"
 
@@ -12,7 +13,7 @@ import (
 )
 
 type AgentRegisteredEvent struct {
-	UserID int64
+	TeamID db.TeamID
 }
 
 func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
@@ -22,7 +23,7 @@ func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	agents, err := s.agentsIndexData(r.Context(), user.ID)
+	agents, err := s.agentsIndexData(r.Context(), user.TeamID)
 	if err != nil {
 		s.Logger.Warn("agents index: list agents", "err", err)
 		http.Error(w, "Could not load your agents.", http.StatusInternalServerError)
@@ -44,8 +45,8 @@ func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 	s.Renderer.RenderAgentsIndex(w, data)
 }
 
-func (s *Server) agentsIndexData(ctx context.Context, userID int64) ([]views.AgentsIndexData, error) {
-	agents, err := s.DB.ListAgentsForUser(ctx, userID)
+func (s *Server) agentsIndexData(ctx context.Context, teamID db.TeamID) ([]views.AgentsIndexData, error) {
+	agents, err := s.DB.ListAgentsForTeam(ctx, teamID)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +54,7 @@ func (s *Server) agentsIndexData(ctx context.Context, userID int64) ([]views.Age
 	data := make([]views.AgentsIndexData, 0, len(agents))
 	for _, agent := range agents {
 		data = append(data, views.AgentsIndexData{
-			ID:        agent.ID,
+			ID:        string(agent.ID),
 			Name:      agent.Name,
 			Version:   agent.Version,
 			UpdatedAt: agent.UpdatedAt,
@@ -62,15 +63,15 @@ func (s *Server) agentsIndexData(ctx context.Context, userID int64) ([]views.Age
 	return data, nil
 }
 
-func (s *Server) agentInstallCommand(r *http.Request, agentAPIKey string) string {
+func (s *Server) agentInstallCommand(r *http.Request, agentAPIKey db.AgentAPIKey) string {
 	if s.Cfg.Dev {
 		url := "http://host.multipass:3000"
 		return fmt.Sprintf(
 			"curl -fsSL %s/install.sh -o /tmp/syslantern-install.sh && chmod +x /tmp/syslantern-install.sh && sudo env SYSLANTERN_AGENT_URL=%s/public/syslantern-agent.tar.gz /tmp/syslantern-install.sh %q",
-			url, url, agentAPIKey)
+			url, url, string(agentAPIKey))
 	}
 	url := hubURL(r)
-	return fmt.Sprintf("curl -fsSL %s/install.sh -o /tmp/syslantern-install.sh && chmod +x /tmp/syslantern-install.sh && sudo /tmp/syslantern-install.sh %q", url, agentAPIKey)
+	return fmt.Sprintf("curl -fsSL %s/install.sh -o /tmp/syslantern-install.sh && chmod +x /tmp/syslantern-install.sh && sudo /tmp/syslantern-install.sh %q", url, string(agentAPIKey))
 }
 
 // hubURL uses the current request host so self-hosted hubs generate install
@@ -95,7 +96,7 @@ func (s *Server) HandleIndexEvents(w http.ResponseWriter, r *http.Request) {
 
 	events := make(chan AgentRegisteredEvent, 16)
 	cancel := s.AgentRegisteredBus.Subscribe(r.Context(), func(evt AgentRegisteredEvent) {
-		if evt.UserID != user.ID {
+		if evt.TeamID != user.TeamID {
 			return
 		}
 		events <- evt
@@ -108,7 +109,7 @@ func (s *Server) HandleIndexEvents(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case <-events:
-			agents, err := s.agentsIndexData(r.Context(), user.ID)
+			agents, err := s.agentsIndexData(r.Context(), user.TeamID)
 			if err != nil {
 				s.Logger.Warn("index events: list agents", "err", err)
 				return

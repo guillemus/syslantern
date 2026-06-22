@@ -13,13 +13,8 @@ func (c *Conn) GetUserByEmail(ctx context.Context, email string) (User, error) {
 	return row.User, err
 }
 
-func (c *Conn) GetUserByID(ctx context.Context, id int64) (User, error) {
+func (c *Conn) GetUserByID(ctx context.Context, id UserID) (User, error) {
 	row, err := c.GetUserByIDQuery(ctx, id)
-	return row.User, err
-}
-
-func (c *Conn) GetFirstUserByTeamID(ctx context.Context, teamID int64) (User, error) {
-	row, err := c.GetFirstUserByTeamIDQuery(ctx, teamID)
 	return row.User, err
 }
 
@@ -37,7 +32,7 @@ func (c *Conn) CreateUserAndTeam(ctx context.Context, email, passwordHash string
 		return User{}, err
 	}
 
-	team, err := q.CreateTeamQuery(ctx, CreateTeamQueryParams{Name: "My Team", AgentApiKey: agentAPIKey})
+	team, err := q.CreateTeamQuery(ctx, CreateTeamQueryParams{Name: "My Team", AgentApiKey: AgentAPIKey(agentAPIKey)})
 	if err != nil {
 		return User{}, err
 	}

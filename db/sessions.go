@@ -12,7 +12,7 @@ func (c *Conn) Delete(token string) error {
 }
 
 func (c *Conn) DeleteCtx(ctx context.Context, token string) error {
-	return c.DeleteSessionQuery(ctx, token)
+	return c.DeleteSessionQuery(ctx, SessionToken(token))
 }
 
 func (c *Conn) Find(token string) ([]byte, bool, error) {
@@ -20,7 +20,7 @@ func (c *Conn) Find(token string) ([]byte, bool, error) {
 }
 
 func (c *Conn) FindCtx(ctx context.Context, token string) ([]byte, bool, error) {
-	data, err := c.FindSessionQuery(ctx, FindSessionQueryParams{Token: token, Now: time.Now().UTC()})
+	data, err := c.FindSessionQuery(ctx, FindSessionQueryParams{Token: SessionToken(token), Now: time.Now().UTC()})
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, false, nil
 	}
@@ -35,5 +35,5 @@ func (c *Conn) Commit(token string, data []byte, expiry time.Time) error {
 }
 
 func (c *Conn) CommitCtx(ctx context.Context, token string, data []byte, expiry time.Time) error {
-	return c.CommitSessionQuery(ctx, CommitSessionQueryParams{Token: token, Data: data, Expiry: expiry.UTC()})
+	return c.CommitSessionQuery(ctx, CommitSessionQueryParams{Token: SessionToken(token), Data: data, Expiry: expiry.UTC()})
 }

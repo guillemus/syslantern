@@ -10,8 +10,8 @@ import (
 )
 
 type Agent struct {
-	ID        string    `db:"id"`
-	UserID    int64     `db:"user_id"`
+	ID        AgentID   `db:"id"`
+	TeamID    TeamID    `db:"team_id"`
 	Name      string    `db:"name"`
 	Version   string    `db:"version"`
 	CreatedAt time.Time `db:"created_at"`
@@ -19,60 +19,60 @@ type Agent struct {
 }
 
 type CpuSample struct {
-	ID             int64   `db:"id"`
-	ObservedAt     string  `db:"observed_at"`
-	UsedPercent    float64 `db:"used_percent"`
-	CoresLogical   int64   `db:"cores_logical"`
-	CoresPhysical  int64   `db:"cores_physical"`
-	PerCorePercent string  `db:"per_core_percent"`
-	Load1m         float64 `db:"load_1m"`
-	Load5m         float64 `db:"load_5m"`
-	Load15m        float64 `db:"load_15m"`
+	ID             CPUSampleID `db:"id"`
+	ObservedAt     string      `db:"observed_at"`
+	UsedPercent    float64     `db:"used_percent"`
+	CoresLogical   int64       `db:"cores_logical"`
+	CoresPhysical  int64       `db:"cores_physical"`
+	PerCorePercent string      `db:"per_core_percent"`
+	Load1m         float64     `db:"load_1m"`
+	Load5m         float64     `db:"load_5m"`
+	Load15m        float64     `db:"load_15m"`
 }
 
 type DiskSample struct {
-	ID          int64   `db:"id"`
-	ObservedAt  string  `db:"observed_at"`
-	IsTotal     int64   `db:"is_total"`
-	Device      string  `db:"device"`
-	Mount       string  `db:"mount"`
-	Filesystem  string  `db:"filesystem"`
-	UsedPercent float64 `db:"used_percent"`
-	UsedBytes   int64   `db:"used_bytes"`
-	FreeBytes   int64   `db:"free_bytes"`
-	TotalBytes  int64   `db:"total_bytes"`
+	ID          DiskSampleID `db:"id"`
+	ObservedAt  string       `db:"observed_at"`
+	IsTotal     int64        `db:"is_total"`
+	Device      string       `db:"device"`
+	Mount       string       `db:"mount"`
+	Filesystem  string       `db:"filesystem"`
+	UsedPercent float64      `db:"used_percent"`
+	UsedBytes   int64        `db:"used_bytes"`
+	FreeBytes   int64        `db:"free_bytes"`
+	TotalBytes  int64        `db:"total_bytes"`
 }
 
 type MemorySample struct {
-	ID                    int64   `db:"id"`
-	ObservedAt            string  `db:"observed_at"`
-	VirtualUsedPercent    float64 `db:"virtual_used_percent"`
-	VirtualUsedBytes      int64   `db:"virtual_used_bytes"`
-	VirtualAvailableBytes int64   `db:"virtual_available_bytes"`
-	VirtualTotalBytes     int64   `db:"virtual_total_bytes"`
-	SwapUsedPercent       float64 `db:"swap_used_percent"`
-	SwapUsedBytes         int64   `db:"swap_used_bytes"`
-	SwapAvailableBytes    int64   `db:"swap_available_bytes"`
-	SwapTotalBytes        int64   `db:"swap_total_bytes"`
+	ID                    MemorySampleID `db:"id"`
+	ObservedAt            string         `db:"observed_at"`
+	VirtualUsedPercent    float64        `db:"virtual_used_percent"`
+	VirtualUsedBytes      int64          `db:"virtual_used_bytes"`
+	VirtualAvailableBytes int64          `db:"virtual_available_bytes"`
+	VirtualTotalBytes     int64          `db:"virtual_total_bytes"`
+	SwapUsedPercent       float64        `db:"swap_used_percent"`
+	SwapUsedBytes         int64          `db:"swap_used_bytes"`
+	SwapAvailableBytes    int64          `db:"swap_available_bytes"`
+	SwapTotalBytes        int64          `db:"swap_total_bytes"`
 }
 
 type Session struct {
-	Token  string    `db:"token"`
-	Data   []byte    `db:"data"`
-	Expiry time.Time `db:"expiry"`
+	Token  SessionToken `db:"token"`
+	Data   []byte       `db:"data"`
+	Expiry time.Time    `db:"expiry"`
 }
 
 type Team struct {
-	ID          int64     `db:"id"`
-	Name        string    `db:"name"`
-	AgentApiKey string    `db:"agent_api_key"`
-	CreatedAt   time.Time `db:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at"`
+	ID          TeamID      `db:"id"`
+	Name        string      `db:"name"`
+	AgentApiKey AgentAPIKey `db:"agent_api_key"`
+	CreatedAt   time.Time   `db:"created_at"`
+	UpdatedAt   time.Time   `db:"updated_at"`
 }
 
 type User struct {
-	ID           int64          `db:"id"`
-	TeamID       int64          `db:"team_id"`
+	ID           UserID         `db:"id"`
+	TeamID       TeamID         `db:"team_id"`
 	Email        string         `db:"email"`
 	PasswordHash sql.NullString `db:"password_hash"`
 	CreatedAt    time.Time      `db:"created_at"`

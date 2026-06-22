@@ -1,3 +1,5 @@
+-- to agents: do not use on delete cascade
+
 CREATE TABLE teams (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -30,14 +32,14 @@ CREATE INDEX sessions_expiry_idx ON sessions (expiry);
 
 CREATE TABLE agents (
     id TEXT PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    team_id INTEGER NOT NULL REFERENCES teams(id),
     name TEXT NOT NULL,
     version TEXT NOT NULL DEFAULT '',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX agents_user_id_idx ON agents (user_id);
+CREATE INDEX agents_team_id_idx ON agents (team_id);
 
 CREATE TABLE IF NOT EXISTS cpu_samples (
     id INTEGER PRIMARY KEY,

@@ -54,7 +54,7 @@ func (s *Server) HandleSignIn(w http.ResponseWriter, r *http.Request) {
 		s.Renderer.RenderSignInInvalidCredsErr(w, payload.Email)
 		return
 	}
-	s.Sessions.Put(ctx, "user_id", user.ID)
+	s.Sessions.Put(ctx, "user_id", int64(user.ID))
 
 	if err := s.WriteSessionCookie(ctx, w); err != nil {
 		s.Logger.Error("sign in: commit session", "err", err)
@@ -112,7 +112,7 @@ func (s *Server) HandleSignUp(w http.ResponseWriter, r *http.Request) {
 		s.Renderer.RenderSignUpGenericAuthErr(w, payload.Email)
 		return
 	}
-	s.Sessions.Put(ctx, "user_id", user.ID)
+	s.Sessions.Put(ctx, "user_id", int64(user.ID))
 
 	if err := s.WriteSessionCookie(ctx, w); err != nil {
 		s.Logger.Error("sign up: commit session", "err", err)
@@ -144,7 +144,7 @@ func (s *Server) GetAuthenticatedUser(w http.ResponseWriter, r *http.Request) (u
 		return db.User{}, false
 	}
 
-	user, err := s.DB.GetUserByID(r.Context(), userID)
+	user, err := s.DB.GetUserByID(r.Context(), db.UserID(userID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			s.Logger.Warn("auth: session user not found", "user_id", userID)

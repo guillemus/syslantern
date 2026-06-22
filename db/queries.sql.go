@@ -18,9 +18,9 @@ ON CONFLICT(token) DO UPDATE SET data = excluded.data, expiry = excluded.expiry
 `
 
 type CommitSessionQueryParams struct {
-	Token  string    `db:"token"`
-	Data   []byte    `db:"data"`
-	Expiry time.Time `db:"expiry"`
+	Token  SessionToken `db:"token"`
+	Data   []byte       `db:"data"`
+	Expiry time.Time    `db:"expiry"`
 }
 
 func (q *Queries) CommitSessionQuery(ctx context.Context, arg CommitSessionQueryParams) error {
@@ -184,8 +184,8 @@ RETURNING id, name, agent_api_key, created_at, updated_at
 `
 
 type CreateTeamQueryParams struct {
-	Name        string `db:"name"`
-	AgentApiKey string `db:"agent_api_key"`
+	Name        string      `db:"name"`
+	AgentApiKey AgentAPIKey `db:"agent_api_key"`
 }
 
 func (q *Queries) CreateTeamQuery(ctx context.Context, arg CreateTeamQueryParams) (Team, error) {
@@ -208,7 +208,7 @@ RETURNING id, team_id, email, password_hash, created_at, updated_at
 `
 
 type CreateUserQueryParams struct {
-	TeamID       int64          `db:"team_id"`
+	TeamID       TeamID         `db:"team_id"`
 	Email        string         `db:"email"`
 	PasswordHash sql.NullString `db:"password_hash"`
 }
@@ -262,7 +262,7 @@ DELETE FROM sessions
 WHERE token = ?1
 `
 
-func (q *Queries) DeleteSessionQuery(ctx context.Context, token string) error {
+func (q *Queries) DeleteSessionQuery(ctx context.Context, token SessionToken) error {
 	_, err := q.db.ExecContext(ctx, deleteSessionQuery, token)
 	return err
 }
@@ -275,8 +275,8 @@ AND expiry > ?2
 `
 
 type FindSessionQueryParams struct {
-	Token string    `db:"token"`
-	Now   time.Time `db:"now"`
+	Token SessionToken `db:"token"`
+	Now   time.Time    `db:"now"`
 }
 
 func (q *Queries) FindSessionQuery(ctx context.Context, arg FindSessionQueryParams) ([]byte, error) {
@@ -286,58 +286,32 @@ func (q *Queries) FindSessionQuery(ctx context.Context, arg FindSessionQueryPara
 	return data, err
 }
 
-const getAgentForUserQuery = `-- name: GetAgentForUserQuery :one
-SELECT agents.id, agents.user_id, agents.name, agents.version, agents.created_at, agents.updated_at
+const getAgentForTeamQuery = `-- name: GetAgentForTeamQuery :one
+SELECT agents.id, agents.team_id, agents.name, agents.version, agents.created_at, agents.updated_at
 FROM agents
 WHERE id = ?1
-AND user_id = ?2
+AND team_id = ?2
 `
 
-type GetAgentForUserQueryParams struct {
-	ID     string `db:"id"`
-	UserID int64  `db:"user_id"`
+type GetAgentForTeamQueryParams struct {
+	ID     AgentID `db:"id"`
+	TeamID TeamID  `db:"team_id"`
 }
 
-type GetAgentForUserQueryRow struct {
+type GetAgentForTeamQueryRow struct {
 	Agent Agent `db:"agent"`
 }
 
-func (q *Queries) GetAgentForUserQuery(ctx context.Context, arg GetAgentForUserQueryParams) (GetAgentForUserQueryRow, error) {
-	row := q.db.QueryRowContext(ctx, getAgentForUserQuery, arg.ID, arg.UserID)
-	var i GetAgentForUserQueryRow
+func (q *Queries) GetAgentForTeamQuery(ctx context.Context, arg GetAgentForTeamQueryParams) (GetAgentForTeamQueryRow, error) {
+	row := q.db.QueryRowContext(ctx, getAgentForTeamQuery, arg.ID, arg.TeamID)
+	var i GetAgentForTeamQueryRow
 	err := row.Scan(
 		&i.Agent.ID,
-		&i.Agent.UserID,
+		&i.Agent.TeamID,
 		&i.Agent.Name,
 		&i.Agent.Version,
 		&i.Agent.CreatedAt,
 		&i.Agent.UpdatedAt,
-	)
-	return i, err
-}
-
-const getFirstUserByTeamIDQuery = `-- name: GetFirstUserByTeamIDQuery :one
-SELECT users.id, users.team_id, users.email, users.password_hash, users.created_at, users.updated_at
-FROM users
-WHERE team_id = ?1
-ORDER BY id
-LIMIT 1
-`
-
-type GetFirstUserByTeamIDQueryRow struct {
-	User User `db:"user"`
-}
-
-func (q *Queries) GetFirstUserByTeamIDQuery(ctx context.Context, teamID int64) (GetFirstUserByTeamIDQueryRow, error) {
-	row := q.db.QueryRowContext(ctx, getFirstUserByTeamIDQuery, teamID)
-	var i GetFirstUserByTeamIDQueryRow
-	err := row.Scan(
-		&i.User.ID,
-		&i.User.TeamID,
-		&i.User.Email,
-		&i.User.PasswordHash,
-		&i.User.CreatedAt,
-		&i.User.UpdatedAt,
 	)
 	return i, err
 }
@@ -409,7 +383,7 @@ type GetTeamByAgentAPIKeyQueryRow struct {
 	Team Team `db:"team"`
 }
 
-func (q *Queries) GetTeamByAgentAPIKeyQuery(ctx context.Context, agentApiKey string) (GetTeamByAgentAPIKeyQueryRow, error) {
+func (q *Queries) GetTeamByAgentAPIKeyQuery(ctx context.Context, agentApiKey AgentAPIKey) (GetTeamByAgentAPIKeyQueryRow, error) {
 	row := q.db.QueryRowContext(ctx, getTeamByAgentAPIKeyQuery, agentApiKey)
 	var i GetTeamByAgentAPIKeyQueryRow
 	err := row.Scan(
@@ -432,7 +406,7 @@ type GetTeamByIDQueryRow struct {
 	Team Team `db:"team"`
 }
 
-func (q *Queries) GetTeamByIDQuery(ctx context.Context, id int64) (GetTeamByIDQueryRow, error) {
+func (q *Queries) GetTeamByIDQuery(ctx context.Context, id TeamID) (GetTeamByIDQueryRow, error) {
 	row := q.db.QueryRowContext(ctx, getTeamByIDQuery, id)
 	var i GetTeamByIDQueryRow
 	err := row.Scan(
@@ -479,7 +453,7 @@ type GetUserByIDQueryRow struct {
 	User User `db:"user"`
 }
 
-func (q *Queries) GetUserByIDQuery(ctx context.Context, id int64) (GetUserByIDQueryRow, error) {
+func (q *Queries) GetUserByIDQuery(ctx context.Context, id UserID) (GetUserByIDQueryRow, error) {
 	row := q.db.QueryRowContext(ctx, getUserByIDQuery, id)
 	var i GetUserByIDQueryRow
 	err := row.Scan(
@@ -493,29 +467,29 @@ func (q *Queries) GetUserByIDQuery(ctx context.Context, id int64) (GetUserByIDQu
 	return i, err
 }
 
-const listAgentsForUserQuery = `-- name: ListAgentsForUserQuery :many
-SELECT agents.id, agents.user_id, agents.name, agents.version, agents.created_at, agents.updated_at
+const listAgentsForTeamQuery = `-- name: ListAgentsForTeamQuery :many
+SELECT agents.id, agents.team_id, agents.name, agents.version, agents.created_at, agents.updated_at
 FROM agents
-WHERE user_id = ?1
+WHERE team_id = ?1
 ORDER BY updated_at DESC
 `
 
-type ListAgentsForUserQueryRow struct {
+type ListAgentsForTeamQueryRow struct {
 	Agent Agent `db:"agent"`
 }
 
-func (q *Queries) ListAgentsForUserQuery(ctx context.Context, userID int64) ([]ListAgentsForUserQueryRow, error) {
-	rows, err := q.db.QueryContext(ctx, listAgentsForUserQuery, userID)
+func (q *Queries) ListAgentsForTeamQuery(ctx context.Context, teamID TeamID) ([]ListAgentsForTeamQueryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAgentsForTeamQuery, teamID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListAgentsForUserQueryRow
+	var items []ListAgentsForTeamQueryRow
 	for rows.Next() {
-		var i ListAgentsForUserQueryRow
+		var i ListAgentsForTeamQueryRow
 		if err := rows.Scan(
 			&i.Agent.ID,
-			&i.Agent.UserID,
+			&i.Agent.TeamID,
 			&i.Agent.Name,
 			&i.Agent.Version,
 			&i.Agent.CreatedAt,
@@ -775,8 +749,8 @@ WHERE id = ?2
 `
 
 type TouchAgentQueryParams struct {
-	Version string `db:"version"`
-	ID      string `db:"id"`
+	Version string  `db:"version"`
+	ID      AgentID `db:"id"`
 }
 
 func (q *Queries) TouchAgentQuery(ctx context.Context, arg TouchAgentQueryParams) error {
@@ -784,35 +758,35 @@ func (q *Queries) TouchAgentQuery(ctx context.Context, arg TouchAgentQueryParams
 	return err
 }
 
-const upsertAgentForUserQuery = `-- name: UpsertAgentForUserQuery :one
-INSERT INTO agents (id, user_id, name, version)
+const upsertAgentForTeamQuery = `-- name: UpsertAgentForTeamQuery :one
+INSERT INTO agents (id, team_id, name, version)
 VALUES (?1, ?2, ?3, ?4)
 ON CONFLICT(id) DO UPDATE SET
     name = excluded.name,
     version = excluded.version,
     updated_at = CURRENT_TIMESTAMP
-WHERE agents.user_id = excluded.user_id
-RETURNING id, user_id, name, version, created_at, updated_at
+WHERE agents.team_id = excluded.team_id
+RETURNING id, team_id, name, version, created_at, updated_at
 `
 
-type UpsertAgentForUserQueryParams struct {
-	ID      string `db:"id"`
-	UserID  int64  `db:"user_id"`
-	Name    string `db:"name"`
-	Version string `db:"version"`
+type UpsertAgentForTeamQueryParams struct {
+	ID      AgentID `db:"id"`
+	TeamID  TeamID  `db:"team_id"`
+	Name    string  `db:"name"`
+	Version string  `db:"version"`
 }
 
-func (q *Queries) UpsertAgentForUserQuery(ctx context.Context, arg UpsertAgentForUserQueryParams) (Agent, error) {
-	row := q.db.QueryRowContext(ctx, upsertAgentForUserQuery,
+func (q *Queries) UpsertAgentForTeamQuery(ctx context.Context, arg UpsertAgentForTeamQueryParams) (Agent, error) {
+	row := q.db.QueryRowContext(ctx, upsertAgentForTeamQuery,
 		arg.ID,
-		arg.UserID,
+		arg.TeamID,
 		arg.Name,
 		arg.Version,
 	)
 	var i Agent
 	err := row.Scan(
 		&i.ID,
-		&i.UserID,
+		&i.TeamID,
 		&i.Name,
 		&i.Version,
 		&i.CreatedAt,
