@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"syslantern/db"
 	"syslantern/shared"
 	"syslantern/views"
@@ -37,9 +38,12 @@ func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	installCommand := s.agentInstallCommand(r, team.AgentApiKey)
+	installCommandDisplay := strings.Replace(installCommand, string(team.AgentApiKey), "••••••••••••••••", 1)
 	data := views.AgentsIndexPageData{
-		Agents:         agents,
-		InstallCommand: s.agentInstallCommand(r, team.AgentApiKey),
+		Agents:                agents,
+		InstallCommand:        installCommand,
+		InstallCommandDisplay: installCommandDisplay,
 	}
 
 	s.Renderer.RenderAgentsIndex(w, data)

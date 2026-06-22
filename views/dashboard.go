@@ -31,8 +31,9 @@ type DashboardData struct {
 }
 
 type AgentsIndexPageData struct {
-	Agents         []AgentsIndexData
-	InstallCommand string
+	Agents                []AgentsIndexData
+	InstallCommand        string
+	InstallCommandDisplay string
 }
 
 type AgentsIndexData struct {
@@ -111,7 +112,7 @@ func (r *Renderer) AgentsIndex(data AgentsIndexPageData) Node {
 				),
 			),
 			r.DataGet("init", "/events"),
-			agentInstallDialog(data.InstallCommand),
+			agentInstallDialog(data.InstallCommand, data.InstallCommandDisplay),
 			Div(
 				Class("overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"),
 				Table(
@@ -144,22 +145,35 @@ func (r *Renderer) agentsTableBody(agents []AgentsIndexData) Node {
 	return TBody(nodes...)
 }
 
-func agentInstallDialog(command string) Node {
+func agentInstallDialog(command string, displayCommand string) Node {
 	return Dialog(
 		ID("agent_install_dialog"),
 		Class("fixed inset-0 m-auto w-[min(42rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)] rounded-xl border border-zinc-800 bg-zinc-900 p-0 text-zinc-100 shadow-2xl backdrop:bg-black/70"),
 		Div(
 			Class("p-6"),
 			H2(Class("text-xl font-semibold"), Text("Install an agent")),
-			P(Class("mt-2 text-sm text-zinc-500"), Text("Run this command on the VPS you want to monitor.")),
+			P(Class("mt-2 text-sm text-zinc-500"), Text("Run this command on the VPS you want to monitor. The API key is hidden here but included when copied.")),
 			Div(
 				Class("mt-4 rounded-lg border border-zinc-800 bg-zinc-950 p-4"),
-				Pre(Class("whitespace-pre-wrap break-all text-sm leading-6 text-zinc-100"), Code(Text(command))),
+				Pre(Class("whitespace-pre-wrap break-all text-sm leading-6 text-zinc-100 select-none"), Code(Text(displayCommand))),
 			),
-			Form(
-				Class("mt-5 flex justify-end"),
-				Attr("method", "dialog"),
-				Button(Class("rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-800"), Text("Close")),
+			Div(
+				Class("mt-5 flex justify-end gap-2"),
+				Button(
+					Class("rounded-md bg-orange-600 px-3 py-2 text-sm font-medium text-white transition hover:brightness-110"),
+					Attr("type", "button"),
+					Attr("data-copy-text", command),
+					Attr("data-on:click", `
+						navigator.clipboard.writeText(el.dataset.copyText)
+						el.textContent = 'Copied'
+						setTimeout(() => el.textContent = 'Copy command', 1000)
+					`),
+					Text("Copy command"),
+				),
+				Form(
+					Attr("method", "dialog"),
+					Button(Class("rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-800"), Text("Close")),
+				),
 			),
 		),
 	)
