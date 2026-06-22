@@ -8,6 +8,13 @@ SELECT sqlc.embed(users)
 FROM users
 WHERE id = @id;
 
+-- name: GetFirstUserByTeamIDQuery :one
+SELECT sqlc.embed(users)
+FROM users
+WHERE team_id = @team_id
+ORDER BY id
+LIMIT 1;
+
 -- name: GetTeamByIDQuery :one
 SELECT sqlc.embed(teams)
 FROM teams
@@ -43,9 +50,14 @@ SELECT sqlc.embed(teams)
 FROM teams
 WHERE agent_api_key = @agent_api_key;
 
--- name: CreateAgentQuery :one
+-- name: UpsertAgentForUserQuery :one
 INSERT INTO agents (id, user_id, name, version)
 VALUES (@id, @user_id, @name, @version)
+ON CONFLICT(id) DO UPDATE SET
+    name = excluded.name,
+    version = excluded.version,
+    updated_at = CURRENT_TIMESTAMP
+WHERE agents.user_id = excluded.user_id
 RETURNING *;
 
 -- name: ListAgentsForUserQuery :many

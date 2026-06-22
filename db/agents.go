@@ -2,6 +2,19 @@ package db
 
 import "context"
 
+func (c *Conn) RegisterAgentForTeam(ctx context.Context, teamID int64, id string, name string, version string) (Agent, error) {
+	user, err := c.GetFirstUserByTeamID(ctx, teamID)
+	if err != nil {
+		return Agent{}, err
+	}
+	return c.UpsertAgentForUserQuery(ctx, UpsertAgentForUserQueryParams{
+		ID:      id,
+		UserID:  user.ID,
+		Name:    name,
+		Version: version,
+	})
+}
+
 func (c *Conn) ListAgentsForUser(ctx context.Context, userID int64) ([]Agent, error) {
 	rows, err := c.ListAgentsForUserQuery(ctx, userID)
 	if err != nil {

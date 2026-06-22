@@ -26,8 +26,9 @@ type Server struct {
 	Cfg                   *config.Config
 	Logger                *slog.Logger
 
-	CommandBus   *EventBus[shared.AgentCommand]
-	DashboardBus *EventBus[views.DashboardData]
+	CommandBus         *EventBus[shared.AgentCommand]
+	DashboardBus       *EventBus[views.DashboardData]
+	AgentRegisteredBus *EventBus[AgentRegisteredEvent]
 }
 
 func NewServer() *Server {
@@ -59,8 +60,9 @@ func NewServerFromConfig(cfg config.Config) *Server {
 		Logger:                log,
 		Cfg:                   &cfg,
 
-		CommandBus:   NewEventBus[shared.AgentCommand](),
-		DashboardBus: NewEventBus[views.DashboardData](),
+		CommandBus:         NewEventBus[shared.AgentCommand](),
+		DashboardBus:       NewEventBus[views.DashboardData](),
+		AgentRegisteredBus: NewEventBus[AgentRegisteredEvent](),
 	}
 
 	s.Router.Use(s.CrossOriginProtection.Handler)
@@ -78,6 +80,7 @@ func NewServerFromConfig(cfg config.Config) *Server {
 	s.Router.Post("/ingest", s.HandleIngest)
 	s.Router.Get("/connect", s.HandleConnect)
 
+	s.Router.Get("/events", s.HandleIndexEvents)
 	s.Router.Get("/agents/{agentID}", s.HandleAgentPage)
 	s.Router.Get("/agents/{agentID}/events", s.HandleDashboardEvents)
 

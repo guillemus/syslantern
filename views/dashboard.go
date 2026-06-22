@@ -94,16 +94,6 @@ type DashboardDiskData struct {
 }
 
 func (r *Renderer) AgentsIndex(data AgentsIndexPageData) Node {
-	rows := make([]Node, 0, len(data.Agents))
-	for _, agent := range data.Agents {
-		rows = append(rows, r.agentRow(agent))
-	}
-	if len(rows) == 0 {
-		rows = append(rows, Tr(
-			Td(ColSpan("4"), Class("p-6 text-zinc-500"), Text("No agents added yet.")),
-		))
-	}
-
 	return Div(
 		Class("min-h-dvh bg-zinc-950 p-6 font-mono text-zinc-100"),
 		Main(
@@ -120,6 +110,7 @@ func (r *Renderer) AgentsIndex(data AgentsIndexPageData) Node {
 					Text("Add agent"),
 				),
 			),
+			r.DataGet("init", "/events"),
 			agentInstallDialog(data.InstallCommand),
 			Div(
 				Class("overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"),
@@ -131,11 +122,26 @@ func (r *Renderer) AgentsIndex(data AgentsIndexPageData) Node {
 						Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("Version")),
 						Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("Updated")),
 					)),
-					TBody(rows...),
+					r.agentsTableBody(data.Agents),
 				),
 			),
 		),
 	)
+}
+
+func (r *Renderer) agentsTableBody(agents []AgentsIndexData) Node {
+	rows := make([]Node, 0, len(agents))
+	for _, agent := range agents {
+		rows = append(rows, r.agentRow(agent))
+	}
+	if len(rows) == 0 {
+		rows = append(rows, Tr(
+			Td(ColSpan("4"), Class("p-6 text-zinc-500"), Text("No agents added yet.")),
+		))
+	}
+	nodes := []Node{ID("agents-table-body")}
+	nodes = append(nodes, rows...)
+	return TBody(nodes...)
 }
 
 func agentInstallDialog(command string) Node {

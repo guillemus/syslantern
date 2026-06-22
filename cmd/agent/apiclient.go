@@ -47,7 +47,7 @@ func (c *Client) SendLiveSnapshot(ctx context.Context, snapshot shared.LiveSnaps
 	return nil
 }
 
-func (c *Client) Connect(ctx context.Context, agentID shared.AgentID) <-chan shared.Command {
+func (c *Client) Connect(ctx context.Context, agent shared.Agent, host shared.Host) <-chan shared.Command {
 	commands := make(chan shared.Command)
 
 	go func() {
@@ -57,7 +57,7 @@ func (c *Client) Connect(ctx context.Context, agentID shared.AgentID) <-chan sha
 			if err := ctx.Err(); err != nil {
 				return
 			}
-			err := c.streamCommands(ctx, agentID, commands)
+			err := c.streamCommands(ctx, agent, host, commands)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 			}
@@ -72,11 +72,13 @@ func (c *Client) Connect(ctx context.Context, agentID shared.AgentID) <-chan sha
 	return commands
 }
 
-func (c *Client) streamCommands(ctx context.Context, agentID shared.AgentID, commands chan<- shared.Command) error {
+func (c *Client) streamCommands(ctx context.Context, agent shared.Agent, host shared.Host, commands chan<- shared.Command) error {
 	resp, err := c.resty.R().
 		SetContext(ctx).
 		SetDoNotParseResponse(true).
-		SetQueryParam("agent_id", string(agentID)).
+		SetQueryParam("agent_id", string(agent.ID)).
+		SetQueryParam("agent_name", host.Name).
+		SetQueryParam("agent_version", agent.Version).
 		Get("/connect")
 	if err != nil {
 		return fmt.Errorf("open command stream: %w", err)

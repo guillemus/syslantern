@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 	"strings"
+	"syslantern/db"
 	"syslantern/shared"
 	"syslantern/validate"
 	"time"
@@ -36,16 +37,32 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleConnect(w http.ResponseWriter, r *http.Request) {
-	if !s.IsValidAgentAPIKey(r) {
+	agentID := shared.AgentID(r.URL.Query().Get("agent_id"))
+	agentName := r.URL.Query().Get("agent_name")
+	agentVersion := r.URL.Query().Get("agent_version")
+
+	team, ok := s.AuthenticateAgentAPIKey(r)
+	if !ok {
 		http.Error(w, "Invalid agent API key.", http.StatusUnauthorized)
 		return
 	}
 
-	agentID := shared.AgentID(r.URL.Query().Get("agent_id"))
 	if agentID == "" {
 		http.Error(w, "Send agent_id.", http.StatusBadRequest)
 		return
 	}
+
+	if agentName == "" {
+		agentName = string(agentID)
+	}
+
+	agent, err := s.DB.RegisterAgentForTeam(r.Context(), team.ID, string(agentID), agentName, agentVersion)
+	if err != nil {
+		s.Logger.Warn("connect: register agent", "err", err)
+		http.Error(w, "Could not register agent.", http.StatusInternalServerError)
+		return
+	}
+	s.AgentRegisteredBus.Emit(r.Context(), AgentRegisteredEvent{UserID: agent.UserID})
 
 	commandsC := make(chan shared.Command, 16)
 	flusher := w.(http.Flusher)
@@ -86,10 +103,20 @@ func (s *Server) HandleConnect(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) IsValidAgentAPIKey(r *http.Request) bool {
+	_, ok := s.AuthenticateAgentAPIKey(r)
+	return ok
+}
+
+func (s *Server) AuthenticateAgentAPIKey(r *http.Request) (db.Team, bool) {
 	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if !ok || token == "" {
-		return false
+		return db.Team{}, false
 	}
-	_, err := s.DB.GetTeamByAgentAPIKey(r.Context(), token)
-	return err == nil
+
+	team, err := s.DB.GetTeamByAgentAPIKey(r.Context(), token)
+	if err != nil {
+		return team, false
+	}
+
+	return team, true
 }

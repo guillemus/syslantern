@@ -26,6 +26,16 @@ func newRootCommand(out io.Writer) *cobra.Command {
 		},
 	}
 
+	cmd.AddCommand(&cobra.Command{
+		Use:   "version",
+		Short: "Print the agent version",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Fprintln(out, version)
+			return nil
+		},
+	})
+
 	setCmd := &cobra.Command{
 		Use:   "set",
 		Short: "Set agent configuration values",

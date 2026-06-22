@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"syslantern/shared"
@@ -10,6 +11,10 @@ import (
 	"github.com/starfederation/datastar-go/datastar"
 )
 
+type AgentRegisteredEvent struct {
+	UserID int64
+}
+
 func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 	user, exists := s.GetAuthenticatedUser(w, r)
 	if !exists {
@@ -17,7 +22,7 @@ func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	agents, err := s.DB.ListAgentsForUser(r.Context(), user.ID)
+	agents, err := s.agentsIndexData(r.Context(), user.ID)
 	if err != nil {
 		s.Logger.Warn("agents index: list agents", "err", err)
 		http.Error(w, "Could not load your agents.", http.StatusInternalServerError)
@@ -32,19 +37,29 @@ func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := views.AgentsIndexPageData{
-		Agents:         make([]views.AgentsIndexData, 0, len(agents)),
+		Agents:         agents,
 		InstallCommand: s.agentInstallCommand(r, team.AgentApiKey),
 	}
+
+	s.Renderer.RenderAgentsIndex(w, data)
+}
+
+func (s *Server) agentsIndexData(ctx context.Context, userID int64) ([]views.AgentsIndexData, error) {
+	agents, err := s.DB.ListAgentsForUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	data := make([]views.AgentsIndexData, 0, len(agents))
 	for _, agent := range agents {
-		data.Agents = append(data.Agents, views.AgentsIndexData{
+		data = append(data, views.AgentsIndexData{
 			ID:        agent.ID,
 			Name:      agent.Name,
 			Version:   agent.Version,
 			UpdatedAt: agent.UpdatedAt,
 		})
 	}
-
-	s.Renderer.RenderAgentsIndex(w, data)
+	return data, nil
 }
 
 func (s *Server) agentInstallCommand(r *http.Request, agentAPIKey string) string {
@@ -71,10 +86,46 @@ func hubURL(r *http.Request) string {
 	return fmt.Sprintf("%s://%s", scheme, r.Host)
 }
 
-func (s *Server) HandleAgentPage(w http.ResponseWriter, r *http.Request) {
-	// fixme: get data somehow
+func (s *Server) HandleIndexEvents(w http.ResponseWriter, r *http.Request) {
+	user, exists := s.GetAuthenticatedUser(w, r)
+	if !exists {
+		http.Error(w, "Sign in to view your agents.", http.StatusUnauthorized)
+		return
+	}
 
-	// agentID := shared.AgentID(chi.URLParam(r, "agentID"))
+	events := make(chan AgentRegisteredEvent, 16)
+	cancel := s.AgentRegisteredBus.Subscribe(r.Context(), func(evt AgentRegisteredEvent) {
+		if evt.UserID != user.ID {
+			return
+		}
+		events <- evt
+	})
+	defer cancel()
+
+	sse := datastar.NewSSE(w, r)
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-events:
+			agents, err := s.agentsIndexData(r.Context(), user.ID)
+			if err != nil {
+				s.Logger.Warn("index events: list agents", "err", err)
+				return
+			}
+			if err := sse.PatchElements(s.Renderer.RenderAgentsTableBodyHTML(agents)); err != nil {
+				s.Logger.Warn("index events: patch table", "err", err)
+				return
+			}
+		}
+	}
+}
+
+func (s *Server) HandleAgentPage(w http.ResponseWriter, r *http.Request) {
+	agentID := shared.AgentID(chi.URLParam(r, "agentID"))
+	_ = agentID
+
+	// fixme: get data somehow
 	// s.Renderer.RenderDashboard(w, data)
 }
 

@@ -47,7 +47,7 @@ func collectAgentHost() (shared.Agent, shared.Host, error) {
 
 	agent := shared.Agent{
 		ID:      shared.AgentID(hostInfo.HostID),
-		Version: "0.1.0",
+		Version: version,
 	}
 	host := shared.Host{
 		ID:   hostInfo.HostID,

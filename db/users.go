@@ -18,6 +18,11 @@ func (c *Conn) GetUserByID(ctx context.Context, id int64) (User, error) {
 	return row.User, err
 }
 
+func (c *Conn) GetFirstUserByTeamID(ctx context.Context, teamID int64) (User, error) {
+	row, err := c.GetFirstUserByTeamIDQuery(ctx, teamID)
+	return row.User, err
+}
+
 func (c *Conn) CreateUserAndTeam(ctx context.Context, email, passwordHash string) (User, error) {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {

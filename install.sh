@@ -88,4 +88,5 @@ systemctl enable syslantern-agent
 systemctl restart syslantern-agent
 
 log "SysLantern agent installed"
+log "Open your SysLantern hub to see this agent: ${hub_url}"
 systemctl --no-pager --full status syslantern-agent || true

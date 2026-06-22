@@ -42,7 +42,7 @@ func StartAgent(ctx context.Context) {
 }
 
 func (a *Agent) Start(ctx context.Context) {
-	cmdC := a.client.Connect(ctx, a.agent.ID)
+	cmdC := a.client.Connect(ctx, a.agent, a.host)
 
 	collectMetricsTick := time.NewTicker(2 * time.Second)
 	defer collectMetricsTick.Stop()

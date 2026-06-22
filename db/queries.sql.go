@@ -28,38 +28,6 @@ func (q *Queries) CommitSessionQuery(ctx context.Context, arg CommitSessionQuery
 	return err
 }
 
-const createAgentQuery = `-- name: CreateAgentQuery :one
-INSERT INTO agents (id, user_id, name, version)
-VALUES (?1, ?2, ?3, ?4)
-RETURNING id, user_id, name, version, created_at, updated_at
-`
-
-type CreateAgentQueryParams struct {
-	ID      string `db:"id"`
-	UserID  int64  `db:"user_id"`
-	Name    string `db:"name"`
-	Version string `db:"version"`
-}
-
-func (q *Queries) CreateAgentQuery(ctx context.Context, arg CreateAgentQueryParams) (Agent, error) {
-	row := q.db.QueryRowContext(ctx, createAgentQuery,
-		arg.ID,
-		arg.UserID,
-		arg.Name,
-		arg.Version,
-	)
-	var i Agent
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.Name,
-		&i.Version,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const createCPUSampleQuery = `-- name: CreateCPUSampleQuery :exec
 INSERT INTO cpu_samples (
     observed_at,
@@ -344,6 +312,32 @@ func (q *Queries) GetAgentForUserQuery(ctx context.Context, arg GetAgentForUserQ
 		&i.Agent.Version,
 		&i.Agent.CreatedAt,
 		&i.Agent.UpdatedAt,
+	)
+	return i, err
+}
+
+const getFirstUserByTeamIDQuery = `-- name: GetFirstUserByTeamIDQuery :one
+SELECT users.id, users.team_id, users.email, users.password_hash, users.created_at, users.updated_at
+FROM users
+WHERE team_id = ?1
+ORDER BY id
+LIMIT 1
+`
+
+type GetFirstUserByTeamIDQueryRow struct {
+	User User `db:"user"`
+}
+
+func (q *Queries) GetFirstUserByTeamIDQuery(ctx context.Context, teamID int64) (GetFirstUserByTeamIDQueryRow, error) {
+	row := q.db.QueryRowContext(ctx, getFirstUserByTeamIDQuery, teamID)
+	var i GetFirstUserByTeamIDQueryRow
+	err := row.Scan(
+		&i.User.ID,
+		&i.User.TeamID,
+		&i.User.Email,
+		&i.User.PasswordHash,
+		&i.User.CreatedAt,
+		&i.User.UpdatedAt,
 	)
 	return i, err
 }
@@ -788,4 +782,41 @@ type TouchAgentQueryParams struct {
 func (q *Queries) TouchAgentQuery(ctx context.Context, arg TouchAgentQueryParams) error {
 	_, err := q.db.ExecContext(ctx, touchAgentQuery, arg.Version, arg.ID)
 	return err
+}
+
+const upsertAgentForUserQuery = `-- name: UpsertAgentForUserQuery :one
+INSERT INTO agents (id, user_id, name, version)
+VALUES (?1, ?2, ?3, ?4)
+ON CONFLICT(id) DO UPDATE SET
+    name = excluded.name,
+    version = excluded.version,
+    updated_at = CURRENT_TIMESTAMP
+WHERE agents.user_id = excluded.user_id
+RETURNING id, user_id, name, version, created_at, updated_at
+`
+
+type UpsertAgentForUserQueryParams struct {
+	ID      string `db:"id"`
+	UserID  int64  `db:"user_id"`
+	Name    string `db:"name"`
+	Version string `db:"version"`
+}
+
+func (q *Queries) UpsertAgentForUserQuery(ctx context.Context, arg UpsertAgentForUserQueryParams) (Agent, error) {
+	row := q.db.QueryRowContext(ctx, upsertAgentForUserQuery,
+		arg.ID,
+		arg.UserID,
+		arg.Name,
+		arg.Version,
+	)
+	var i Agent
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Version,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

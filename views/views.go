@@ -59,6 +59,10 @@ func (r *Renderer) RenderDashboardHistoryHTML(data DashboardAnalyticsData) strin
 	return r.RenderString(DashboardHistory(data))
 }
 
+func (r *Renderer) RenderAgentsTableBodyHTML(data []AgentsIndexData) string {
+	return r.RenderString(r.agentsTableBody(data))
+}
+
 func (r *Renderer) RenderDashboardExampleResultHTML(data DashboardExampleResultData) (string, error) {
 	var body bytes.Buffer
 	node := DashboardExampleResult(data)

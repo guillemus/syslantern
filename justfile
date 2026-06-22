@@ -32,19 +32,18 @@ build-linux: build-assets
 	mkdir -p dist
 	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o dist/syslantern ./cmd/server
 
-agent-build:
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o dist/syslantern ./cmd/agent
+agent-version := `git describe --tags --always --dirty 2>/dev/null || echo dev`
 
-agent-package: agent-build
+agent-build-linux:
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-X main.version={{agent-version}}" -o dist/agent-linux-arm64/syslantern ./cmd/agent
+
+agent-package: agent-build-linux
 	# COPYFILE_DISABLE stops macOS tar from adding AppleDouble ._* metadata files.
 	# --no-xattrs stops macOS tar from adding LIBARCHIVE.xattr.* headers that Linux tar warns about.
-	COPYFILE_DISABLE=1 tar --no-xattrs -czf public/syslantern-agent.tar.gz -C dist syslantern
+	COPYFILE_DISABLE=1 tar --no-xattrs -czf public/syslantern-agent.tar.gz -C dist/agent-linux-arm64 syslantern
 
-release-check:
-	goreleaser check
-
-agent-install: agent-build
-	multipass transfer dist/syslantern-agent linuxbox:/tmp/syslantern-agent
+agent-install: agent-build-linux
+	multipass transfer dist/agent-linux-arm64/syslantern linuxbox:/tmp/syslantern-agent
 	multipass transfer scripts/install-multipass-agent.sh linuxbox:/tmp/install-multipass-agent.sh
 	multipass exec linuxbox -- chmod +x /tmp/install-multipass-agent.sh
 	multipass exec linuxbox -- sudo /tmp/install-multipass-agent.sh
