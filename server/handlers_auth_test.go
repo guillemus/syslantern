@@ -1,0 +1,112 @@
+package server
+
+import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"syslantern/config"
+	"syslantern/db"
+
+	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
+)
+
+func TestAuthSignUpThenSignIn(t *testing.T) {
+	s := newAuthTestServer(t)
+
+	signUp := sendPostJson(s, "/sign-up", `{"email":"test@example.com","password":"correct horse battery staple"}`)
+	assertRedirectHome(t, signUp, "sign-up")
+	require.NotEmpty(t, signUp.Result().Cookies(), "sign-up should create a session cookie")
+
+	user, err := s.DB.GetUserByEmail(t.Context(), "test@example.com")
+	require.NoError(t, err, "sign-up should create user")
+	require.NoError(t, bcrypt.CompareHashAndPassword(
+		[]byte(user.PasswordHash.String), []byte("correct horse battery staple"),
+	), "sign-up should store hashed password")
+
+	team, err := s.DB.GetTeamByID(t.Context(), user.TeamID)
+	require.NoError(t, err, "sign-up should create team")
+	require.Equal(t, "My Team", team.Name, "sign-up should create default team")
+	require.NotEmpty(t, team.AgentApiKey, "sign-up should create team agent API key")
+
+	assertCookiesAuthenticate(t, s, signUp.Result().Cookies(), "test@example.com", "sign-up cookie should authenticate the new user")
+
+	signIn := sendPostJson(s,
+		"/sign-in", `{"email":"test@example.com","password":"correct horse battery staple"}`, signUp.Result().Cookies()...)
+	assertRedirectHome(t, signIn, "sign-in")
+	require.NotEmpty(t, signIn.Result().Cookies(), "sign-in should set a session cookie")
+	assertCookiesAuthenticate(t, s, signIn.Result().Cookies(), "test@example.com", "sign-in cookie should authenticate the user")
+}
+
+func TestHandleSignInRejectsBadPassword(t *testing.T) {
+	s := newAuthTestServer(t)
+	_, err := s.DB.CreateUserAndTeam(t.Context(), "test@example.com", "$2a$10$seFT5QbguA5gFM1daVH0xec0GUnf31awNmVK89yjQ5A9vuwU6kyhu")
+	require.NoError(t, err, "create existing user fixture")
+
+	rr := sendPostJson(s, "/sign-in", `{"email":"test@example.com","password":"wrong"}`)
+
+	require.Equal(t, http.StatusOK, rr.Code, "bad sign-in should re-render the form")
+	require.Contains(t, rr.Body.String(), "Invalid email or password.", "bad sign-in should show invalid credentials copy")
+	require.Empty(t, rr.Result().Cookies(), "bad sign-in should not create a session cookie")
+}
+
+func sendPostJson(s *Server, url string, json string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+	req := newPostRequest(url, json)
+	for _, cookie := range cookies {
+		req.AddCookie(cookie)
+	}
+	rr := httptest.NewRecorder()
+	s.Router.ServeHTTP(rr, req)
+	return rr
+}
+
+func assertRedirectHome(t *testing.T, rr *httptest.ResponseRecorder, action string) {
+	t.Helper()
+
+	require.Equal(t, http.StatusOK, rr.Code, "%s should respond successfully", action)
+	require.Equal(t, "text/event-stream", rr.Header().Get("Content-Type"), "%s success should stream a Datastar redirect", action)
+	require.Contains(t, rr.Body.String(), `window.location.href = "/"`, "%s success should redirect home", action)
+}
+
+func assertCookiesAuthenticate(t *testing.T, s *Server, cookies []*http.Cookie, email string, msg string) {
+	t.Helper()
+
+	req := newGetRequest("/")
+	for _, cookie := range cookies {
+		req.AddCookie(cookie)
+	}
+	rr := httptest.NewRecorder()
+	s.Sessions.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, exists := s.GetAuthenticatedUser(w, r)
+		require.True(t, exists, msg)
+		require.Equal(t, email, user.Email, "authenticated user should match email")
+	})).ServeHTTP(rr, req)
+}
+
+func newGetRequest(url string) *http.Request {
+	return httptest.NewRequest(http.MethodGet, url, nil)
+}
+
+func newPostRequest(url string, json string) *http.Request {
+	return httptest.NewRequest(http.MethodPost, url, strings.NewReader(json))
+}
+
+func newAuthTestServer(t *testing.T) *Server {
+	t.Helper()
+
+	s := NewServerFromConfig(config.Config{
+		DBPath:       fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name()),
+		Port:         "0",
+		AssetVersion: "test",
+		Dev:          true,
+	})
+	t.Cleanup(func() { require.NoError(t, s.DB.Close(), "close test DB") })
+
+	_, err := s.DB.Exec(db.SchemaSQL)
+	require.NoError(t, err, "apply schema")
+
+	return s
+}

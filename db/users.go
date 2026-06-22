@@ -5,12 +5,8 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
-	"errors"
 	"fmt"
-	"strings"
 )
-
-var ErrDuplicateEmail = errors.New("duplicate email")
 
 func (c *Conn) GetUserByEmail(ctx context.Context, email string) (User, error) {
 	row, err := c.GetUserByEmailQuery(ctx, email)
@@ -41,11 +37,12 @@ func (c *Conn) CreateUserAndTeam(ctx context.Context, email, passwordHash string
 		return User{}, err
 	}
 
-	user, err := q.CreateUserQuery(ctx, CreateUserQueryParams{TeamID: team.ID, Email: email, PasswordHash: sql.NullString{String: passwordHash, Valid: true}})
+	user, err := q.CreateUserQuery(ctx, CreateUserQueryParams{
+		TeamID:       team.ID,
+		Email:        email,
+		PasswordHash: sql.NullString{String: passwordHash, Valid: true}},
+	)
 	if err != nil {
-		if strings.Contains(err.Error(), "users_email_lower_idx") || strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			return User{}, ErrDuplicateEmail
-		}
 		return User{}, err
 	}
 

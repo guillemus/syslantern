@@ -31,8 +31,10 @@ type Server struct {
 }
 
 func NewServer() *Server {
-	cfg := config.ParseConfig()
+	return NewServerFromConfig(config.ParseConfig())
+}
 
+func NewServerFromConfig(cfg config.Config) *Server {
 	conn, err := db.Connect(cfg.DBPath)
 	if err != nil {
 		log.Fatalf("db: %v", err)

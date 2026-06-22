@@ -102,12 +102,6 @@ func (s *Server) HandleSignUp(w http.ResponseWriter, r *http.Request) {
 
 	user, err := s.DB.CreateUserAndTeam(ctx, payload.Email, string(hash))
 	if err != nil {
-		if errors.Is(err, db.ErrDuplicateEmail) {
-			s.Logger.Warn("sign up: duplicate email", "email", payload.Email)
-			s.Renderer.RenderSignUpGenericAuthErr(w, payload.Email)
-			return
-		}
-
 		s.Logger.Error("sign up: create user", "email", payload.Email, "err", err)
 		s.Renderer.RenderSignUpGenericAuthErr(w, payload.Email)
 		return

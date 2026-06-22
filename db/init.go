@@ -2,10 +2,14 @@ package db
 
 import (
 	"database/sql"
+	_ "embed"
 	"fmt"
 
 	_ "modernc.org/sqlite"
 )
+
+//go:embed schema.sql
+var SchemaSQL string
 
 type Conn struct {
 	*sql.DB

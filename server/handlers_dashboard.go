@@ -33,7 +33,7 @@ func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 
 	data := views.AgentsIndexPageData{
 		Agents:         make([]views.AgentsIndexData, 0, len(agents)),
-		InstallCommand: agentInstallCommand(r, team.ID, team.AgentApiKey),
+		InstallCommand: agentInstallCommand(r, team.AgentApiKey),
 	}
 	for _, agent := range agents {
 		data.Agents = append(data.Agents, views.AgentsIndexData{
@@ -47,7 +47,11 @@ func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 	s.Renderer.RenderAgentsIndex(w, data)
 }
 
-func agentInstallCommand(r *http.Request, teamID int64, agentAPIKey string) string {
+func agentInstallCommand(r *http.Request, agentAPIKey string) string {
+	return fmt.Sprintf("curl -fsSL %s/install.sh | bash -s -- %q", hubURL(r), agentAPIKey)
+}
+
+func hubURL(r *http.Request) string {
 	scheme := "http"
 	if r.TLS != nil {
 		scheme = "https"
@@ -55,8 +59,7 @@ func agentInstallCommand(r *http.Request, teamID int64, agentAPIKey string) stri
 	if forwardedProto := r.Header.Get("X-Forwarded-Proto"); forwardedProto != "" {
 		scheme = forwardedProto
 	}
-	hubURL := fmt.Sprintf("%s://%s", scheme, r.Host)
-	return fmt.Sprintf("SYSLANTERN_HUB_URL=%q SYSLANTERN_TEAM_ID=%d SYSLANTERN_AGENT_API_KEY=%q syslantern-agent", hubURL, teamID, agentAPIKey)
+	return fmt.Sprintf("%s://%s", scheme, r.Host)
 }
 
 func (s *Server) HandleAgentPage(w http.ResponseWriter, r *http.Request) {
