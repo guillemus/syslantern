@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"syslantern/shared"
 	"time"
@@ -9,7 +10,7 @@ import (
 
 const sampleRetention = 30 * 24 * time.Hour
 
-func (c *Conn) SaveLiveSnapshot(ctx context.Context, snapshot shared.LiveSnapshot) error {
+func (c *Conn) SaveLiveSnapshot(ctx context.Context, teamID TeamID, snapshot shared.LiveSnapshot) error {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -17,6 +18,18 @@ func (c *Conn) SaveLiveSnapshot(ctx context.Context, snapshot shared.LiveSnapsho
 	defer tx.Rollback()
 
 	queries := c.Queries.WithTx(tx)
+	updated, err := queries.TouchAgentForTeamQuery(ctx, TouchAgentForTeamQueryParams{
+		ID:      AgentID(snapshot.Agent.ID),
+		TeamID:  teamID,
+		Version: snapshot.Agent.Version,
+	})
+	if err != nil {
+		return err
+	}
+	if updated == 0 {
+		return sql.ErrNoRows
+	}
+
 	metrics := snapshot.Metrics
 	observedAt := metrics.ObservedAt.Format(time.RFC3339Nano)
 

@@ -12,7 +12,8 @@ import (
 )
 
 func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
-	if !s.IsValidAgentAPIKey(r) {
+	team, ok := s.AuthenticateAgentAPIKey(r)
+	if !ok {
 		http.Error(w, "Invalid agent API key.", http.StatusUnauthorized)
 		return
 	}
@@ -25,7 +26,7 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.DB.SaveLiveSnapshot(r.Context(), *payload.LiveSnapshot); err != nil {
+	if err := s.DB.SaveLiveSnapshot(r.Context(), team.ID, *payload.LiveSnapshot); err != nil {
 		s.Logger.Error("ingest: save live snapshot", "err", err)
 		http.Error(w, "Could not save ingest event.", http.StatusInternalServerError)
 		return
@@ -56,7 +57,7 @@ func (s *Server) HandleConnect(w http.ResponseWriter, r *http.Request) {
 		agentName = string(agentID)
 	}
 
-	_, err := s.DB.RegisterAgentForTeam(r.Context(), team.ID, db.AgentID(agentID), agentName, agentVersion)
+	_, err := s.DB.RegisterAgentForTeam(r.Context(), team.ID, agentID, agentName, agentVersion)
 	if err != nil {
 		s.Logger.Warn("connect: register agent", "err", err)
 		http.Error(w, "Could not register agent.", http.StatusInternalServerError)

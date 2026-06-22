@@ -65,11 +65,12 @@ FROM agents
 WHERE id = @id
 AND team_id = @team_id;
 
--- name: TouchAgentQuery :exec
+-- name: TouchAgentForTeamQuery :execrows
 UPDATE agents
 SET version = @version,
     updated_at = CURRENT_TIMESTAMP
-WHERE id = @id;
+WHERE id = @id
+AND team_id = @team_id;
 
 -- name: CreateCPUSampleQuery :exec
 INSERT INTO cpu_samples (

@@ -741,21 +741,26 @@ func (q *Queries) ListMemorySamplesSinceQuery(ctx context.Context, since string)
 	return items, nil
 }
 
-const touchAgentQuery = `-- name: TouchAgentQuery :exec
+const touchAgentForTeamQuery = `-- name: TouchAgentForTeamQuery :execrows
 UPDATE agents
 SET version = ?1,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?2
+AND team_id = ?3
 `
 
-type TouchAgentQueryParams struct {
+type TouchAgentForTeamQueryParams struct {
 	Version string  `db:"version"`
 	ID      AgentID `db:"id"`
+	TeamID  TeamID  `db:"team_id"`
 }
 
-func (q *Queries) TouchAgentQuery(ctx context.Context, arg TouchAgentQueryParams) error {
-	_, err := q.db.ExecContext(ctx, touchAgentQuery, arg.Version, arg.ID)
-	return err
+func (q *Queries) TouchAgentForTeamQuery(ctx context.Context, arg TouchAgentForTeamQueryParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, touchAgentForTeamQuery, arg.Version, arg.ID, arg.TeamID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const upsertAgentForTeamQuery = `-- name: UpsertAgentForTeamQuery :one

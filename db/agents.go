@@ -1,10 +1,13 @@
 package db
 
-import "context"
+import (
+	"context"
+	"syslantern/shared"
+)
 
-func (c *Conn) RegisterAgentForTeam(ctx context.Context, teamID TeamID, id AgentID, name string, version string) (Agent, error) {
+func (c *Conn) RegisterAgentForTeam(ctx context.Context, teamID TeamID, id shared.AgentID, name string, version string) (Agent, error) {
 	return c.UpsertAgentForTeamQuery(ctx, UpsertAgentForTeamQueryParams{
-		ID:      id,
+		ID:      AgentID(id),
 		TeamID:  teamID,
 		Name:    name,
 		Version: version,
