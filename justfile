@@ -35,6 +35,9 @@ build-linux: build-assets
 agent-build:
 	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o dist/syslantern-agent ./cmd/agent
 
+release-check:
+	goreleaser check
+
 agent-install: agent-build
 	multipass transfer dist/syslantern-agent linuxbox:/tmp/syslantern-agent
 	multipass transfer scripts/install-multipass-agent.sh linuxbox:/tmp/install-multipass-agent.sh

@@ -44,8 +44,7 @@ func NewServerFromConfig(cfg config.Config) *Server {
 
 	sessionManager := scs.New()
 	sessionManager.Store = conn
-	sessionManager.Lifetime = 24 * time.Hour
-	sessionManager.IdleTimeout = 8 * time.Hour
+	sessionManager.Lifetime = 7 * 24 * time.Hour
 	sessionManager.HashTokenInStore = true
 	sessionManager.Cookie.Secure = !cfg.Dev
 	sessionManager.Cookie.HttpOnly = true
@@ -67,6 +66,7 @@ func NewServerFromConfig(cfg config.Config) *Server {
 	s.Router.Use(s.CrossOriginProtection.Handler)
 	s.Router.Use(s.Sessions.LoadAndSave)
 	s.Router.Get("/public/*", syslantern.GetPublicHandler(cfg).ServeHTTP)
+	s.Router.Get("/install.sh", s.HandleInstallScript)
 
 	s.Router.Get("/", s.HandleIndexPage)
 	s.Router.Get("/sign-in", s.HandleSignInPage)

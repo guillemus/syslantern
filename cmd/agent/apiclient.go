@@ -17,10 +17,11 @@ type Client struct {
 	resty *resty.Client
 }
 
-func NewClient() *Client {
+func NewClient(hubURL string, agentAPIKey string) *Client {
 	return &Client{
 		resty: resty.New().
-			SetBaseURL("http://host.multipass:3000"),
+			SetBaseURL(hubURL).
+			SetHeader("Authorization", "Bearer "+agentAPIKey),
 	}
 }
 

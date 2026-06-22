@@ -51,6 +51,8 @@ func agentInstallCommand(r *http.Request, agentAPIKey string) string {
 	return fmt.Sprintf("curl -fsSL %s/install.sh | bash -s -- %q", hubURL(r), agentAPIKey)
 }
 
+// hubURL uses the current request host so self-hosted hubs generate install
+// commands that point agents back to the same URL the user is visiting.
 func hubURL(r *http.Request) string {
 	scheme := "http"
 	if r.TLS != nil {

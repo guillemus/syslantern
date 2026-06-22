@@ -14,13 +14,18 @@ type Agent struct {
 }
 
 func NewAgent() (*Agent, error) {
+	cfg, err := ParseConfig()
+	if err != nil {
+		return nil, fmt.Errorf("parse config: %w", err)
+	}
+
 	agent, host, err := collectAgentHost()
 	if err != nil {
 		return nil, fmt.Errorf("collect agent identity: %w", err)
 	}
 
 	return &Agent{
-		client: NewClient(),
+		client: NewClient(cfg.HubURL, cfg.AgentAPIKey),
 		agent:  agent,
 		host:   host,
 	}, nil

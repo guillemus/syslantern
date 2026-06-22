@@ -26,6 +26,24 @@ func newRootCommand(out io.Writer) *cobra.Command {
 		},
 	}
 
+	setCmd := &cobra.Command{
+		Use:   "set",
+		Short: "Set agent configuration values",
+	}
+	setCmd.AddCommand(&cobra.Command{
+		Use:   "apikey <key>",
+		Short: "Set the agent API key",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := SetAPIKey(args[0]); err != nil {
+				return err
+			}
+			fmt.Fprintln(out, "Config saved.")
+			return nil
+		},
+	})
+	cmd.AddCommand(setCmd)
+
 	cmd.SetOut(out)
 	cmd.SetErr(out)
 

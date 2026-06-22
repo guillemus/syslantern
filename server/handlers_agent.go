@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"strings"
 	"syslantern/shared"
 	"syslantern/validate"
 	"time"
@@ -10,6 +11,11 @@ import (
 )
 
 func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
+	if !s.IsValidAgentAPIKey(r) {
+		http.Error(w, "Invalid agent API key.", http.StatusUnauthorized)
+		return
+	}
+
 	var payload shared.IngestEvent
 
 	if err := validate.Unmarshal(r.Body, &payload); err != nil {
@@ -30,6 +36,11 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleConnect(w http.ResponseWriter, r *http.Request) {
+	if !s.IsValidAgentAPIKey(r) {
+		http.Error(w, "Invalid agent API key.", http.StatusUnauthorized)
+		return
+	}
+
 	agentID := shared.AgentID(r.URL.Query().Get("agent_id"))
 	if agentID == "" {
 		http.Error(w, "Send agent_id.", http.StatusBadRequest)
@@ -72,4 +83,13 @@ func (s *Server) HandleConnect(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 		}
 	}
+}
+
+func (s *Server) IsValidAgentAPIKey(r *http.Request) bool {
+	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if !ok || token == "" {
+		return false
+	}
+	_, err := s.DB.GetTeamByAgentAPIKey(r.Context(), token)
+	return err == nil
 }
