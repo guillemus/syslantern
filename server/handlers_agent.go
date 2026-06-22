@@ -6,7 +6,6 @@ import (
 	"syslantern/db"
 	"syslantern/shared"
 	"syslantern/validate"
-	"time"
 
 	"github.com/bytedance/sonic"
 )
@@ -65,7 +64,6 @@ func (s *Server) HandleConnect(w http.ResponseWriter, r *http.Request) {
 	}
 	s.AgentRegisteredBus.Emit(r.Context(), AgentRegisteredEvent{TeamID: team.ID})
 
-	commandsC := make(chan shared.Command, 16)
 	flusher := w.(http.Flusher)
 
 	// TODO: Are we sure we don't need more headers? are these appropiate?
@@ -74,11 +72,10 @@ func (s *Server) HandleConnect(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Accel-Buffering", "no")
 
 	ctx := r.Context()
-	commandsC <- shared.Command{
-		AnalyticsSnapshot: &shared.AnalyticsSnapshotCommand{
-			Since: time.Now().UTC().Add(-1 * time.Hour),
-		},
-	}
+
+	commandsC := make(chan shared.Command, 16)
+
+	// fixme: listen here for command events that we need to send to the client
 
 	for {
 		select {
