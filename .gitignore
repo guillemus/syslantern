@@ -5,6 +5,7 @@ dist/
 
 public/styles.css
 public/scripts.js
+public/syslantern-agent.tar.gz
 
 .env
 .air/

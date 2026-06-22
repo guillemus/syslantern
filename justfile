@@ -33,7 +33,12 @@ build-linux: build-assets
 	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o dist/syslantern ./cmd/server
 
 agent-build:
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o dist/syslantern-agent ./cmd/agent
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o dist/syslantern ./cmd/agent
+
+agent-package: agent-build
+	# COPYFILE_DISABLE stops macOS tar from adding AppleDouble ._* metadata files.
+	# --no-xattrs stops macOS tar from adding LIBARCHIVE.xattr.* headers that Linux tar warns about.
+	COPYFILE_DISABLE=1 tar --no-xattrs -czf public/syslantern-agent.tar.gz -C dist syslantern
 
 release-check:
 	goreleaser check

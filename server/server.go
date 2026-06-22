@@ -23,7 +23,7 @@ type Server struct {
 	DB                    *db.Conn
 	Sessions              *scs.SessionManager
 	CrossOriginProtection *http.CrossOriginProtection
-	Port                  string
+	Cfg                   *config.Config
 	Logger                *slog.Logger
 
 	CommandBus   *EventBus[shared.AgentCommand]
@@ -56,8 +56,8 @@ func NewServerFromConfig(cfg config.Config) *Server {
 		DB:                    conn,
 		Sessions:              sessionManager,
 		CrossOriginProtection: NewCrossOriginProtection(log),
-		Port:                  cfg.Port,
 		Logger:                log,
+		Cfg:                   &cfg,
 
 		CommandBus:   NewEventBus[shared.AgentCommand](),
 		DashboardBus: NewEventBus[views.DashboardData](),
@@ -87,7 +87,7 @@ func NewServerFromConfig(cfg config.Config) *Server {
 }
 
 func (s *Server) Start() {
-	addr := ":" + s.Port
+	addr := ":" + s.Cfg.Port
 	s.Logger.Info("server starting", "addr", addr)
 	if err := http.ListenAndServe(addr, s.Router); err != nil {
 		log.Fatal(err)

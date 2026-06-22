@@ -33,7 +33,7 @@ func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 
 	data := views.AgentsIndexPageData{
 		Agents:         make([]views.AgentsIndexData, 0, len(agents)),
-		InstallCommand: agentInstallCommand(r, team.AgentApiKey),
+		InstallCommand: s.agentInstallCommand(r, team.AgentApiKey),
 	}
 	for _, agent := range agents {
 		data.Agents = append(data.Agents, views.AgentsIndexData{
@@ -47,8 +47,15 @@ func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 	s.Renderer.RenderAgentsIndex(w, data)
 }
 
-func agentInstallCommand(r *http.Request, agentAPIKey string) string {
-	return fmt.Sprintf("curl -fsSL %s/install.sh | bash -s -- %q", hubURL(r), agentAPIKey)
+func (s *Server) agentInstallCommand(r *http.Request, agentAPIKey string) string {
+	if s.Cfg.Dev {
+		url := "http://host.multipass:3000"
+		return fmt.Sprintf(
+			"curl -fsSL %s/install.sh -o /tmp/syslantern-install.sh && chmod +x /tmp/syslantern-install.sh && sudo env SYSLANTERN_AGENT_URL=%s/public/syslantern-agent.tar.gz /tmp/syslantern-install.sh %q",
+			url, url, agentAPIKey)
+	}
+	url := hubURL(r)
+	return fmt.Sprintf("curl -fsSL %s/install.sh -o /tmp/syslantern-install.sh && chmod +x /tmp/syslantern-install.sh && sudo /tmp/syslantern-install.sh %q", url, agentAPIKey)
 }
 
 // hubURL uses the current request host so self-hosted hubs generate install

@@ -11,6 +11,9 @@ import (
 //go:embed public/*
 var PublicFS embed.FS
 
+//go:embed install.sh
+var InstallScript string
+
 func GetPublicHandler(cfg config.Config) http.Handler {
 	embeddedPublic, err := fs.Sub(PublicFS, "public")
 	if err != nil {
