@@ -78,9 +78,10 @@ func NewServerFromConfig(cfg config.Config) *Server {
 	s.Router.Post("/logout", s.HandleLogout)
 
 	s.Router.Post("/ingest", s.HandleIngest)
-	s.Router.Get("/connect", s.HandleConnect)
+	s.Router.Get("/agent/config", s.HandleAgentConfig)
 
 	s.Router.Get("/events", s.HandleIndexEvents)
+	s.Router.Get("/agents/register", s.HandleAgentRegister)
 	s.Router.Get("/agents/{agentID}", s.HandleAgentPage)
 	s.Router.Get("/agents/{agentID}/events", s.HandleDashboardEvents)
 

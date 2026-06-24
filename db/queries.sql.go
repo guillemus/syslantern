@@ -287,7 +287,7 @@ func (q *Queries) FindSessionQuery(ctx context.Context, arg FindSessionQueryPara
 }
 
 const getAgentForTeamQuery = `-- name: GetAgentForTeamQuery :one
-SELECT agents.id, agents.team_id, agents.name, agents.version, agents.created_at, agents.updated_at
+SELECT agents.id, agents.team_id, agents.name, agents.version, agents.paused, agents.created_at, agents.updated_at
 FROM agents
 WHERE id = ?1
 AND team_id = ?2
@@ -310,6 +310,7 @@ func (q *Queries) GetAgentForTeamQuery(ctx context.Context, arg GetAgentForTeamQ
 		&i.Agent.TeamID,
 		&i.Agent.Name,
 		&i.Agent.Version,
+		&i.Agent.Paused,
 		&i.Agent.CreatedAt,
 		&i.Agent.UpdatedAt,
 	)
@@ -468,7 +469,7 @@ func (q *Queries) GetUserByIDQuery(ctx context.Context, id UserID) (GetUserByIDQ
 }
 
 const listAgentsForTeamQuery = `-- name: ListAgentsForTeamQuery :many
-SELECT agents.id, agents.team_id, agents.name, agents.version, agents.created_at, agents.updated_at
+SELECT agents.id, agents.team_id, agents.name, agents.version, agents.paused, agents.created_at, agents.updated_at
 FROM agents
 WHERE team_id = ?1
 ORDER BY updated_at DESC
@@ -492,6 +493,7 @@ func (q *Queries) ListAgentsForTeamQuery(ctx context.Context, teamID TeamID) ([]
 			&i.Agent.TeamID,
 			&i.Agent.Name,
 			&i.Agent.Version,
+			&i.Agent.Paused,
 			&i.Agent.CreatedAt,
 			&i.Agent.UpdatedAt,
 		); err != nil {
@@ -771,7 +773,7 @@ ON CONFLICT(id) DO UPDATE SET
     version = excluded.version,
     updated_at = CURRENT_TIMESTAMP
 WHERE agents.team_id = excluded.team_id
-RETURNING id, team_id, name, version, created_at, updated_at
+RETURNING id, team_id, name, version, paused, created_at, updated_at
 `
 
 type UpsertAgentForTeamQueryParams struct {
@@ -794,6 +796,7 @@ func (q *Queries) UpsertAgentForTeamQuery(ctx context.Context, arg UpsertAgentFo
 		&i.TeamID,
 		&i.Name,
 		&i.Version,
+		&i.Paused,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

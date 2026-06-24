@@ -21,6 +21,10 @@ type Agent struct {
 	Version string  `json:"version"`
 }
 
+type AgentConfig struct {
+	Paused bool `json:"paused"`
+}
+
 type Host struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`

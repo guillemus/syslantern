@@ -8,6 +8,7 @@ import (
 )
 
 type Agent struct {
+	cfg    AgentConfig
 	client *Client
 	agent  shared.Agent
 	host   shared.Host
@@ -25,6 +26,7 @@ func NewAgent() (*Agent, error) {
 	}
 
 	return &Agent{
+		cfg:    cfg,
 		client: NewClient(cfg.HubURL, cfg.AgentAPIKey),
 		agent:  agent,
 		host:   host,
@@ -42,8 +44,6 @@ func StartAgent(ctx context.Context) {
 }
 
 func (a *Agent) Start(ctx context.Context) {
-	cmdC := a.client.Connect(ctx, a.agent, a.host)
-
 	collectMetricsTick := time.NewTicker(2 * time.Second)
 	defer collectMetricsTick.Stop()
 
@@ -52,12 +52,19 @@ func (a *Agent) Start(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-collectMetricsTick.C:
-			fmt.Println("ticked, sending snapshot")
+			cfg, err := a.client.GetAgentConfig(ctx, a.agent, a.host)
+			if err != nil {
+				fmt.Println("get agent config err:", err)
+				continue
+			}
+			if cfg.Paused {
+				fmt.Println("agent paused") // fixme: should we even log
+				continue
+			}
+			fmt.Println("ticked, sending snapshot") // fixme: here aswell :S, maybe debug log
 			if err := a.collectSaveSendLiveSnapshot(ctx); err != nil {
 				fmt.Println("collect save send live snapshot err:", err)
 			}
-		case <-cmdC:
-			// TODO: handle here server commands
 		}
 	}
 }

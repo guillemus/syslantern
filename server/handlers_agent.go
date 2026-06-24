@@ -36,10 +36,11 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *Server) HandleConnect(w http.ResponseWriter, r *http.Request) {
-	agentID := shared.AgentID(r.URL.Query().Get("agent_id"))
-	agentName := r.URL.Query().Get("agent_name")
-	agentVersion := r.URL.Query().Get("agent_version")
+func (s *Server) HandleAgentConfig(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	agentID := shared.AgentID(q.Get("agent_id"))
+	agentName := q.Get("agent_name")
+	agentVersion := q.Get("agent_version")
 
 	team, ok := s.AuthenticateAgentAPIKey(r)
 	if !ok {
@@ -56,47 +57,21 @@ func (s *Server) HandleConnect(w http.ResponseWriter, r *http.Request) {
 		agentName = string(agentID)
 	}
 
-	_, err := s.DB.RegisterAgentForTeam(r.Context(), team.ID, agentID, agentName, agentVersion)
+	// fixme: this is horrible, a get should not update
+	agent, err := s.DB.RegisterAgentForTeam(r.Context(), team.ID, agentID, agentName, agentVersion)
 	if err != nil {
-		s.Logger.Warn("connect: register agent", "err", err)
+		s.Logger.Warn("agent config: register agent", "err", err)
 		http.Error(w, "Could not register agent.", http.StatusInternalServerError)
 		return
 	}
-	s.AgentRegisteredBus.Emit(r.Context(), AgentRegisteredEvent{TeamID: team.ID})
+	if agent.CreatedAt.Equal(agent.UpdatedAt) {
+		s.AgentRegisteredBus.Emit(r.Context(), AgentRegisteredEvent{TeamID: team.ID})
+	}
 
-	flusher := w.(http.Flusher)
-
-	// TODO: Are we sure we don't need more headers? are these appropiate?
-	w.Header().Set("Content-Type", "application/x-ndjson")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("X-Accel-Buffering", "no")
-
-	ctx := r.Context()
-
-	commandsC := make(chan shared.Command, 16)
-
-	// fixme: listen here for command events that we need to send to the client
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-
-		case cmd := <-commandsC:
-			b, err := sonic.Marshal(cmd)
-			if err != nil {
-				s.Logger.Warn("connect: encode command", "err", err)
-				continue
-			}
-
-			b = append(b, '\n')
-			if _, err := w.Write(b); err != nil {
-				s.Logger.Warn("connect: write command", "err", err)
-				return
-			}
-
-			flusher.Flush()
-		}
+	w.Header().Set("Content-Type", "application/json")
+	config := shared.AgentConfig{Paused: agent.Paused != 0}
+	if err := sonic.ConfigDefault.NewEncoder(w).Encode(config); err != nil {
+		s.Logger.Warn("agent config: encode response", "err", err)
 	}
 }
 

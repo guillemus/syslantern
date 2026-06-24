@@ -14,6 +14,7 @@ type Agent struct {
 	TeamID    TeamID    `db:"team_id"`
 	Name      string    `db:"name"`
 	Version   string    `db:"version"`
+	Paused    int64     `db:"paused"`
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
 }

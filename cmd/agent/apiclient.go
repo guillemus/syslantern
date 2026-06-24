@@ -3,13 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	"syslantern/shared"
 
-	"github.com/bytedance/sonic"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -47,59 +45,27 @@ func (c *Client) SendLiveSnapshot(ctx context.Context, snapshot shared.LiveSnaps
 	return nil
 }
 
-func (c *Client) Connect(ctx context.Context, agent shared.Agent, host shared.Host) <-chan shared.Command {
-	commands := make(chan shared.Command)
+func (c *Client) GetAgentConfig(ctx context.Context, agent shared.Agent, host shared.Host) (shared.AgentConfig, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 
-	go func() {
-		defer close(commands)
-
-		for {
-			if err := ctx.Err(); err != nil {
-				return
-			}
-			err := c.streamCommands(ctx, agent, host, commands)
-			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
-			}
-
-			select {
-			case <-ctx.Done():
-			case <-time.After(2 * time.Second):
-			}
-		}
-	}()
-
-	return commands
-}
-
-func (c *Client) streamCommands(ctx context.Context, agent shared.Agent, host shared.Host, commands chan<- shared.Command) error {
+	var cfg shared.AgentConfig
 	resp, err := c.resty.R().
 		SetContext(ctx).
-		SetDoNotParseResponse(true).
+		SetResult(&cfg).
 		SetQueryParam("agent_id", string(agent.ID)).
 		SetQueryParam("agent_name", host.Name).
 		SetQueryParam("agent_version", agent.Version).
-		Get("/connect")
+		Get("/agent/config")
 	if err != nil {
-		return fmt.Errorf("open command stream: %w", err)
+		return shared.AgentConfig{}, fmt.Errorf("get agent config: %w", err)
 	}
-	defer resp.RawBody().Close()
 
 	if resp.IsError() {
-		return fmt.Errorf("open command stream: %s", resp.Status())
+		return shared.AgentConfig{}, fmt.Errorf(
+			"get agent config: %s: %s",
+			resp.Status(), strings.TrimSpace(string(resp.Body())))
 	}
 
-	decoder := sonic.ConfigDefault.NewDecoder(resp.RawBody())
-	for {
-		var command shared.Command
-		if err := decoder.Decode(&command); err != nil {
-			return fmt.Errorf("read command stream: %w", err)
-		}
-
-		select {
-		case <-ctx.Done():
-			return nil
-		case commands <- command:
-		}
-	}
+	return cfg, nil
 }
