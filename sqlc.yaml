@@ -23,9 +23,12 @@ sql:
           - column: "teams.id"
             go_type:
               type: "TeamID"
-          - column: "teams.agent_api_key"
+          - column: "agents.api_key"
             go_type:
               type: "AgentAPIKey"
+          - column: "agents.status"
+            go_type:
+              type: "AgentStatus"
           - column: "users.id"
             go_type:
               type: "UserID"

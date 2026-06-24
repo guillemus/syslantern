@@ -6,16 +6,10 @@ import (
 	"net/http"
 	"strings"
 	"syslantern/db"
-	"syslantern/shared"
 	"syslantern/views"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/starfederation/datastar-go/datastar"
 )
-
-type AgentRegisteredEvent struct {
-	TeamID db.TeamID
-}
 
 func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 	user, exists := s.GetAuthenticatedUser(w, r)
@@ -31,22 +25,9 @@ func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	team, err := s.DB.GetTeamByID(r.Context(), user.TeamID)
-	if err != nil {
-		s.Logger.Warn("agents index: get team", "err", err)
-		http.Error(w, "Could not load your team.", http.StatusInternalServerError)
-		return
-	}
-
-	installCommand := s.agentInstallCommand(r, team.AgentApiKey)
-	installCommandDisplay := strings.Replace(installCommand, string(team.AgentApiKey), "••••••••••••••••", 1)
-	data := views.AgentsIndexPageData{
-		Agents:                agents,
-		InstallCommand:        installCommand,
-		InstallCommandDisplay: installCommandDisplay,
-	}
-
-	s.Renderer.RenderAgentsIndex(w, data)
+	s.Renderer.RenderAgentsIndex(w, views.AgentsIndexPageData{
+		Agents: agents,
+	})
 }
 
 func (s *Server) agentsIndexData(ctx context.Context, teamID db.TeamID) ([]views.AgentsIndexData, error) {
@@ -98,21 +79,17 @@ func (s *Server) HandleIndexEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	events := make(chan AgentRegisteredEvent, 16)
-	cancel := s.AgentRegisteredBus.Subscribe(r.Context(), func(evt AgentRegisteredEvent) {
-		if evt.TeamID != user.TeamID {
-			return
-		}
-		events <- evt
-	})
-	defer cancel()
+	agentCreatedC := s.AgentCreatedBus.Subscribe(r.Context())
 
 	sse := datastar.NewSSE(w, r)
 	for {
 		select {
 		case <-r.Context().Done():
 			return
-		case <-events:
+		case evt := <-agentCreatedC:
+			if evt.TeamID != user.TeamID {
+				continue
+			}
 			agents, err := s.agentsIndexData(r.Context(), user.TeamID)
 			if err != nil {
 				s.Logger.Warn("index events: list agents", "err", err)
@@ -126,41 +103,38 @@ func (s *Server) HandleIndexEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) HandleAgentPage(w http.ResponseWriter, r *http.Request) {
-	agentID := shared.AgentID(chi.URLParam(r, "agentID"))
-	_ = agentID
-
-	// fixme: get data somehow
-	// s.Renderer.RenderDashboard(w, data)
-}
-
-func (s *Server) HandleDashboardEvents(w http.ResponseWriter, r *http.Request) {
-	agentID := shared.AgentID(chi.URLParam(r, "agentID"))
-	events := make(chan views.DashboardData, 16)
-	cancel := s.DashboardBus.Subscribe(r.Context(), func(evt views.DashboardData) {
-		if evt.AgentID != string(agentID) {
-			return
-		}
-		events <- evt
-	})
-	defer cancel()
-
-	sse := datastar.NewSSE(w, r)
-
-	for {
-		select {
-		case <-r.Context().Done():
-			return
-		case data := <-events:
-			html := s.Renderer.RenderDashboardStatsHTML(data.Stats)
-			if err := sse.PatchElements(html); err != nil {
-				s.Logger.Warn("dashboard events: patch stats", "err", err)
-				return
-			}
-			if err := sse.PatchElements(s.Renderer.RenderDashboardHistoryHTML(data.Analytics)); err != nil {
-				s.Logger.Warn("dashboard events: patch history", "err", err)
-				return
-			}
-		}
+func (s *Server) HandleAgentNew(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user, exists := s.GetAuthenticatedUser(w, r)
+	if !exists {
+		sse := datastar.NewSSE(w, r)
+		sse.Redirect("/sign-in")
+		return
 	}
+
+	var sig views.NewAgentDialogSignals
+	if err := datastar.ReadSignals(r, &sig); err != nil {
+		s.Logger.Error("agent new: read signals", "err", err)
+		http.Error(w, "Could not read the agent details. Refresh the page and try again.", http.StatusBadRequest)
+		return
+	}
+
+	name := strings.TrimSpace(sig.NewAgentName)
+	if name == "" {
+		http.Error(w, "Enter an agent name.", http.StatusBadRequest)
+		return
+	}
+
+	version := "unknown" // we don't know yet which version the agent has, it has not been installed
+	createdAgent, err := s.DB.CreateAgentForTeam(ctx, user.TeamID, name, version)
+	if err != nil {
+		s.Logger.Error("agent new: create agent", "team_id", user.TeamID, "err", err)
+		http.Error(w, "Could not add the agent. Try again.", http.StatusInternalServerError)
+		return
+	}
+
+	s.AgentCreatedBus.Emit(ctx, AgentCreatedEvent{
+		TeamID:  createdAgent.TeamID,
+		AgentID: createdAgent.ID,
+	})
 }

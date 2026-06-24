@@ -3,19 +3,15 @@
 CREATE TABLE teams (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    agent_api_key TEXT NOT NULL UNIQUE,
-    created_at DATETIME NOT NULL DEFAULT
-    CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT
-    CURRENT_TIMESTAMP
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    team_id INTEGER NOT NULL REFERENCES teams(id) ON
-    DELETE RESTRICT,
+    team_id INTEGER NOT NULL REFERENCES teams(id),
     email TEXT NOT NULL,
-    password_hash TEXT, -- TODO: we will support oauth connections aswell later. 
+    password_hash TEXT NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -36,6 +32,11 @@ CREATE TABLE agents (
     name TEXT NOT NULL,
     version TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL,
+    -- host_id is the id of the host where the agent is installed. This is
+    -- useful to prevent same agent in 2 different machines situations. It's
+    -- more of a UX thing to prevent misconfiguration from the user
+    -- can be null because when creating the agent we don't know yet what host id the agent has
+    host_id TEXT,
     api_key TEXT NOT NULL UNIQUE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP

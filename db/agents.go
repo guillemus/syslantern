@@ -2,15 +2,37 @@ package db
 
 import (
 	"context"
-	"syslantern/shared"
+	"crypto/rand"
+	"database/sql"
+	"encoding/hex"
 )
 
-func (c *Conn) RegisterAgentForTeam(ctx context.Context, teamID TeamID, id shared.AgentID, name string, version string) (Agent, error) {
+const (
+	AgentStatusCreated  AgentStatus = "created"
+	AgentStatusRunning  AgentStatus = "running"
+	AgentStatusDeleted  AgentStatus = "deleted"
+	AgentStatusPaused   AgentStatus = "paused"
+	AgentStatusResuming AgentStatus = "resuming"
+)
+
+func newAgentID() AgentID {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		panic(err)
+	}
+	return AgentID(hex.EncodeToString(buf))
+}
+
+func (c *Conn) CreateAgentForTeam(
+	ctx context.Context, teamID TeamID, name string, version string,
+) (Agent, error) {
+	id := newAgentID()
 	return c.UpsertAgentForTeamQuery(ctx, UpsertAgentForTeamQueryParams{
-		ID:      AgentID(id),
+		ID:      id,
 		TeamID:  teamID,
 		Name:    name,
 		Version: version,
+		Status:  AgentStatusCreated,
 	})
 }
 
@@ -25,4 +47,19 @@ func (c *Conn) ListAgentsForTeam(ctx context.Context, teamID TeamID) ([]Agent, e
 		agents = append(agents, row.Agent)
 	}
 	return agents, nil
+}
+
+func (c *Conn) GetAgentByApiKey(ctx context.Context, apikey string) (Agent, error) {
+	row, err := c.GetAgentByAPIKeyQuery(ctx, AgentAPIKey(apikey))
+	if err != nil {
+		return Agent{}, err
+	}
+	return row.Agent, nil
+}
+
+func (c *Conn) UpdateAgentHostID(ctx context.Context, agentID AgentID, hostID string) error {
+	return c.UpdateAgentHostIDQuery(ctx, UpdateAgentHostIDQueryParams{
+		ID:     agentID,
+		HostID: sql.NullString{String: hostID, Valid: true},
+	})
 }

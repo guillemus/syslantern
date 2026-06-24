@@ -14,8 +14,8 @@ FROM teams
 WHERE id = @id;
 
 -- name: CreateTeamQuery :one
-INSERT INTO teams (name, agent_api_key)
-VALUES (@name, @agent_api_key)
+INSERT INTO teams (name)
+VALUES (@name)
 RETURNING *;
 
 -- name: CreateUserQuery :one
@@ -41,14 +41,16 @@ ON CONFLICT(token) DO UPDATE SET data = excluded.data, expiry = excluded.expiry;
 -- name: GetTeamByAgentAPIKeyQuery :one
 SELECT sqlc.embed(teams)
 FROM teams
-WHERE agent_api_key = @agent_api_key;
+JOIN agents ON agents.team_id = teams.id
+WHERE agents.api_key = @agent_api_key;
 
 -- name: UpsertAgentForTeamQuery :one
-INSERT INTO agents (id, team_id, name, version)
-VALUES (@id, @team_id, @name, @version)
+INSERT INTO agents (id, team_id, name, version, status, api_key)
+VALUES (@id, @team_id, @name, @version, @status, @api_key)
 ON CONFLICT(id) DO UPDATE SET
     name = excluded.name,
     version = excluded.version,
+    status = excluded.status,
     updated_at = CURRENT_TIMESTAMP
 WHERE agents.team_id = excluded.team_id
 RETURNING *;
@@ -64,6 +66,17 @@ SELECT sqlc.embed(agents)
 FROM agents
 WHERE id = @id
 AND team_id = @team_id;
+
+-- name: GetAgentByAPIKeyQuery :one
+SELECT sqlc.embed(agents)
+FROM agents
+WHERE api_key = @api_key;
+
+-- name: UpdateAgentHostIDQuery :exec
+UPDATE agents
+SET host_id = @host_id,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = @id;
 
 -- name: TouchAgentForTeamQuery :execrows
 UPDATE agents

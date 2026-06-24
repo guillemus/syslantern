@@ -42,7 +42,7 @@ func (s *Server) HandleSignIn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := bcrypt.CompareHashAndPassword(
-		[]byte(user.PasswordHash.String), []byte(payload.Password),
+		[]byte(user.PasswordHash), []byte(payload.Password),
 	); err != nil {
 		s.Logger.Warn("sign in: bad password", "email", payload.Email)
 		s.Renderer.RenderSignInInvalidCredsErr(w, payload.Email)

@@ -178,23 +178,17 @@ func (q *Queries) CreateMemorySampleQuery(ctx context.Context, arg CreateMemoryS
 }
 
 const createTeamQuery = `-- name: CreateTeamQuery :one
-INSERT INTO teams (name, agent_api_key)
-VALUES (?1, ?2)
-RETURNING id, name, agent_api_key, created_at, updated_at
+INSERT INTO teams (name)
+VALUES (?1)
+RETURNING id, name, created_at, updated_at
 `
 
-type CreateTeamQueryParams struct {
-	Name        string      `db:"name"`
-	AgentApiKey AgentAPIKey `db:"agent_api_key"`
-}
-
-func (q *Queries) CreateTeamQuery(ctx context.Context, arg CreateTeamQueryParams) (Team, error) {
-	row := q.db.QueryRowContext(ctx, createTeamQuery, arg.Name, arg.AgentApiKey)
+func (q *Queries) CreateTeamQuery(ctx context.Context, name string) (Team, error) {
+	row := q.db.QueryRowContext(ctx, createTeamQuery, name)
 	var i Team
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.AgentApiKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -208,9 +202,9 @@ RETURNING id, team_id, email, password_hash, created_at, updated_at
 `
 
 type CreateUserQueryParams struct {
-	TeamID       TeamID         `db:"team_id"`
-	Email        string         `db:"email"`
-	PasswordHash sql.NullString `db:"password_hash"`
+	TeamID       TeamID `db:"team_id"`
+	Email        string `db:"email"`
+	PasswordHash string `db:"password_hash"`
 }
 
 func (q *Queries) CreateUserQuery(ctx context.Context, arg CreateUserQueryParams) (User, error) {
@@ -286,8 +280,35 @@ func (q *Queries) FindSessionQuery(ctx context.Context, arg FindSessionQueryPara
 	return data, err
 }
 
+const getAgentByAPIKeyQuery = `-- name: GetAgentByAPIKeyQuery :one
+SELECT agents.id, agents.team_id, agents.name, agents.version, agents.status, agents.host_id, agents.api_key, agents.created_at, agents.updated_at
+FROM agents
+WHERE api_key = ?1
+`
+
+type GetAgentByAPIKeyQueryRow struct {
+	Agent Agent `db:"agent"`
+}
+
+func (q *Queries) GetAgentByAPIKeyQuery(ctx context.Context, apiKey AgentAPIKey) (GetAgentByAPIKeyQueryRow, error) {
+	row := q.db.QueryRowContext(ctx, getAgentByAPIKeyQuery, apiKey)
+	var i GetAgentByAPIKeyQueryRow
+	err := row.Scan(
+		&i.Agent.ID,
+		&i.Agent.TeamID,
+		&i.Agent.Name,
+		&i.Agent.Version,
+		&i.Agent.Status,
+		&i.Agent.HostID,
+		&i.Agent.ApiKey,
+		&i.Agent.CreatedAt,
+		&i.Agent.UpdatedAt,
+	)
+	return i, err
+}
+
 const getAgentForTeamQuery = `-- name: GetAgentForTeamQuery :one
-SELECT agents.id, agents.team_id, agents.name, agents.version, agents.paused, agents.created_at, agents.updated_at
+SELECT agents.id, agents.team_id, agents.name, agents.version, agents.status, agents.host_id, agents.api_key, agents.created_at, agents.updated_at
 FROM agents
 WHERE id = ?1
 AND team_id = ?2
@@ -310,7 +331,9 @@ func (q *Queries) GetAgentForTeamQuery(ctx context.Context, arg GetAgentForTeamQ
 		&i.Agent.TeamID,
 		&i.Agent.Name,
 		&i.Agent.Version,
-		&i.Agent.Paused,
+		&i.Agent.Status,
+		&i.Agent.HostID,
+		&i.Agent.ApiKey,
 		&i.Agent.CreatedAt,
 		&i.Agent.UpdatedAt,
 	)
@@ -375,9 +398,10 @@ func (q *Queries) GetLatestMemorySampleQuery(ctx context.Context) (GetLatestMemo
 }
 
 const getTeamByAgentAPIKeyQuery = `-- name: GetTeamByAgentAPIKeyQuery :one
-SELECT teams.id, teams.name, teams.agent_api_key, teams.created_at, teams.updated_at
+SELECT teams.id, teams.name, teams.created_at, teams.updated_at
 FROM teams
-WHERE agent_api_key = ?1
+JOIN agents ON agents.team_id = teams.id
+WHERE agents.api_key = ?1
 `
 
 type GetTeamByAgentAPIKeyQueryRow struct {
@@ -390,7 +414,6 @@ func (q *Queries) GetTeamByAgentAPIKeyQuery(ctx context.Context, agentApiKey Age
 	err := row.Scan(
 		&i.Team.ID,
 		&i.Team.Name,
-		&i.Team.AgentApiKey,
 		&i.Team.CreatedAt,
 		&i.Team.UpdatedAt,
 	)
@@ -398,7 +421,7 @@ func (q *Queries) GetTeamByAgentAPIKeyQuery(ctx context.Context, agentApiKey Age
 }
 
 const getTeamByIDQuery = `-- name: GetTeamByIDQuery :one
-SELECT teams.id, teams.name, teams.agent_api_key, teams.created_at, teams.updated_at
+SELECT teams.id, teams.name, teams.created_at, teams.updated_at
 FROM teams
 WHERE id = ?1
 `
@@ -413,7 +436,6 @@ func (q *Queries) GetTeamByIDQuery(ctx context.Context, id TeamID) (GetTeamByIDQ
 	err := row.Scan(
 		&i.Team.ID,
 		&i.Team.Name,
-		&i.Team.AgentApiKey,
 		&i.Team.CreatedAt,
 		&i.Team.UpdatedAt,
 	)
@@ -469,7 +491,7 @@ func (q *Queries) GetUserByIDQuery(ctx context.Context, id UserID) (GetUserByIDQ
 }
 
 const listAgentsForTeamQuery = `-- name: ListAgentsForTeamQuery :many
-SELECT agents.id, agents.team_id, agents.name, agents.version, agents.paused, agents.created_at, agents.updated_at
+SELECT agents.id, agents.team_id, agents.name, agents.version, agents.status, agents.host_id, agents.api_key, agents.created_at, agents.updated_at
 FROM agents
 WHERE team_id = ?1
 ORDER BY updated_at DESC
@@ -493,7 +515,9 @@ func (q *Queries) ListAgentsForTeamQuery(ctx context.Context, teamID TeamID) ([]
 			&i.Agent.TeamID,
 			&i.Agent.Name,
 			&i.Agent.Version,
-			&i.Agent.Paused,
+			&i.Agent.Status,
+			&i.Agent.HostID,
+			&i.Agent.ApiKey,
 			&i.Agent.CreatedAt,
 			&i.Agent.UpdatedAt,
 		); err != nil {
@@ -765,22 +789,42 @@ func (q *Queries) TouchAgentForTeamQuery(ctx context.Context, arg TouchAgentForT
 	return result.RowsAffected()
 }
 
+const updateAgentHostIDQuery = `-- name: UpdateAgentHostIDQuery :exec
+UPDATE agents
+SET host_id = ?1,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = ?2
+`
+
+type UpdateAgentHostIDQueryParams struct {
+	HostID sql.NullString `db:"host_id"`
+	ID     AgentID        `db:"id"`
+}
+
+func (q *Queries) UpdateAgentHostIDQuery(ctx context.Context, arg UpdateAgentHostIDQueryParams) error {
+	_, err := q.db.ExecContext(ctx, updateAgentHostIDQuery, arg.HostID, arg.ID)
+	return err
+}
+
 const upsertAgentForTeamQuery = `-- name: UpsertAgentForTeamQuery :one
-INSERT INTO agents (id, team_id, name, version)
-VALUES (?1, ?2, ?3, ?4)
+INSERT INTO agents (id, team_id, name, version, status, api_key)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6)
 ON CONFLICT(id) DO UPDATE SET
     name = excluded.name,
     version = excluded.version,
+    status = excluded.status,
     updated_at = CURRENT_TIMESTAMP
 WHERE agents.team_id = excluded.team_id
-RETURNING id, team_id, name, version, paused, created_at, updated_at
+RETURNING id, team_id, name, version, status, host_id, api_key, created_at, updated_at
 `
 
 type UpsertAgentForTeamQueryParams struct {
-	ID      AgentID `db:"id"`
-	TeamID  TeamID  `db:"team_id"`
-	Name    string  `db:"name"`
-	Version string  `db:"version"`
+	ID      AgentID     `db:"id"`
+	TeamID  TeamID      `db:"team_id"`
+	Name    string      `db:"name"`
+	Version string      `db:"version"`
+	Status  AgentStatus `db:"status"`
+	ApiKey  AgentAPIKey `db:"api_key"`
 }
 
 func (q *Queries) UpsertAgentForTeamQuery(ctx context.Context, arg UpsertAgentForTeamQueryParams) (Agent, error) {
@@ -789,6 +833,8 @@ func (q *Queries) UpsertAgentForTeamQuery(ctx context.Context, arg UpsertAgentFo
 		arg.TeamID,
 		arg.Name,
 		arg.Version,
+		arg.Status,
+		arg.ApiKey,
 	)
 	var i Agent
 	err := row.Scan(
@@ -796,7 +842,9 @@ func (q *Queries) UpsertAgentForTeamQuery(ctx context.Context, arg UpsertAgentFo
 		&i.TeamID,
 		&i.Name,
 		&i.Version,
-		&i.Paused,
+		&i.Status,
+		&i.HostID,
+		&i.ApiKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

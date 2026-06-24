@@ -26,6 +26,44 @@ if [ "$(id -u)" != "0" ]; then
 fi
 
 agent_api_key="$1"
+host_id="$(cat /etc/machine-id)"
+
+log "Checking agent registration"
+if ! registration_status="$(curl -sSL -X POST "${hub_url}/agents/already-registered" \
+  -H "Content-Type: application/json" \
+  --data "{\"api_key\":\"${agent_api_key}\",\"host_id\":\"${host_id}\"}")"; then
+  cat >&2 <<EOF
+Cannot verify the SysLantern agent registration.
+Check that the hub URL is reachable, then try again.
+EOF
+  exit 1
+fi
+
+case "$registration_status" in
+  "ALLOW_INSTALL") ;;
+  "INVALID_API_KEY")
+    cat >&2 <<EOF
+Cannot install SysLantern agent: the API key was not found.
+Copy a fresh install command from the SysLantern hub and try again.
+EOF
+    exit 1
+    ;;
+  "DUPLICATED_HOST")
+    cat >&2 <<EOF
+Cannot install SysLantern agent: this API key is already registered to another host.
+Create a new agent in the SysLantern hub and use its install command.
+EOF
+    exit 1
+    ;;
+  *)
+    cat >&2 <<EOF
+Cannot verify the SysLantern agent registration.
+Try again, or check that the hub URL is reachable.
+EOF
+    exit 1
+    ;;
+esac
+
 arch="$(uname -m)"
 case "$arch" in
   x86_64|amd64) arch="amd64" ;;

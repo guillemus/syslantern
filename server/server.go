@@ -26,9 +26,9 @@ type Server struct {
 	Cfg                   *config.Config
 	Logger                *slog.Logger
 
-	CommandBus         *EventBus[shared.AgentCommand]
-	DashboardBus       *EventBus[views.DashboardData]
-	AgentRegisteredBus *EventBus[AgentRegisteredEvent]
+	CommandBus      *EventBus[shared.AgentCommand] // fixme: this has to go
+	DashboardBus    *EventBus[views.DashboardData] // fixme: this has to go
+	AgentCreatedBus *EventBus[AgentCreatedEvent]
 }
 
 func NewServer() *Server {
@@ -60,9 +60,9 @@ func NewServerFromConfig(cfg config.Config) *Server {
 		Logger:                log,
 		Cfg:                   &cfg,
 
-		CommandBus:         NewEventBus[shared.AgentCommand](),
-		DashboardBus:       NewEventBus[views.DashboardData](),
-		AgentRegisteredBus: NewEventBus[AgentRegisteredEvent](),
+		CommandBus:      NewEventBus[shared.AgentCommand](),
+		DashboardBus:    NewEventBus[views.DashboardData](),
+		AgentCreatedBus: NewEventBus[AgentCreatedEvent](),
 	}
 
 	s.Router.Use(s.CrossOriginProtection.Handler)
@@ -70,7 +70,6 @@ func NewServerFromConfig(cfg config.Config) *Server {
 	s.Router.Get("/public/*", syslantern.GetPublicHandler(cfg).ServeHTTP)
 	s.Router.Get("/install.sh", s.HandleInstallScript)
 
-	s.Router.Get("/", s.HandleIndexPage)
 	s.Router.Get("/sign-in", s.HandleSignInPage)
 	s.Router.Post("/sign-in", s.HandleSignIn)
 	s.Router.Get("/sign-up", s.HandleSignUpPage)
@@ -80,10 +79,12 @@ func NewServerFromConfig(cfg config.Config) *Server {
 	s.Router.Post("/ingest", s.HandleIngest)
 	s.Router.Get("/agent/config", s.HandleAgentConfig)
 
+	s.Router.Get("/", s.HandleIndexPage)
 	s.Router.Get("/events", s.HandleIndexEvents)
-	s.Router.Get("/agents/register", s.HandleAgentRegister)
-	s.Router.Get("/agents/{agentID}", s.HandleAgentPage)
-	s.Router.Get("/agents/{agentID}/events", s.HandleDashboardEvents)
+
+	s.Router.Post("/agents/already-registered", s.HandleAgentAlreadyRegistered)
+	s.Router.Post("/agents/new", s.HandleAgentNew)
+	s.Router.Get("/agents/{agentID}", s.HandleAgentsPage)
 
 	s.Renderer.Routes = s.Router
 

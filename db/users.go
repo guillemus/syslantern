@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"crypto/rand"
-	"database/sql"
 	"encoding/base64"
 	"fmt"
 )
@@ -27,12 +26,7 @@ func (c *Conn) CreateUserAndTeam(ctx context.Context, email, passwordHash string
 
 	q := c.Queries.WithTx(tx)
 
-	agentAPIKey, err := newAgentAPIKey()
-	if err != nil {
-		return User{}, err
-	}
-
-	team, err := q.CreateTeamQuery(ctx, CreateTeamQueryParams{Name: "My Team", AgentApiKey: AgentAPIKey(agentAPIKey)})
+	team, err := q.CreateTeamQuery(ctx, "My Team")
 	if err != nil {
 		return User{}, err
 	}
@@ -40,8 +34,8 @@ func (c *Conn) CreateUserAndTeam(ctx context.Context, email, passwordHash string
 	user, err := q.CreateUserQuery(ctx, CreateUserQueryParams{
 		TeamID:       team.ID,
 		Email:        email,
-		PasswordHash: sql.NullString{String: passwordHash, Valid: true}},
-	)
+		PasswordHash: passwordHash,
+	})
 	if err != nil {
 		return User{}, err
 	}

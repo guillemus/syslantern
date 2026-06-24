@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"sort"
+	"syslantern/shared"
 	"time"
 
 	. "maragu.dev/gomponents"
@@ -25,15 +26,13 @@ type DashboardStatsData struct {
 }
 
 type DashboardData struct {
-	AgentID   string
+	AgentID   shared.AgentID
 	Stats     DashboardStatsData
 	Analytics DashboardAnalyticsData
 }
 
 type AgentsIndexPageData struct {
-	Agents                []AgentsIndexData
-	InstallCommand        string
-	InstallCommandDisplay string
+	Agents []AgentsIndexData
 }
 
 type AgentsIndexData struct {
@@ -107,12 +106,12 @@ func (r *Renderer) AgentsIndex(data AgentsIndexPageData) Node {
 				),
 				Button(
 					Class("rounded-md bg-orange-600 px-3 py-2 text-sm font-medium text-white transition hover:brightness-110"),
-					Attr("onclick", "agent_install_dialog.showModal()"),
+					Data("on:click", "new_agent_dialog.showModal()"),
 					Text("Add agent"),
 				),
 			),
 			r.DataGet("init", "/events"),
-			agentInstallDialog(data.InstallCommand, data.InstallCommandDisplay),
+			r.NewAgentDialog(),
 			Div(
 				Class("overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"),
 				Table(
@@ -124,6 +123,50 @@ func (r *Renderer) AgentsIndex(data AgentsIndexPageData) Node {
 						Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("Updated")),
 					)),
 					r.agentsTableBody(data.Agents),
+				),
+			),
+		),
+	)
+}
+
+type NewAgentDialogSignals struct {
+	NewAgentName string `json:"new_agent_name"`
+}
+
+func (r *Renderer) NewAgentDialog() Node {
+	return Dialog(
+		ID("new_agent_dialog"),
+		Class("fixed inset-0 m-auto w-[min(42rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)] rounded-xl border border-zinc-800 bg-zinc-900 p-0 text-zinc-100 shadow-2xl backdrop:bg-black/70"),
+		Div(
+			Class("p-6"),
+			H2(Class("text-xl font-semibold"), Text("Add agent")),
+			P(Class("mt-2 text-sm text-zinc-500"), Text("Give your new agent a name.")),
+			Div(
+				Class("mt-4 space-y-4"),
+				Label(
+					Class("block text-sm text-zinc-400"),
+					Text("Name"),
+					Input(
+						Data("bind:new_agent_name", ""),
+						Type("text"),
+						Name("name"),
+						Placeholder("my-vps"),
+						Class("mt-1 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"),
+					),
+				),
+				Div(
+					Class("flex justify-end gap-2"),
+					Button(
+						Attr("data-on:click", "new_agent_dialog.close()"),
+						Class("rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-800"),
+						Text("Close"),
+					),
+					Button(
+						Type("button"),
+						Class("rounded-md bg-orange-600 px-3 py-2 text-sm font-medium text-white transition hover:brightness-110"),
+						Text("Add"),
+						r.DataPost("on:click", "/agents/new"),
+					),
 				),
 			),
 		),
@@ -145,40 +188,6 @@ func (r *Renderer) agentsTableBody(agents []AgentsIndexData) Node {
 	return TBody(nodes...)
 }
 
-func agentInstallDialog(command string, displayCommand string) Node {
-	return Dialog(
-		ID("agent_install_dialog"),
-		Class("fixed inset-0 m-auto w-[min(42rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)] rounded-xl border border-zinc-800 bg-zinc-900 p-0 text-zinc-100 shadow-2xl backdrop:bg-black/70"),
-		Div(
-			Class("p-6"),
-			H2(Class("text-xl font-semibold"), Text("Install an agent")),
-			P(Class("mt-2 text-sm text-zinc-500"), Text("Run this command on the VPS you want to monitor. The API key is hidden here but included when copied.")),
-			Div(
-				Class("mt-4 rounded-lg border border-zinc-800 bg-zinc-950 p-4"),
-				Pre(Class("whitespace-pre-wrap break-all text-sm leading-6 text-zinc-100 select-none"), Code(Text(displayCommand))),
-			),
-			Div(
-				Class("mt-5 flex justify-end gap-2"),
-				Button(
-					Class("rounded-md bg-orange-600 px-3 py-2 text-sm font-medium text-white transition hover:brightness-110"),
-					Attr("type", "button"),
-					Attr("data-copy-text", command),
-					Attr("data-on:click", `
-						navigator.clipboard.writeText(el.dataset.copyText)
-						el.textContent = 'Copied'
-						setTimeout(() => el.textContent = 'Copy command', 1000)
-					`),
-					Text("Copy command"),
-				),
-				Form(
-					Attr("method", "dialog"),
-					Button(Class("rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-800"), Text("Close")),
-				),
-			),
-		),
-	)
-}
-
 func (r *Renderer) agentRow(data AgentsIndexData) Node {
 	href := r.URL("GET", "/agents/"+url.PathEscape(data.ID))
 	return Tr(
@@ -192,7 +201,7 @@ func (r *Renderer) agentRow(data AgentsIndexData) Node {
 func (r *Renderer) Dashboard(data DashboardData) Node {
 	return Div(
 		Class("min-h-dvh bg-zinc-950 p-4 font-mono text-zinc-100 sm:p-6"),
-		r.dashboardEventsDataGet(data),
+		r.DataGet("init", "/agents/"+string(data.AgentID)+"/events"),
 		Main(
 			Class("mx-auto flex max-w-7xl flex-col gap-4"),
 			dashboardHeader(data),
@@ -200,13 +209,6 @@ func (r *Renderer) Dashboard(data DashboardData) Node {
 			DashboardHistory(data.Analytics),
 		),
 	)
-}
-
-func (r *Renderer) dashboardEventsDataGet(data DashboardData) Node {
-	if data.AgentID == "" {
-		return Text("")
-	}
-	return r.DataGet("init", "/agents/"+url.PathEscape(data.AgentID)+"/events")
 }
 
 func DashboardStats(data DashboardStatsData) Node {
@@ -257,7 +259,7 @@ func dashboardHeader(data DashboardData) Node {
 		Div(
 			Div(
 				Class("flex flex-wrap items-center gap-2 text-sm text-zinc-500"),
-				Span(Class("rounded border border-zinc-700 px-2 py-0.5"), Text(valueOr(data.AgentID, "agent"))),
+				Span(Class("rounded border border-zinc-700 px-2 py-0.5"), Text(valueOr(string(data.AgentID), "agent"))),
 				Span(Text(headerMeta(data.Stats))),
 			),
 			H1(Class("mt-2 text-2xl font-semibold tracking-normal sm:text-3xl"), Text(host)),

@@ -7,55 +7,48 @@ import (
 
 type EventBus[T any] struct {
 	mu   sync.RWMutex
-	subs []*func(T)
+	subs []chan T
 }
 
 func NewEventBus[T any]() *EventBus[T] {
 	return &EventBus[T]{
-		subs: []*func(T){},
+		subs: []chan T{},
 	}
 }
 
-func (b *EventBus[T]) Subscribe(ctx context.Context, fn func(T)) context.CancelFunc {
+func (b *EventBus[T]) Subscribe(ctx context.Context) <-chan T {
+	ch := make(chan T, 16)
+
 	b.mu.Lock()
-	defer b.mu.Unlock()
+	b.subs = append(b.subs, ch)
+	b.mu.Unlock()
 
-	_, cancelCtx := context.WithCancel(ctx)
-
-	fnPtr := &fn
-	b.subs = append(b.subs, fnPtr)
-	cancel := func() {
-		defer cancelCtx()
+	go func() {
+		<-ctx.Done()
 
 		b.mu.Lock()
 		defer b.mu.Unlock()
 
-		// Remove the subscriber from the list
 		for i, sub := range b.subs {
-			if sub == fnPtr {
+			if sub == ch {
 				b.subs = append(b.subs[:i], b.subs[i+1:]...)
+				close(ch)
 				break
 			}
 		}
-	}
-	return cancel
-}
+	}()
 
-func (b *EventBus[T]) Count() int {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	return len(b.subs)
+	return ch
 }
 
 func (b *EventBus[T]) Emit(ctx context.Context, msg T) {
-	// Subs might be modified while we are iterating over them,
-	// so we need to copy them first.
 	b.mu.RLock()
-	subs := make([]*func(T), len(b.subs))
-	copy(subs, b.subs)
-	b.mu.RUnlock()
+	defer b.mu.RUnlock()
 
-	for _, sub := range subs {
-		go (*sub)(msg)
+	for _, sub := range b.subs {
+		select {
+		case sub <- msg:
+		default:
+		}
 	}
 }

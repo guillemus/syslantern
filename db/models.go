@@ -10,13 +10,15 @@ import (
 )
 
 type Agent struct {
-	ID        AgentID   `db:"id"`
-	TeamID    TeamID    `db:"team_id"`
-	Name      string    `db:"name"`
-	Version   string    `db:"version"`
-	Paused    int64     `db:"paused"`
-	CreatedAt time.Time `db:"created_at"`
-	UpdatedAt time.Time `db:"updated_at"`
+	ID        AgentID        `db:"id"`
+	TeamID    TeamID         `db:"team_id"`
+	Name      string         `db:"name"`
+	Version   string         `db:"version"`
+	Status    AgentStatus    `db:"status"`
+	HostID    sql.NullString `db:"host_id"`
+	ApiKey    AgentAPIKey    `db:"api_key"`
+	CreatedAt time.Time      `db:"created_at"`
+	UpdatedAt time.Time      `db:"updated_at"`
 }
 
 type CpuSample struct {
@@ -64,18 +66,17 @@ type Session struct {
 }
 
 type Team struct {
-	ID          TeamID      `db:"id"`
-	Name        string      `db:"name"`
-	AgentApiKey AgentAPIKey `db:"agent_api_key"`
-	CreatedAt   time.Time   `db:"created_at"`
-	UpdatedAt   time.Time   `db:"updated_at"`
+	ID        TeamID    `db:"id"`
+	Name      string    `db:"name"`
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
 
 type User struct {
-	ID           UserID         `db:"id"`
-	TeamID       TeamID         `db:"team_id"`
-	Email        string         `db:"email"`
-	PasswordHash sql.NullString `db:"password_hash"`
-	CreatedAt    time.Time      `db:"created_at"`
-	UpdatedAt    time.Time      `db:"updated_at"`
+	ID           UserID    `db:"id"`
+	TeamID       TeamID    `db:"team_id"`
+	Email        string    `db:"email"`
+	PasswordHash string    `db:"password_hash"`
+	CreatedAt    time.Time `db:"created_at"`
+	UpdatedAt    time.Time `db:"updated_at"`
 }

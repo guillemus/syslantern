@@ -14,6 +14,7 @@ type LiveSnapshot struct {
 	Metrics MetricsSnapshot `json:"metrics"`
 }
 
+// fixme: this might have to go
 type AgentID string
 
 type Agent struct {
