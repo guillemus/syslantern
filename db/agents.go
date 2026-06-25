@@ -23,6 +23,14 @@ func newAgentID() AgentID {
 	return AgentID(hex.EncodeToString(buf))
 }
 
+func newApiKey() AgentAPIKey {
+	buf := make([]byte, 24)
+	if _, err := rand.Read(buf); err != nil {
+		panic(err)
+	}
+	return AgentAPIKey(hex.EncodeToString(buf))
+}
+
 func (c *Conn) CreateAgentForTeam(
 	ctx context.Context, teamID TeamID, name string, version string,
 ) (Agent, error) {
@@ -33,6 +41,7 @@ func (c *Conn) CreateAgentForTeam(
 		Name:    name,
 		Version: version,
 		Status:  AgentStatusCreated,
+		ApiKey:  newApiKey(),
 	})
 }
 

@@ -33,6 +33,9 @@ func (r *Renderer) Layout(title string, body Node) Node {
 				Attr("src", fmt.Sprintf("%s?v=%s", r.URL("GET", "/public/scripts.js"), r.AssetVersion)),
 			),
 		},
-		Body: []Node{body},
+		Body: []Node{
+			body,
+			ToastRegion,
+		},
 	})
 }

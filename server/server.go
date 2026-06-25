@@ -26,8 +26,8 @@ type Server struct {
 	Cfg                   *config.Config
 	Logger                *slog.Logger
 
-	CommandBus      *EventBus[shared.AgentCommand] // fixme: this has to go
-	DashboardBus    *EventBus[views.DashboardData] // fixme: this has to go
+	CommandBus      *EventBus[shared.AgentCommand]    // fixme: this has to go
+	DashboardBus    *EventBus[views.AgentMetricsData] // fixme: this has to go
 	AgentCreatedBus *EventBus[AgentCreatedEvent]
 }
 
@@ -61,7 +61,7 @@ func NewServerFromConfig(cfg config.Config) *Server {
 		Cfg:                   &cfg,
 
 		CommandBus:      NewEventBus[shared.AgentCommand](),
-		DashboardBus:    NewEventBus[views.DashboardData](),
+		DashboardBus:    NewEventBus[views.AgentMetricsData](),
 		AgentCreatedBus: NewEventBus[AgentCreatedEvent](),
 	}
 

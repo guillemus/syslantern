@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 	"syslantern/db"
 	"syslantern/views"
 
@@ -18,34 +17,32 @@ func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	agents, err := s.agentsIndexData(r.Context(), user.TeamID)
+	data, err := s.indexData(r.Context(), user.TeamID)
 	if err != nil {
 		s.Logger.Warn("agents index: list agents", "err", err)
 		http.Error(w, "Could not load your agents.", http.StatusInternalServerError)
 		return
 	}
 
-	s.Renderer.RenderAgentsIndex(w, views.AgentsIndexPageData{
-		Agents: agents,
-	})
+	s.Renderer.RenderIndexPage(w, data)
 }
 
-func (s *Server) agentsIndexData(ctx context.Context, teamID db.TeamID) ([]views.AgentsIndexData, error) {
+func (s *Server) indexData(ctx context.Context, teamID db.TeamID) (views.AgentsIndexPageData, error) {
 	agents, err := s.DB.ListAgentsForTeam(ctx, teamID)
 	if err != nil {
-		return nil, err
+		return views.AgentsIndexPageData{}, err
 	}
 
-	data := make([]views.AgentsIndexData, 0, len(agents))
+	rows := make([]views.AgentRow, 0, len(agents))
 	for _, agent := range agents {
-		data = append(data, views.AgentsIndexData{
+		rows = append(rows, views.AgentRow{
 			ID:        string(agent.ID),
 			Name:      agent.Name,
 			Version:   agent.Version,
 			UpdatedAt: agent.UpdatedAt,
 		})
 	}
-	return data, nil
+	return views.AgentsIndexPageData{Agents: rows}, nil
 }
 
 func (s *Server) agentInstallCommand(r *http.Request, agentAPIKey db.AgentAPIKey) string {
@@ -90,23 +87,24 @@ func (s *Server) HandleIndexEvents(w http.ResponseWriter, r *http.Request) {
 			if evt.TeamID != user.TeamID {
 				continue
 			}
-			agents, err := s.agentsIndexData(r.Context(), user.TeamID)
+
+			data, err := s.indexData(r.Context(), user.TeamID)
 			if err != nil {
 				s.Logger.Warn("index events: list agents", "err", err)
 				return
 			}
-			if err := sse.PatchElements(s.Renderer.RenderAgentsTableBodyHTML(agents)); err != nil {
-				s.Logger.Warn("index events: patch table", "err", err)
-				return
-			}
+
+			s.Renderer.PatchIndexPage(sse, data)
 		}
 	}
 }
 
 func (s *Server) HandleAgentNew(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
 	user, exists := s.GetAuthenticatedUser(w, r)
 	if !exists {
+		// fixme: this should probably come from context I think
 		sse := datastar.NewSSE(w, r)
 		sse.Redirect("/sign-in")
 		return
@@ -115,21 +113,15 @@ func (s *Server) HandleAgentNew(w http.ResponseWriter, r *http.Request) {
 	var sig views.NewAgentDialogSignals
 	if err := datastar.ReadSignals(r, &sig); err != nil {
 		s.Logger.Error("agent new: read signals", "err", err)
-		http.Error(w, "Could not read the agent details. Refresh the page and try again.", http.StatusBadRequest)
-		return
-	}
-
-	name := strings.TrimSpace(sig.NewAgentName)
-	if name == "" {
-		http.Error(w, "Enter an agent name.", http.StatusBadRequest)
+		s.Renderer.PatchNewAgentDialog(w, r, "Could not read the agent details. Refresh the page and try again.")
 		return
 	}
 
 	version := "unknown" // we don't know yet which version the agent has, it has not been installed
-	createdAgent, err := s.DB.CreateAgentForTeam(ctx, user.TeamID, name, version)
+	createdAgent, err := s.DB.CreateAgentForTeam(ctx, user.TeamID, sig.NewAgentName, version)
 	if err != nil {
 		s.Logger.Error("agent new: create agent", "team_id", user.TeamID, "err", err)
-		http.Error(w, "Could not add the agent. Try again.", http.StatusInternalServerError)
+		s.Renderer.PatchNewAgentDialog(w, r, "Could not add the agent. Try again.")
 		return
 	}
 
