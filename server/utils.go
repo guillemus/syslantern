@@ -44,3 +44,7 @@ func writeJSON(w http.ResponseWriter, v any) {
 func writeText(w http.ResponseWriter, text string) {
 	w.Write([]byte(text))
 }
+
+func isDatastarRequest(r *http.Request) bool {
+	return r.Header.Get("Datastar-Request") == "true"
+}

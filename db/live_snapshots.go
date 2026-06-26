@@ -18,7 +18,7 @@ func (c *Conn) SaveLiveSnapshot(ctx context.Context, teamID TeamID, snapshot sha
 	defer tx.Rollback()
 
 	queries := c.Queries.WithTx(tx)
-	updated, err := queries.TouchAgentForTeamQuery(ctx, TouchAgentForTeamQueryParams{
+	updated, err := queries.touchAgentForTeam(ctx, touchAgentForTeamParams{
 		ID:      AgentID(snapshot.Agent.ID),
 		TeamID:  teamID,
 		Version: snapshot.Agent.Version,
@@ -37,7 +37,7 @@ func (c *Conn) SaveLiveSnapshot(ctx context.Context, teamID TeamID, snapshot sha
 	if err != nil {
 		return err
 	}
-	if err := queries.CreateCPUSampleQuery(ctx, CreateCPUSampleQueryParams{
+	if err := queries.createCPUSample(ctx, createCPUSampleParams{
 		ObservedAt:     observedAt,
 		UsedPercent:    metrics.CPU.UsedPercent,
 		CoresLogical:   int64(metrics.CPU.CoresLogical),
@@ -50,7 +50,7 @@ func (c *Conn) SaveLiveSnapshot(ctx context.Context, teamID TeamID, snapshot sha
 		return err
 	}
 
-	if err := queries.CreateMemorySampleQuery(ctx, CreateMemorySampleQueryParams{
+	if err := queries.createMemorySample(ctx, createMemorySampleParams{
 		ObservedAt:            observedAt,
 		VirtualUsedPercent:    metrics.VirtualMemory.UsedPercent,
 		VirtualUsedBytes:      int64(metrics.VirtualMemory.UsedBytes),
@@ -64,35 +64,35 @@ func (c *Conn) SaveLiveSnapshot(ctx context.Context, teamID TeamID, snapshot sha
 		return err
 	}
 
-	if err := createDiskSample(ctx, queries, observedAt, true, metrics.Disk.Total); err != nil {
+	if err := saveDiskSample(ctx, queries, observedAt, true, metrics.Disk.Total); err != nil {
 		return err
 	}
 	for _, partition := range metrics.Disk.Partitions {
-		if err := createDiskSample(ctx, queries, observedAt, false, partition); err != nil {
+		if err := saveDiskSample(ctx, queries, observedAt, false, partition); err != nil {
 			return err
 		}
 	}
 
 	cutoff := snapshot.SentAt.Add(-sampleRetention).Format(time.RFC3339Nano)
-	if err := queries.DeleteOldCPUSamplesQuery(ctx, cutoff); err != nil {
+	if err := queries.deleteOldCPUSamples(ctx, cutoff); err != nil {
 		return err
 	}
-	if err := queries.DeleteOldMemorySamplesQuery(ctx, cutoff); err != nil {
+	if err := queries.deleteOldMemorySamples(ctx, cutoff); err != nil {
 		return err
 	}
-	if err := queries.DeleteOldDiskSamplesQuery(ctx, cutoff); err != nil {
+	if err := queries.deleteOldDiskSamples(ctx, cutoff); err != nil {
 		return err
 	}
 
 	return tx.Commit()
 }
 
-func createDiskSample(ctx context.Context, queries *Queries, observedAt string, isTotal bool, disk shared.DiskUsage) error {
+func saveDiskSample(ctx context.Context, queries *Queries, observedAt string, isTotal bool, disk shared.DiskUsage) error {
 	var isTotalValue int64
 	if isTotal {
 		isTotalValue = 1
 	}
-	return queries.CreateDiskSampleQuery(ctx, CreateDiskSampleQueryParams{
+	return queries.createDiskSample(ctx, createDiskSampleParams{
 		ObservedAt:  observedAt,
 		IsTotal:     isTotalValue,
 		Device:      disk.Device,

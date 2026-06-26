@@ -7,6 +7,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"fmt"
 )
 
 type DBTX interface {
@@ -20,12 +21,348 @@ func New(db DBTX) *Queries {
 	return &Queries{db: db}
 }
 
+func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
+	q := Queries{db: db}
+	var err error
+	if q.getAgentByAPIKeyStmt, err = db.PrepareContext(ctx, getAgentByAPIKey); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAgentByAPIKey: %w", err)
+	}
+	if q.getAgentForTeamStmt, err = db.PrepareContext(ctx, getAgentForTeam); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAgentForTeam: %w", err)
+	}
+	if q.getLatestCPUSampleStmt, err = db.PrepareContext(ctx, getLatestCPUSample); err != nil {
+		return nil, fmt.Errorf("error preparing query GetLatestCPUSample: %w", err)
+	}
+	if q.getLatestMemorySampleStmt, err = db.PrepareContext(ctx, getLatestMemorySample); err != nil {
+		return nil, fmt.Errorf("error preparing query GetLatestMemorySample: %w", err)
+	}
+	if q.getTeamByAgentAPIKeyStmt, err = db.PrepareContext(ctx, getTeamByAgentAPIKey); err != nil {
+		return nil, fmt.Errorf("error preparing query GetTeamByAgentAPIKey: %w", err)
+	}
+	if q.getTeamByIDStmt, err = db.PrepareContext(ctx, getTeamByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetTeamByID: %w", err)
+	}
+	if q.getUserByEmailStmt, err = db.PrepareContext(ctx, getUserByEmail); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserByEmail: %w", err)
+	}
+	if q.getUserByIDStmt, err = db.PrepareContext(ctx, getUserByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserByID: %w", err)
+	}
+	if q.listAgentsForTeamStmt, err = db.PrepareContext(ctx, listAgentsForTeam); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAgentsForTeam: %w", err)
+	}
+	if q.listCPUSamplesSinceStmt, err = db.PrepareContext(ctx, listCPUSamplesSince); err != nil {
+		return nil, fmt.Errorf("error preparing query ListCPUSamplesSince: %w", err)
+	}
+	if q.listDiskSamplesForMountSinceStmt, err = db.PrepareContext(ctx, listDiskSamplesForMountSince); err != nil {
+		return nil, fmt.Errorf("error preparing query ListDiskSamplesForMountSince: %w", err)
+	}
+	if q.listDiskSamplesSinceStmt, err = db.PrepareContext(ctx, listDiskSamplesSince); err != nil {
+		return nil, fmt.Errorf("error preparing query ListDiskSamplesSince: %w", err)
+	}
+	if q.listLatestDiskSamplesStmt, err = db.PrepareContext(ctx, listLatestDiskSamples); err != nil {
+		return nil, fmt.Errorf("error preparing query ListLatestDiskSamples: %w", err)
+	}
+	if q.listMemorySamplesSinceStmt, err = db.PrepareContext(ctx, listMemorySamplesSince); err != nil {
+		return nil, fmt.Errorf("error preparing query ListMemorySamplesSince: %w", err)
+	}
+	if q.setAgentStatusForTeamStmt, err = db.PrepareContext(ctx, setAgentStatusForTeam); err != nil {
+		return nil, fmt.Errorf("error preparing query SetAgentStatusForTeam: %w", err)
+	}
+	if q.commitSessionStmt, err = db.PrepareContext(ctx, commitSession); err != nil {
+		return nil, fmt.Errorf("error preparing query commitSession: %w", err)
+	}
+	if q.createCPUSampleStmt, err = db.PrepareContext(ctx, createCPUSample); err != nil {
+		return nil, fmt.Errorf("error preparing query createCPUSample: %w", err)
+	}
+	if q.createDiskSampleStmt, err = db.PrepareContext(ctx, createDiskSample); err != nil {
+		return nil, fmt.Errorf("error preparing query createDiskSample: %w", err)
+	}
+	if q.createMemorySampleStmt, err = db.PrepareContext(ctx, createMemorySample); err != nil {
+		return nil, fmt.Errorf("error preparing query createMemorySample: %w", err)
+	}
+	if q.createTeamStmt, err = db.PrepareContext(ctx, createTeam); err != nil {
+		return nil, fmt.Errorf("error preparing query createTeam: %w", err)
+	}
+	if q.createUserStmt, err = db.PrepareContext(ctx, createUser); err != nil {
+		return nil, fmt.Errorf("error preparing query createUser: %w", err)
+	}
+	if q.deleteOldCPUSamplesStmt, err = db.PrepareContext(ctx, deleteOldCPUSamples); err != nil {
+		return nil, fmt.Errorf("error preparing query deleteOldCPUSamples: %w", err)
+	}
+	if q.deleteOldDiskSamplesStmt, err = db.PrepareContext(ctx, deleteOldDiskSamples); err != nil {
+		return nil, fmt.Errorf("error preparing query deleteOldDiskSamples: %w", err)
+	}
+	if q.deleteOldMemorySamplesStmt, err = db.PrepareContext(ctx, deleteOldMemorySamples); err != nil {
+		return nil, fmt.Errorf("error preparing query deleteOldMemorySamples: %w", err)
+	}
+	if q.deleteSessionStmt, err = db.PrepareContext(ctx, deleteSession); err != nil {
+		return nil, fmt.Errorf("error preparing query deleteSession: %w", err)
+	}
+	if q.findSessionStmt, err = db.PrepareContext(ctx, findSession); err != nil {
+		return nil, fmt.Errorf("error preparing query findSession: %w", err)
+	}
+	if q.touchAgentForTeamStmt, err = db.PrepareContext(ctx, touchAgentForTeam); err != nil {
+		return nil, fmt.Errorf("error preparing query touchAgentForTeam: %w", err)
+	}
+	if q.updateAgentHostIDStmt, err = db.PrepareContext(ctx, updateAgentHostID); err != nil {
+		return nil, fmt.Errorf("error preparing query updateAgentHostID: %w", err)
+	}
+	if q.upsertAgentForTeamStmt, err = db.PrepareContext(ctx, upsertAgentForTeam); err != nil {
+		return nil, fmt.Errorf("error preparing query upsertAgentForTeam: %w", err)
+	}
+	return &q, nil
+}
+
+func (q *Queries) Close() error {
+	var err error
+	if q.getAgentByAPIKeyStmt != nil {
+		if cerr := q.getAgentByAPIKeyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAgentByAPIKeyStmt: %w", cerr)
+		}
+	}
+	if q.getAgentForTeamStmt != nil {
+		if cerr := q.getAgentForTeamStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAgentForTeamStmt: %w", cerr)
+		}
+	}
+	if q.getLatestCPUSampleStmt != nil {
+		if cerr := q.getLatestCPUSampleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getLatestCPUSampleStmt: %w", cerr)
+		}
+	}
+	if q.getLatestMemorySampleStmt != nil {
+		if cerr := q.getLatestMemorySampleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getLatestMemorySampleStmt: %w", cerr)
+		}
+	}
+	if q.getTeamByAgentAPIKeyStmt != nil {
+		if cerr := q.getTeamByAgentAPIKeyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getTeamByAgentAPIKeyStmt: %w", cerr)
+		}
+	}
+	if q.getTeamByIDStmt != nil {
+		if cerr := q.getTeamByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getTeamByIDStmt: %w", cerr)
+		}
+	}
+	if q.getUserByEmailStmt != nil {
+		if cerr := q.getUserByEmailStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserByEmailStmt: %w", cerr)
+		}
+	}
+	if q.getUserByIDStmt != nil {
+		if cerr := q.getUserByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserByIDStmt: %w", cerr)
+		}
+	}
+	if q.listAgentsForTeamStmt != nil {
+		if cerr := q.listAgentsForTeamStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAgentsForTeamStmt: %w", cerr)
+		}
+	}
+	if q.listCPUSamplesSinceStmt != nil {
+		if cerr := q.listCPUSamplesSinceStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listCPUSamplesSinceStmt: %w", cerr)
+		}
+	}
+	if q.listDiskSamplesForMountSinceStmt != nil {
+		if cerr := q.listDiskSamplesForMountSinceStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listDiskSamplesForMountSinceStmt: %w", cerr)
+		}
+	}
+	if q.listDiskSamplesSinceStmt != nil {
+		if cerr := q.listDiskSamplesSinceStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listDiskSamplesSinceStmt: %w", cerr)
+		}
+	}
+	if q.listLatestDiskSamplesStmt != nil {
+		if cerr := q.listLatestDiskSamplesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listLatestDiskSamplesStmt: %w", cerr)
+		}
+	}
+	if q.listMemorySamplesSinceStmt != nil {
+		if cerr := q.listMemorySamplesSinceStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listMemorySamplesSinceStmt: %w", cerr)
+		}
+	}
+	if q.setAgentStatusForTeamStmt != nil {
+		if cerr := q.setAgentStatusForTeamStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing setAgentStatusForTeamStmt: %w", cerr)
+		}
+	}
+	if q.commitSessionStmt != nil {
+		if cerr := q.commitSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing commitSessionStmt: %w", cerr)
+		}
+	}
+	if q.createCPUSampleStmt != nil {
+		if cerr := q.createCPUSampleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createCPUSampleStmt: %w", cerr)
+		}
+	}
+	if q.createDiskSampleStmt != nil {
+		if cerr := q.createDiskSampleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createDiskSampleStmt: %w", cerr)
+		}
+	}
+	if q.createMemorySampleStmt != nil {
+		if cerr := q.createMemorySampleStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createMemorySampleStmt: %w", cerr)
+		}
+	}
+	if q.createTeamStmt != nil {
+		if cerr := q.createTeamStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createTeamStmt: %w", cerr)
+		}
+	}
+	if q.createUserStmt != nil {
+		if cerr := q.createUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createUserStmt: %w", cerr)
+		}
+	}
+	if q.deleteOldCPUSamplesStmt != nil {
+		if cerr := q.deleteOldCPUSamplesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteOldCPUSamplesStmt: %w", cerr)
+		}
+	}
+	if q.deleteOldDiskSamplesStmt != nil {
+		if cerr := q.deleteOldDiskSamplesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteOldDiskSamplesStmt: %w", cerr)
+		}
+	}
+	if q.deleteOldMemorySamplesStmt != nil {
+		if cerr := q.deleteOldMemorySamplesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteOldMemorySamplesStmt: %w", cerr)
+		}
+	}
+	if q.deleteSessionStmt != nil {
+		if cerr := q.deleteSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteSessionStmt: %w", cerr)
+		}
+	}
+	if q.findSessionStmt != nil {
+		if cerr := q.findSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing findSessionStmt: %w", cerr)
+		}
+	}
+	if q.touchAgentForTeamStmt != nil {
+		if cerr := q.touchAgentForTeamStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing touchAgentForTeamStmt: %w", cerr)
+		}
+	}
+	if q.updateAgentHostIDStmt != nil {
+		if cerr := q.updateAgentHostIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateAgentHostIDStmt: %w", cerr)
+		}
+	}
+	if q.upsertAgentForTeamStmt != nil {
+		if cerr := q.upsertAgentForTeamStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing upsertAgentForTeamStmt: %w", cerr)
+		}
+	}
+	return err
+}
+
+func (q *Queries) exec(ctx context.Context, stmt *sql.Stmt, query string, args ...interface{}) (sql.Result, error) {
+	switch {
+	case stmt != nil && q.tx != nil:
+		return q.tx.StmtContext(ctx, stmt).ExecContext(ctx, args...)
+	case stmt != nil:
+		return stmt.ExecContext(ctx, args...)
+	default:
+		return q.db.ExecContext(ctx, query, args...)
+	}
+}
+
+func (q *Queries) query(ctx context.Context, stmt *sql.Stmt, query string, args ...interface{}) (*sql.Rows, error) {
+	switch {
+	case stmt != nil && q.tx != nil:
+		return q.tx.StmtContext(ctx, stmt).QueryContext(ctx, args...)
+	case stmt != nil:
+		return stmt.QueryContext(ctx, args...)
+	default:
+		return q.db.QueryContext(ctx, query, args...)
+	}
+}
+
+func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, args ...interface{}) *sql.Row {
+	switch {
+	case stmt != nil && q.tx != nil:
+		return q.tx.StmtContext(ctx, stmt).QueryRowContext(ctx, args...)
+	case stmt != nil:
+		return stmt.QueryRowContext(ctx, args...)
+	default:
+		return q.db.QueryRowContext(ctx, query, args...)
+	}
+}
+
 type Queries struct {
-	db DBTX
+	db                               DBTX
+	tx                               *sql.Tx
+	getAgentByAPIKeyStmt             *sql.Stmt
+	getAgentForTeamStmt              *sql.Stmt
+	getLatestCPUSampleStmt           *sql.Stmt
+	getLatestMemorySampleStmt        *sql.Stmt
+	getTeamByAgentAPIKeyStmt         *sql.Stmt
+	getTeamByIDStmt                  *sql.Stmt
+	getUserByEmailStmt               *sql.Stmt
+	getUserByIDStmt                  *sql.Stmt
+	listAgentsForTeamStmt            *sql.Stmt
+	listCPUSamplesSinceStmt          *sql.Stmt
+	listDiskSamplesForMountSinceStmt *sql.Stmt
+	listDiskSamplesSinceStmt         *sql.Stmt
+	listLatestDiskSamplesStmt        *sql.Stmt
+	listMemorySamplesSinceStmt       *sql.Stmt
+	setAgentStatusForTeamStmt        *sql.Stmt
+	commitSessionStmt                *sql.Stmt
+	createCPUSampleStmt              *sql.Stmt
+	createDiskSampleStmt             *sql.Stmt
+	createMemorySampleStmt           *sql.Stmt
+	createTeamStmt                   *sql.Stmt
+	createUserStmt                   *sql.Stmt
+	deleteOldCPUSamplesStmt          *sql.Stmt
+	deleteOldDiskSamplesStmt         *sql.Stmt
+	deleteOldMemorySamplesStmt       *sql.Stmt
+	deleteSessionStmt                *sql.Stmt
+	findSessionStmt                  *sql.Stmt
+	touchAgentForTeamStmt            *sql.Stmt
+	updateAgentHostIDStmt            *sql.Stmt
+	upsertAgentForTeamStmt           *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db: tx,
+		db:                               tx,
+		tx:                               tx,
+		getAgentByAPIKeyStmt:             q.getAgentByAPIKeyStmt,
+		getAgentForTeamStmt:              q.getAgentForTeamStmt,
+		getLatestCPUSampleStmt:           q.getLatestCPUSampleStmt,
+		getLatestMemorySampleStmt:        q.getLatestMemorySampleStmt,
+		getTeamByAgentAPIKeyStmt:         q.getTeamByAgentAPIKeyStmt,
+		getTeamByIDStmt:                  q.getTeamByIDStmt,
+		getUserByEmailStmt:               q.getUserByEmailStmt,
+		getUserByIDStmt:                  q.getUserByIDStmt,
+		listAgentsForTeamStmt:            q.listAgentsForTeamStmt,
+		listCPUSamplesSinceStmt:          q.listCPUSamplesSinceStmt,
+		listDiskSamplesForMountSinceStmt: q.listDiskSamplesForMountSinceStmt,
+		listDiskSamplesSinceStmt:         q.listDiskSamplesSinceStmt,
+		listLatestDiskSamplesStmt:        q.listLatestDiskSamplesStmt,
+		listMemorySamplesSinceStmt:       q.listMemorySamplesSinceStmt,
+		setAgentStatusForTeamStmt:        q.setAgentStatusForTeamStmt,
+		commitSessionStmt:                q.commitSessionStmt,
+		createCPUSampleStmt:              q.createCPUSampleStmt,
+		createDiskSampleStmt:             q.createDiskSampleStmt,
+		createMemorySampleStmt:           q.createMemorySampleStmt,
+		createTeamStmt:                   q.createTeamStmt,
+		createUserStmt:                   q.createUserStmt,
+		deleteOldCPUSamplesStmt:          q.deleteOldCPUSamplesStmt,
+		deleteOldDiskSamplesStmt:         q.deleteOldDiskSamplesStmt,
+		deleteOldMemorySamplesStmt:       q.deleteOldMemorySamplesStmt,
+		deleteSessionStmt:                q.deleteSessionStmt,
+		findSessionStmt:                  q.findSessionStmt,
+		touchAgentForTeamStmt:            q.touchAgentForTeamStmt,
+		updateAgentHostIDStmt:            q.updateAgentHostIDStmt,
+		upsertAgentForTeamStmt:           q.upsertAgentForTeamStmt,
 	}
 }

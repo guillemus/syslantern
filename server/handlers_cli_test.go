@@ -43,7 +43,7 @@ func TestHandleAgentAlreadyRegistered(t *testing.T) {
 		require.Equal(t, http.StatusOK, rr.Code)
 		require.Equal(t, ALLOW_INSTALL, rr.Body.String())
 
-		agent, err := s.DB.GetAgentByApiKey(t.Context(), "api-key-a")
+		agent, err := s.DB.GetAgentByAPIKey(t.Context(), db.AgentAPIKey("api-key-a"))
 		require.NoError(t, err)
 		require.True(t, agent.HostID.Valid)
 		require.Equal(t, "host-a", agent.HostID.String)

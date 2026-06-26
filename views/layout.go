@@ -34,6 +34,7 @@ func (r *Renderer) Layout(title string, body Node) Node {
 			),
 		},
 		Body: []Node{
+			DebugSignals(r.Dev),
 			body,
 			ToastRegion,
 		},

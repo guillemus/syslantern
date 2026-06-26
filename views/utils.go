@@ -12,6 +12,7 @@ import (
 	"github.com/starfederation/datastar-go/datastar"
 
 	. "maragu.dev/gomponents"
+	. "maragu.dev/gomponents/html"
 )
 
 func ssePatchSignals(sse *datastar.ServerSentEventGenerator, v any) {
@@ -55,4 +56,10 @@ func sseExecJS(sse *datastar.ServerSentEventGenerator, script string) {
 	if err := sse.ExecuteScript(s); err != nil {
 		slog.Error("sse.ExecuteScript", "err", err)
 	}
+}
+
+// InlineScript renders an inline script with a block scope, so declared variables
+// don't conflict with global scope
+func InlineScript(script string) Node {
+	return Script(Raw(fmt.Sprintf("{ %s }", script)))
 }

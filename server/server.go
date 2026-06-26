@@ -29,6 +29,7 @@ type Server struct {
 	CommandBus      *EventBus[shared.AgentCommand]    // fixme: this has to go
 	DashboardBus    *EventBus[views.AgentMetricsData] // fixme: this has to go
 	AgentCreatedBus *EventBus[AgentCreatedEvent]
+	AgentDeletedBus *EventBus[AgentDeletedEvent]
 }
 
 func NewServer() *Server {
@@ -44,15 +45,16 @@ func NewServerFromConfig(cfg config.Config) *Server {
 	log := logger.NewLogger(cfg.Dev)
 
 	sessionManager := scs.New()
-	sessionManager.Store = conn
+	sessionManager.Store = db.NewSessionStore(conn)
 	sessionManager.Lifetime = 7 * 24 * time.Hour
 	sessionManager.HashTokenInStore = true
 	sessionManager.Cookie.Secure = !cfg.Dev
 	sessionManager.Cookie.HttpOnly = true
 	sessionManager.Cookie.SameSite = http.SameSiteLaxMode
 
+	r := chi.NewRouter()
 	s := &Server{
-		Router:                chi.NewRouter(),
+		Router:                r,
 		Renderer:              views.NewRenderer(log, cfg.AssetVersion, cfg.Dev),
 		DB:                    conn,
 		Sessions:              sessionManager,
@@ -63,28 +65,40 @@ func NewServerFromConfig(cfg config.Config) *Server {
 		CommandBus:      NewEventBus[shared.AgentCommand](),
 		DashboardBus:    NewEventBus[views.AgentMetricsData](),
 		AgentCreatedBus: NewEventBus[AgentCreatedEvent](),
+		AgentDeletedBus: NewEventBus[AgentDeletedEvent](),
 	}
 
-	s.Router.Use(s.CrossOriginProtection.Handler)
-	s.Router.Use(s.Sessions.LoadAndSave)
-	s.Router.Get("/public/*", syslantern.GetPublicHandler(cfg).ServeHTTP)
-	s.Router.Get("/install.sh", s.HandleInstallScript)
+	r.Use(s.CrossOriginProtection.Handler)
+	r.Use(s.Sessions.LoadAndSave)
+	r.Get("/public/*", syslantern.GetPublicHandler(cfg).ServeHTTP)
+	r.Get("/install.sh", s.HandleInstallScript)
 
-	s.Router.Get("/sign-in", s.HandleSignInPage)
-	s.Router.Post("/sign-in", s.HandleSignIn)
-	s.Router.Get("/sign-up", s.HandleSignUpPage)
-	s.Router.Post("/sign-up", s.HandleSignUp)
-	s.Router.Post("/logout", s.HandleLogout)
+	r.Get("/sign-in", s.HandleSignInPage)
+	r.Post("/sign-in", s.HandleSignIn)
+	r.Get("/sign-up", s.HandleSignUpPage)
+	r.Post("/sign-up", s.HandleSignUp)
+	r.Post("/logout", s.HandleLogout)
 
-	s.Router.Post("/ingest", s.HandleIngest)
-	s.Router.Get("/agent/config", s.HandleAgentConfig)
+	r.Post("/ingest", s.HandleIngest)
+	r.Get("/agent/config", s.HandleAgentConfig)
 
-	s.Router.Get("/", s.HandleIndexPage)
-	s.Router.Get("/events", s.HandleIndexEvents)
+	r.Post("/agents/already-registered", s.HandleAgentAlreadyRegistered)
 
-	s.Router.Post("/agents/already-registered", s.HandleAgentAlreadyRegistered)
-	s.Router.Post("/agents/new", s.HandleAgentNew)
-	s.Router.Get("/agents/{agentID}", s.HandleAgentsPage)
+	if cfg.Dev {
+		// useful for integration tests
+		r.Get("/is-authenticated", s.HandleIsAuthenticated)
+	}
+
+	r.With(s.authMiddleware).Group(func(r chi.Router) {
+		// TODO: this might have to go outside instead
+		r.Get("/", s.HandleIndexPage)
+
+		r.Get("/events", s.HandleIndexEvents)
+
+		r.Post("/agents/new", s.HandleAgentsNew)
+		r.Get("/agents/{agentID}", s.HandleAgentsPage)
+		r.Post("/agents/{agentID}/delete", s.HandleAgentsDelete)
+	})
 
 	s.Renderer.Routes = s.Router
 

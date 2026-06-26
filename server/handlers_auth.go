@@ -138,7 +138,7 @@ func (s *Server) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	sse.Redirect("/sign-in")
 }
 
-func (s *Server) GetAuthenticatedUser(w http.ResponseWriter, r *http.Request) (user db.User, exists bool) {
+func (s *Server) GetUserFromSession(r *http.Request) (user db.User, exists bool) {
 	userID := s.Sessions.GetInt64(r.Context(), "user_id")
 	if userID == 0 {
 		return db.User{}, false
@@ -156,4 +156,47 @@ func (s *Server) GetAuthenticatedUser(w http.ResponseWriter, r *http.Request) (u
 	}
 
 	return user, true
+}
+
+type authenticatedUserContextKey struct{}
+
+func (s *Server) authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, exists := s.GetUserFromSession(r)
+		if !exists {
+			if isDatastarRequest(r) {
+				sse := datastar.NewSSE(w, r)
+				sse.Redirect("/sign-in")
+			} else {
+				http.Redirect(w, r, "/sign-in", http.StatusSeeOther)
+			}
+			return
+		}
+
+		r = r.WithContext(context.WithValue(r.Context(), authenticatedUserContextKey{}, user))
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) GetAuthenticatedUserOr(r *http.Request) (db.User, bool) {
+	user, ok := r.Context().Value(authenticatedUserContextKey{}).(db.User)
+	return user, ok
+}
+
+func (s *Server) GetAuthenticatedUser(r *http.Request) db.User {
+	user, ok := s.GetAuthenticatedUserOr(r)
+	if !ok {
+		panic("GetAuthenticatedUser called without authMiddleware")
+	}
+
+	return user
+}
+
+func (s *Server) HandleIsAuthenticated(w http.ResponseWriter, r *http.Request) {
+	user, exists := s.GetUserFromSession(r)
+	if exists {
+		_, _ = w.Write([]byte(user.Email))
+	} else {
+		http.Error(w, "not authenticated", http.StatusUnauthorized)
+	}
 }

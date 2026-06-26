@@ -13,8 +13,8 @@ import (
 
 type Renderer struct {
 	AssetVersion string
-	Logger       *slog.Logger
 	Dev          bool
+	Logger       *slog.Logger
 	Routes       chi.Routes
 }
 

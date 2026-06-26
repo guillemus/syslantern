@@ -1,50 +1,50 @@
--- name: GetUserByEmailQuery :one
-SELECT sqlc.embed(users)
+-- name: GetUserByEmail :one
+SELECT users.*
 FROM users
 WHERE email = @email;
 
--- name: GetUserByIDQuery :one
-SELECT sqlc.embed(users)
+-- name: GetUserByID :one
+SELECT users.*
 FROM users
 WHERE id = @id;
 
--- name: GetTeamByIDQuery :one
-SELECT sqlc.embed(teams)
+-- name: GetTeamByID :one
+SELECT teams.*  
 FROM teams
 WHERE id = @id;
 
--- name: CreateTeamQuery :one
+-- name: createTeam :one
 INSERT INTO teams (name)
 VALUES (@name)
 RETURNING *;
 
--- name: CreateUserQuery :one
+-- name: createUser :one
 INSERT INTO users (team_id, email, password_hash)
 VALUES (@team_id, @email, @password_hash)
 RETURNING *;
 
--- name: DeleteSessionQuery :exec
+-- name: deleteSession :exec
 DELETE FROM sessions
 WHERE token = @token;
 
--- name: FindSessionQuery :one
+-- name: findSession :one
 SELECT data
 FROM sessions
 WHERE token = @token
 AND expiry > @now;
 
--- name: CommitSessionQuery :exec
+-- name: commitSession :exec
 INSERT INTO sessions (token, data, expiry)
 VALUES (@token, @data, @expiry)
 ON CONFLICT(token) DO UPDATE SET data = excluded.data, expiry = excluded.expiry;
 
--- name: GetTeamByAgentAPIKeyQuery :one
-SELECT sqlc.embed(teams)
+-- name: GetTeamByAgentAPIKey :one
+SELECT teams.* 
 FROM teams
 JOIN agents ON agents.team_id = teams.id
 WHERE agents.api_key = @agent_api_key;
 
--- name: UpsertAgentForTeamQuery :one
+-- name: upsertAgentForTeam :one
 INSERT INTO agents (id, team_id, name, version, status, api_key)
 VALUES (@id, @team_id, @name, @version, @status, @api_key)
 ON CONFLICT(id) DO UPDATE SET
@@ -55,37 +55,45 @@ ON CONFLICT(id) DO UPDATE SET
 WHERE agents.team_id = excluded.team_id
 RETURNING *;
 
--- name: ListAgentsForTeamQuery :many
-SELECT sqlc.embed(agents)
+-- name: ListAgentsForTeam :many
+SELECT agents.*
 FROM agents
 WHERE team_id = @team_id
+AND STATUS != 'deleted'
 ORDER BY updated_at DESC;
 
--- name: GetAgentForTeamQuery :one
-SELECT sqlc.embed(agents)
+-- name: GetAgentForTeam :one
+SELECT agents.*
 FROM agents
 WHERE id = @id
 AND team_id = @team_id;
 
--- name: GetAgentByAPIKeyQuery :one
-SELECT sqlc.embed(agents)
+-- name: GetAgentByAPIKey :one
+SELECT agents.*
 FROM agents
 WHERE api_key = @api_key;
 
--- name: UpdateAgentHostIDQuery :exec
+-- name: updateAgentHostID :exec
 UPDATE agents
 SET host_id = @host_id,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = @id;
 
--- name: TouchAgentForTeamQuery :execrows
+-- name: touchAgentForTeam :execrows
 UPDATE agents
 SET version = @version,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = @id
 AND team_id = @team_id;
 
--- name: CreateCPUSampleQuery :exec
+-- name: setAgentStatusForTeam :exec
+UPDATE agents
+SET status = @status,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = @id
+AND team_id = @team_id;
+
+-- name: createCPUSample :exec
 INSERT INTO cpu_samples (
     observed_at,
     used_percent,
@@ -106,7 +114,7 @@ INSERT INTO cpu_samples (
     @load_15m
 );
 
--- name: CreateMemorySampleQuery :exec
+-- name: createMemorySample :exec
 INSERT INTO memory_samples (
     observed_at,
     virtual_used_percent,
@@ -129,7 +137,7 @@ INSERT INTO memory_samples (
     @swap_total_bytes
 );
 
--- name: CreateDiskSampleQuery :exec
+-- name: createDiskSample :exec
 INSERT INTO disk_samples (
     observed_at,
     is_total,
@@ -152,32 +160,32 @@ INSERT INTO disk_samples (
     @total_bytes
 );
 
--- name: GetLatestCPUSampleQuery :one
-SELECT sqlc.embed(cpu_samples)
+-- name: GetLatestCPUSample :one
+SELECT cpu_samples.*
 FROM cpu_samples
 ORDER BY observed_at DESC
 LIMIT 1;
 
--- name: ListCPUSamplesSinceQuery :many
-SELECT sqlc.embed(cpu_samples)
+-- name: ListCPUSamplesSince :many
+SELECT cpu_samples.*
 FROM cpu_samples
 WHERE observed_at >= @since
 ORDER BY observed_at;
 
--- name: GetLatestMemorySampleQuery :one
-SELECT sqlc.embed(memory_samples)
+-- name: GetLatestMemorySample :one
+SELECT memory_samples.*
 FROM memory_samples
 ORDER BY observed_at DESC
 LIMIT 1;
 
--- name: ListMemorySamplesSinceQuery :many
-SELECT sqlc.embed(memory_samples)
+-- name: ListMemorySamplesSince :many
+SELECT memory_samples.*
 FROM memory_samples
 WHERE observed_at >= @since
 ORDER BY observed_at;
 
--- name: ListLatestDiskSamplesQuery :many
-SELECT sqlc.embed(disk_samples)
+-- name: ListLatestDiskSamples :many
+SELECT disk_samples.*
 FROM disk_samples
 WHERE observed_at = (
     SELECT MAX(observed_at)
@@ -185,27 +193,27 @@ WHERE observed_at = (
 )
 ORDER BY is_total DESC, free_bytes, mount;
 
--- name: ListDiskSamplesSinceQuery :many
-SELECT sqlc.embed(disk_samples)
+-- name: ListDiskSamplesSince :many
+SELECT disk_samples.*
 FROM disk_samples
 WHERE observed_at >= @since
 ORDER BY observed_at, is_total DESC, mount;
 
--- name: ListDiskSamplesForMountSinceQuery :many
-SELECT sqlc.embed(disk_samples)
+-- name: ListDiskSamplesForMountSince :many
+SELECT disk_samples.*
 FROM disk_samples
 WHERE mount = @mount
   AND observed_at >= @since
 ORDER BY observed_at;
 
--- name: DeleteOldCPUSamplesQuery :exec
+-- name: deleteOldCPUSamples :exec
 DELETE FROM cpu_samples
 WHERE observed_at < @cutoff;
 
--- name: DeleteOldMemorySamplesQuery :exec
+-- name: deleteOldMemorySamples :exec
 DELETE FROM memory_samples
 WHERE observed_at < @cutoff;
 
--- name: DeleteOldDiskSamplesQuery :exec
+-- name: deleteOldDiskSamples :exec
 DELETE FROM disk_samples
 WHERE observed_at < @cutoff;

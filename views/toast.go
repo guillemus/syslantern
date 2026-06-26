@@ -1,6 +1,8 @@
 package views
 
 import (
+	"net/http"
+
 	"github.com/starfederation/datastar-go/datastar"
 
 	. "maragu.dev/gomponents"
@@ -37,7 +39,8 @@ func Toast(data ToastProps) Node {
 	)
 }
 
-func PatchErrorToast(sse *datastar.ServerSentEventGenerator, title, message string) {
+func PatchErrorToast(w http.ResponseWriter, r *http.Request, title, message string) {
+	sse := datastar.NewSSE(w, r)
 	PatchToast(sse, ToastProps{Title: title, Message: message})
 }
 

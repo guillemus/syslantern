@@ -5,6 +5,8 @@ import (
 	"sync"
 )
 
+// EventBus is a custom fire and forget implementation of an event bus.
+// Emitted events are meant to be interepreted as state invalidations.
 type EventBus[T any] struct {
 	mu   sync.RWMutex
 	subs []chan T
@@ -29,6 +31,7 @@ func (b *EventBus[T]) Subscribe(ctx context.Context) <-chan T {
 		b.mu.Lock()
 		defer b.mu.Unlock()
 
+		// remove sub from b.subs
 		for i, sub := range b.subs {
 			if sub == ch {
 				b.subs = append(b.subs[:i], b.subs[i+1:]...)
@@ -41,7 +44,7 @@ func (b *EventBus[T]) Subscribe(ctx context.Context) <-chan T {
 	return ch
 }
 
-func (b *EventBus[T]) Emit(ctx context.Context, msg T) {
+func (b *EventBus[T]) Emit(msg T) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 

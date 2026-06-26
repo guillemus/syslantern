@@ -35,7 +35,7 @@ func (c *Conn) CreateAgentForTeam(
 	ctx context.Context, teamID TeamID, name string, version string,
 ) (Agent, error) {
 	id := newAgentID()
-	return c.UpsertAgentForTeamQuery(ctx, UpsertAgentForTeamQueryParams{
+	return c.upsertAgentForTeam(ctx, upsertAgentForTeamParams{
 		ID:      id,
 		TeamID:  teamID,
 		Name:    name,
@@ -45,29 +45,8 @@ func (c *Conn) CreateAgentForTeam(
 	})
 }
 
-func (c *Conn) ListAgentsForTeam(ctx context.Context, teamID TeamID) ([]Agent, error) {
-	rows, err := c.ListAgentsForTeamQuery(ctx, teamID)
-	if err != nil {
-		return nil, err
-	}
-
-	agents := make([]Agent, 0, len(rows))
-	for _, row := range rows {
-		agents = append(agents, row.Agent)
-	}
-	return agents, nil
-}
-
-func (c *Conn) GetAgentByApiKey(ctx context.Context, apikey string) (Agent, error) {
-	row, err := c.GetAgentByAPIKeyQuery(ctx, AgentAPIKey(apikey))
-	if err != nil {
-		return Agent{}, err
-	}
-	return row.Agent, nil
-}
-
 func (c *Conn) UpdateAgentHostID(ctx context.Context, agentID AgentID, hostID string) error {
-	return c.UpdateAgentHostIDQuery(ctx, UpdateAgentHostIDQueryParams{
+	return c.updateAgentHostID(ctx, updateAgentHostIDParams{
 		ID:     agentID,
 		HostID: sql.NullString{String: hostID, Valid: true},
 	})

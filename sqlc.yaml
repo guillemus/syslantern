@@ -10,7 +10,7 @@ sql:
         sql_package: "database/sql"
         emit_json_tags: false
         emit_db_tags: true
-        emit_prepared_queries: false
+        emit_prepared_queries: true
         emit_interface: false
         emit_exact_table_names: false
         overrides:
@@ -47,8 +47,3 @@ sql:
           - column: "sessions.token"
             go_type:
               type: "SessionToken"
-        rename:
-          root_url: "RootURL"
-          favicon_url: "FaviconURL"
-          theme_color: "ThemeColor"
-          url: "URL"

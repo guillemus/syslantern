@@ -17,49 +17,48 @@ import (
 func TestAuthSignUpThenSignIn(t *testing.T) {
 	s := newTestServer(t)
 
+	testEmail := "test@example.com"
+	testPassword := "correct horse battery staple"
+	testPayload := fmt.Sprintf(`{"email":%q,"password":%q}`, testEmail, testPassword)
+
 	signUp := sendPostJson(
-		s, "/sign-up", `{"email":"test@example.com","password":"correct horse battery staple"}`)
+		s, "/sign-up", testPayload)
 	assertRedirectHome(t, signUp, "sign-up")
 	require.NotEmpty(
 		t, signUp.Result().Cookies(),
 		"sign-up should create a session cookie")
 
-	user, err := s.DB.GetUserByEmail(t.Context(), "test@example.com")
+	user, err := s.DB.GetUserByEmail(t.Context(), testEmail)
 	require.NoError(t, err, "sign-up should create user")
 	require.NoError(t, bcrypt.CompareHashAndPassword(
-		[]byte(user.PasswordHash), []byte("correct horse battery staple"),
+		[]byte(user.PasswordHash), []byte(testPassword),
 	), "sign-up should store hashed password")
 
 	team, err := s.DB.GetTeamByID(t.Context(), user.TeamID)
 	require.NoError(t, err, "sign-up should create team")
 	require.Equal(t, "My Team", team.Name, "sign-up should create default team")
 
-	assertCookiesAuthenticate(
-		t, s, signUp.Result().Cookies(), "test@example.com",
-		"sign-up cookie should authenticate the new user")
+	assertCookiesAuthenticate(t, s, signUp.Result().Cookies(), testEmail)
 
-	signIn := sendPostJson(
-		s, "/sign-in", `{"email":"test@example.com","password":"correct horse battery staple"}`,
-		signUp.Result().Cookies()...)
+	signIn := sendPostJson(s, "/sign-in", testPayload, signUp.Result().Cookies()...)
 	assertRedirectHome(t, signIn, "sign-in")
 	require.NotEmpty(t, signIn.Result().Cookies(), "sign-in should set a session cookie")
-	assertCookiesAuthenticate(
-		t, s, signIn.Result().Cookies(), "test@example.com",
-		"sign-in cookie should authenticate the user")
+	assertCookiesAuthenticate(t, s, signIn.Result().Cookies(), testEmail)
 }
 
 func TestHandleSignInRejectsBadPassword(t *testing.T) {
 	s := newTestServer(t)
+	testEmail := "test@example.com"
+	wrongPassword := "wrong"
 	_, err := s.DB.CreateUserAndTeam(
-		t.Context(), "test@example.com", "$2a$10$seFT5QbguA5gFM1daVH0xec0GUnf31awNmVK89yjQ5A9vuwU6kyhu")
+		t.Context(), testEmail, "$2a$10$seFT5QbguA5gFM1daVH0xec0GUnf31awNmVK89yjQ5A9vuwU6kyhu")
 	require.NoError(t, err, "create existing user fixture")
 
-	rr := sendPostJson(s, "/sign-in", `{"email":"test@example.com","password":"wrong"}`)
+	testPayload := fmt.Sprintf(`{"email":%q,"password":%q}`, testEmail, wrongPassword)
+	rr := sendPostJson(s, "/sign-in", testPayload)
 
 	require.Equal(t, http.StatusOK, rr.Code, "bad sign-in should re-render the form")
-	require.Contains(
-		t, rr.Body.String(),
-		"Invalid email or password.", "bad sign-in should show invalid credentials copy")
+	require.Contains(t, rr.Body.String(), "Invalid email or password.", "bad sign-in should show invalid credentials copy")
 	require.Empty(
 		t, rr.Result().Cookies(),
 		"bad sign-in should not create a session cookie")
@@ -78,32 +77,26 @@ func sendPostJson(s *Server, url string, json string, cookies ...*http.Cookie) *
 func assertRedirectHome(t *testing.T, rr *httptest.ResponseRecorder, action string) {
 	t.Helper()
 
-	require.Equal(
-		t, http.StatusOK, rr.Code,
-		"%s should respond successfully", action)
-	require.Equal(
-		t, "text/event-stream", rr.Header().Get("Content-Type"),
-		"%s success should stream a Datastar redirect", action)
-	require.Contains(
-		t, rr.Body.String(), `window.location.href = "/"`,
-		"%s success should redirect home", action)
+	require.Equal(t, http.StatusOK, rr.Code, "%s should respond successfully", action)
+	contentType := rr.Header().Get("Content-Type")
+	require.Equal(t, "text/event-stream", contentType, "%s success should stream a Datastar redirect", action)
+	require.Contains(t, rr.Body.String(), `window.location.href = "/"`, "%s success should redirect home", action)
 }
 
 func assertCookiesAuthenticate(
-	t *testing.T, s *Server, cookies []*http.Cookie, email string, msg string,
+	t *testing.T, s *Server, cookies []*http.Cookie, email string,
 ) {
 	t.Helper()
 
-	req := newGetRequest("/")
+	req := newGetRequest("/is-authenticated")
 	for _, cookie := range cookies {
 		req.AddCookie(cookie)
 	}
 	rr := httptest.NewRecorder()
-	s.Sessions.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, exists := s.GetAuthenticatedUser(w, r)
-		require.True(t, exists, msg)
-		require.Equal(t, email, user.Email, "authenticated user should match email")
-	})).ServeHTTP(rr, req)
+	s.Router.ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusOK, rr.Code)
+	require.Equal(t, email, rr.Body.String(), "authenticated user should match email")
 }
 
 func newGetRequest(url string) *http.Request {

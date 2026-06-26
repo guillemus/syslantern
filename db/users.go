@@ -1,21 +1,6 @@
 package db
 
-import (
-	"context"
-	"crypto/rand"
-	"encoding/base64"
-	"fmt"
-)
-
-func (c *Conn) GetUserByEmail(ctx context.Context, email string) (User, error) {
-	row, err := c.GetUserByEmailQuery(ctx, email)
-	return row.User, err
-}
-
-func (c *Conn) GetUserByID(ctx context.Context, id UserID) (User, error) {
-	row, err := c.GetUserByIDQuery(ctx, id)
-	return row.User, err
-}
+import "context"
 
 func (c *Conn) CreateUserAndTeam(ctx context.Context, email, passwordHash string) (User, error) {
 	tx, err := c.DB.BeginTx(ctx, nil)
@@ -26,12 +11,12 @@ func (c *Conn) CreateUserAndTeam(ctx context.Context, email, passwordHash string
 
 	q := c.Queries.WithTx(tx)
 
-	team, err := q.CreateTeamQuery(ctx, "My Team")
+	team, err := q.createTeam(ctx, "My Team")
 	if err != nil {
 		return User{}, err
 	}
 
-	user, err := q.CreateUserQuery(ctx, CreateUserQueryParams{
+	user, err := q.createUser(ctx, createUserParams{
 		TeamID:       team.ID,
 		Email:        email,
 		PasswordHash: passwordHash,
@@ -45,12 +30,4 @@ func (c *Conn) CreateUserAndTeam(ctx context.Context, email, passwordHash string
 	}
 
 	return user, nil
-}
-
-func newAgentAPIKey() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", fmt.Errorf("generate agent api key: %w", err)
-	}
-	return "sla_" + base64.RawURLEncoding.EncodeToString(b), nil
 }

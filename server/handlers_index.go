@@ -7,15 +7,12 @@ import (
 	"syslantern/db"
 	"syslantern/views"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/starfederation/datastar-go/datastar"
 )
 
 func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
-	user, exists := s.GetAuthenticatedUser(w, r)
-	if !exists {
-		http.Redirect(w, r, "/sign-in", http.StatusSeeOther)
-		return
-	}
+	user := s.GetAuthenticatedUser(r)
 
 	data, err := s.indexData(r.Context(), user.TeamID)
 	if err != nil {
@@ -70,13 +67,10 @@ func hubURL(r *http.Request) string {
 }
 
 func (s *Server) HandleIndexEvents(w http.ResponseWriter, r *http.Request) {
-	user, exists := s.GetAuthenticatedUser(w, r)
-	if !exists {
-		http.Error(w, "Sign in to view your agents.", http.StatusUnauthorized)
-		return
-	}
+	user := s.GetAuthenticatedUser(r)
 
 	agentCreatedC := s.AgentCreatedBus.Subscribe(r.Context())
+	agentDeletedC := s.AgentDeletedBus.Subscribe(r.Context())
 
 	sse := datastar.NewSSE(w, r)
 	for {
@@ -94,26 +88,31 @@ func (s *Server) HandleIndexEvents(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			s.Renderer.PatchIndexPage(sse, data)
+			s.Renderer.PatchAgentsIndexTable(sse, data)
+		case evt := <-agentDeletedC:
+			if evt.TeamID != user.TeamID {
+				continue
+			}
+
+			data, err := s.indexData(r.Context(), user.TeamID)
+			if err != nil {
+				s.Logger.Warn("index events: list agents", "err", err)
+				return
+			}
+
+			s.Renderer.PatchAgentsIndexTable(sse, data)
 		}
 	}
 }
 
-func (s *Server) HandleAgentNew(w http.ResponseWriter, r *http.Request) {
+func (s *Server) HandleAgentsNew(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	user, exists := s.GetAuthenticatedUser(w, r)
-	if !exists {
-		// fixme: this should probably come from context I think
-		sse := datastar.NewSSE(w, r)
-		sse.Redirect("/sign-in")
-		return
-	}
+	user := s.GetAuthenticatedUser(r)
 
 	var sig views.NewAgentDialogSignals
 	if err := datastar.ReadSignals(r, &sig); err != nil {
 		s.Logger.Error("agent new: read signals", "err", err)
-		s.Renderer.PatchNewAgentDialog(w, r, "Could not read the agent details. Refresh the page and try again.")
+		s.Renderer.PatchNewAgentDialogErr(w, r, "Could not read the agent details. Refresh the page and try again.")
 		return
 	}
 
@@ -121,12 +120,40 @@ func (s *Server) HandleAgentNew(w http.ResponseWriter, r *http.Request) {
 	createdAgent, err := s.DB.CreateAgentForTeam(ctx, user.TeamID, sig.NewAgentName, version)
 	if err != nil {
 		s.Logger.Error("agent new: create agent", "team_id", user.TeamID, "err", err)
-		s.Renderer.PatchNewAgentDialog(w, r, "Could not add the agent. Try again.")
+		s.Renderer.PatchNewAgentDialogErr(w, r, "Could not add the agent. Try again.")
 		return
 	}
 
-	s.AgentCreatedBus.Emit(ctx, AgentCreatedEvent{
+	s.AgentCreatedBus.Emit(AgentCreatedEvent{
 		TeamID:  createdAgent.TeamID,
 		AgentID: createdAgent.ID,
+	})
+
+	commandToInstall := s.agentInstallCommand(r, createdAgent.ApiKey)
+	s.Renderer.PatchNewAgentDialogWithCopyCommmand(w, r, commandToInstall)
+}
+
+func (s *Server) HandleAgentsDelete(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	agentID := db.AgentID(chi.URLParam(r, "agentID"))
+	user := s.GetAuthenticatedUser(r)
+
+	err := s.DB.SetAgentStatusForTeam(ctx, db.SetAgentStatusForTeamParams{
+		Status: db.AgentStatusDeleted,
+		ID:     agentID,
+		TeamID: user.TeamID,
+	})
+	if err != nil {
+		s.Logger.Error("agent delete: delete agent",
+			"team_id", user.TeamID,
+			"agent_id", agentID,
+			"err", err)
+		views.PatchErrorToast(w, r, "Could not delete the agent", "Try again.")
+		return
+	}
+
+	s.AgentDeletedBus.Emit(AgentDeletedEvent{
+		TeamID:  user.TeamID,
+		AgentID: agentID,
 	})
 }

@@ -11,24 +11,475 @@ import (
 	"time"
 )
 
-const commitSessionQuery = `-- name: CommitSessionQuery :exec
+const getAgentByAPIKey = `-- name: GetAgentByAPIKey :one
+SELECT agents.id, agents.team_id, agents.name, agents.version, agents.status, agents.host_id, agents.api_key, agents.created_at, agents.updated_at
+FROM agents
+WHERE api_key = ?1
+`
+
+func (q *Queries) GetAgentByAPIKey(ctx context.Context, apiKey AgentAPIKey) (Agent, error) {
+	row := q.queryRow(ctx, q.getAgentByAPIKeyStmt, getAgentByAPIKey, apiKey)
+	var i Agent
+	err := row.Scan(
+		&i.ID,
+		&i.TeamID,
+		&i.Name,
+		&i.Version,
+		&i.Status,
+		&i.HostID,
+		&i.ApiKey,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getAgentForTeam = `-- name: GetAgentForTeam :one
+SELECT agents.id, agents.team_id, agents.name, agents.version, agents.status, agents.host_id, agents.api_key, agents.created_at, agents.updated_at
+FROM agents
+WHERE id = ?1
+AND team_id = ?2
+`
+
+type GetAgentForTeamParams struct {
+	ID     AgentID `db:"id"`
+	TeamID TeamID  `db:"team_id"`
+}
+
+func (q *Queries) GetAgentForTeam(ctx context.Context, arg GetAgentForTeamParams) (Agent, error) {
+	row := q.queryRow(ctx, q.getAgentForTeamStmt, getAgentForTeam, arg.ID, arg.TeamID)
+	var i Agent
+	err := row.Scan(
+		&i.ID,
+		&i.TeamID,
+		&i.Name,
+		&i.Version,
+		&i.Status,
+		&i.HostID,
+		&i.ApiKey,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getLatestCPUSample = `-- name: GetLatestCPUSample :one
+SELECT cpu_samples.id, cpu_samples.observed_at, cpu_samples.used_percent, cpu_samples.cores_logical, cpu_samples.cores_physical, cpu_samples.per_core_percent, cpu_samples.load_1m, cpu_samples.load_5m, cpu_samples.load_15m
+FROM cpu_samples
+ORDER BY observed_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestCPUSample(ctx context.Context) (CpuSample, error) {
+	row := q.queryRow(ctx, q.getLatestCPUSampleStmt, getLatestCPUSample)
+	var i CpuSample
+	err := row.Scan(
+		&i.ID,
+		&i.ObservedAt,
+		&i.UsedPercent,
+		&i.CoresLogical,
+		&i.CoresPhysical,
+		&i.PerCorePercent,
+		&i.Load1m,
+		&i.Load5m,
+		&i.Load15m,
+	)
+	return i, err
+}
+
+const getLatestMemorySample = `-- name: GetLatestMemorySample :one
+SELECT memory_samples.id, memory_samples.observed_at, memory_samples.virtual_used_percent, memory_samples.virtual_used_bytes, memory_samples.virtual_available_bytes, memory_samples.virtual_total_bytes, memory_samples.swap_used_percent, memory_samples.swap_used_bytes, memory_samples.swap_available_bytes, memory_samples.swap_total_bytes
+FROM memory_samples
+ORDER BY observed_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestMemorySample(ctx context.Context) (MemorySample, error) {
+	row := q.queryRow(ctx, q.getLatestMemorySampleStmt, getLatestMemorySample)
+	var i MemorySample
+	err := row.Scan(
+		&i.ID,
+		&i.ObservedAt,
+		&i.VirtualUsedPercent,
+		&i.VirtualUsedBytes,
+		&i.VirtualAvailableBytes,
+		&i.VirtualTotalBytes,
+		&i.SwapUsedPercent,
+		&i.SwapUsedBytes,
+		&i.SwapAvailableBytes,
+		&i.SwapTotalBytes,
+	)
+	return i, err
+}
+
+const getTeamByAgentAPIKey = `-- name: GetTeamByAgentAPIKey :one
+SELECT teams.id, teams.name, teams.created_at, teams.updated_at 
+FROM teams
+JOIN agents ON agents.team_id = teams.id
+WHERE agents.api_key = ?1
+`
+
+func (q *Queries) GetTeamByAgentAPIKey(ctx context.Context, agentApiKey AgentAPIKey) (Team, error) {
+	row := q.queryRow(ctx, q.getTeamByAgentAPIKeyStmt, getTeamByAgentAPIKey, agentApiKey)
+	var i Team
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getTeamByID = `-- name: GetTeamByID :one
+SELECT teams.id, teams.name, teams.created_at, teams.updated_at  
+FROM teams
+WHERE id = ?1
+`
+
+func (q *Queries) GetTeamByID(ctx context.Context, id TeamID) (Team, error) {
+	row := q.queryRow(ctx, q.getTeamByIDStmt, getTeamByID, id)
+	var i Team
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT users.id, users.team_id, users.email, users.password_hash, users.created_at, users.updated_at
+FROM users
+WHERE email = ?1
+`
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	row := q.queryRow(ctx, q.getUserByEmailStmt, getUserByEmail, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.TeamID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserByID = `-- name: GetUserByID :one
+SELECT users.id, users.team_id, users.email, users.password_hash, users.created_at, users.updated_at
+FROM users
+WHERE id = ?1
+`
+
+func (q *Queries) GetUserByID(ctx context.Context, id UserID) (User, error) {
+	row := q.queryRow(ctx, q.getUserByIDStmt, getUserByID, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.TeamID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listAgentsForTeam = `-- name: ListAgentsForTeam :many
+SELECT agents.id, agents.team_id, agents.name, agents.version, agents.status, agents.host_id, agents.api_key, agents.created_at, agents.updated_at
+FROM agents
+WHERE team_id = ?1
+AND STATUS != 'deleted'
+ORDER BY updated_at DESC
+`
+
+func (q *Queries) ListAgentsForTeam(ctx context.Context, teamID TeamID) ([]Agent, error) {
+	rows, err := q.query(ctx, q.listAgentsForTeamStmt, listAgentsForTeam, teamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Agent
+	for rows.Next() {
+		var i Agent
+		if err := rows.Scan(
+			&i.ID,
+			&i.TeamID,
+			&i.Name,
+			&i.Version,
+			&i.Status,
+			&i.HostID,
+			&i.ApiKey,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCPUSamplesSince = `-- name: ListCPUSamplesSince :many
+SELECT cpu_samples.id, cpu_samples.observed_at, cpu_samples.used_percent, cpu_samples.cores_logical, cpu_samples.cores_physical, cpu_samples.per_core_percent, cpu_samples.load_1m, cpu_samples.load_5m, cpu_samples.load_15m
+FROM cpu_samples
+WHERE observed_at >= ?1
+ORDER BY observed_at
+`
+
+func (q *Queries) ListCPUSamplesSince(ctx context.Context, since string) ([]CpuSample, error) {
+	rows, err := q.query(ctx, q.listCPUSamplesSinceStmt, listCPUSamplesSince, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CpuSample
+	for rows.Next() {
+		var i CpuSample
+		if err := rows.Scan(
+			&i.ID,
+			&i.ObservedAt,
+			&i.UsedPercent,
+			&i.CoresLogical,
+			&i.CoresPhysical,
+			&i.PerCorePercent,
+			&i.Load1m,
+			&i.Load5m,
+			&i.Load15m,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDiskSamplesForMountSince = `-- name: ListDiskSamplesForMountSince :many
+SELECT disk_samples.id, disk_samples.observed_at, disk_samples.is_total, disk_samples.device, disk_samples.mount, disk_samples.filesystem, disk_samples.used_percent, disk_samples.used_bytes, disk_samples.free_bytes, disk_samples.total_bytes
+FROM disk_samples
+WHERE mount = ?1
+  AND observed_at >= ?2
+ORDER BY observed_at
+`
+
+type ListDiskSamplesForMountSinceParams struct {
+	Mount string `db:"mount"`
+	Since string `db:"since"`
+}
+
+func (q *Queries) ListDiskSamplesForMountSince(ctx context.Context, arg ListDiskSamplesForMountSinceParams) ([]DiskSample, error) {
+	rows, err := q.query(ctx, q.listDiskSamplesForMountSinceStmt, listDiskSamplesForMountSince, arg.Mount, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DiskSample
+	for rows.Next() {
+		var i DiskSample
+		if err := rows.Scan(
+			&i.ID,
+			&i.ObservedAt,
+			&i.IsTotal,
+			&i.Device,
+			&i.Mount,
+			&i.Filesystem,
+			&i.UsedPercent,
+			&i.UsedBytes,
+			&i.FreeBytes,
+			&i.TotalBytes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDiskSamplesSince = `-- name: ListDiskSamplesSince :many
+SELECT disk_samples.id, disk_samples.observed_at, disk_samples.is_total, disk_samples.device, disk_samples.mount, disk_samples.filesystem, disk_samples.used_percent, disk_samples.used_bytes, disk_samples.free_bytes, disk_samples.total_bytes
+FROM disk_samples
+WHERE observed_at >= ?1
+ORDER BY observed_at, is_total DESC, mount
+`
+
+func (q *Queries) ListDiskSamplesSince(ctx context.Context, since string) ([]DiskSample, error) {
+	rows, err := q.query(ctx, q.listDiskSamplesSinceStmt, listDiskSamplesSince, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DiskSample
+	for rows.Next() {
+		var i DiskSample
+		if err := rows.Scan(
+			&i.ID,
+			&i.ObservedAt,
+			&i.IsTotal,
+			&i.Device,
+			&i.Mount,
+			&i.Filesystem,
+			&i.UsedPercent,
+			&i.UsedBytes,
+			&i.FreeBytes,
+			&i.TotalBytes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLatestDiskSamples = `-- name: ListLatestDiskSamples :many
+SELECT disk_samples.id, disk_samples.observed_at, disk_samples.is_total, disk_samples.device, disk_samples.mount, disk_samples.filesystem, disk_samples.used_percent, disk_samples.used_bytes, disk_samples.free_bytes, disk_samples.total_bytes
+FROM disk_samples
+WHERE observed_at = (
+    SELECT MAX(observed_at)
+    FROM disk_samples
+)
+ORDER BY is_total DESC, free_bytes, mount
+`
+
+func (q *Queries) ListLatestDiskSamples(ctx context.Context) ([]DiskSample, error) {
+	rows, err := q.query(ctx, q.listLatestDiskSamplesStmt, listLatestDiskSamples)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DiskSample
+	for rows.Next() {
+		var i DiskSample
+		if err := rows.Scan(
+			&i.ID,
+			&i.ObservedAt,
+			&i.IsTotal,
+			&i.Device,
+			&i.Mount,
+			&i.Filesystem,
+			&i.UsedPercent,
+			&i.UsedBytes,
+			&i.FreeBytes,
+			&i.TotalBytes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMemorySamplesSince = `-- name: ListMemorySamplesSince :many
+SELECT memory_samples.id, memory_samples.observed_at, memory_samples.virtual_used_percent, memory_samples.virtual_used_bytes, memory_samples.virtual_available_bytes, memory_samples.virtual_total_bytes, memory_samples.swap_used_percent, memory_samples.swap_used_bytes, memory_samples.swap_available_bytes, memory_samples.swap_total_bytes
+FROM memory_samples
+WHERE observed_at >= ?1
+ORDER BY observed_at
+`
+
+func (q *Queries) ListMemorySamplesSince(ctx context.Context, since string) ([]MemorySample, error) {
+	rows, err := q.query(ctx, q.listMemorySamplesSinceStmt, listMemorySamplesSince, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MemorySample
+	for rows.Next() {
+		var i MemorySample
+		if err := rows.Scan(
+			&i.ID,
+			&i.ObservedAt,
+			&i.VirtualUsedPercent,
+			&i.VirtualUsedBytes,
+			&i.VirtualAvailableBytes,
+			&i.VirtualTotalBytes,
+			&i.SwapUsedPercent,
+			&i.SwapUsedBytes,
+			&i.SwapAvailableBytes,
+			&i.SwapTotalBytes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setAgentStatusForTeam = `-- name: SetAgentStatusForTeam :exec
+UPDATE agents
+SET status = ?1,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = ?2
+AND team_id = ?3
+`
+
+type SetAgentStatusForTeamParams struct {
+	Status AgentStatus `db:"status"`
+	ID     AgentID     `db:"id"`
+	TeamID TeamID      `db:"team_id"`
+}
+
+func (q *Queries) SetAgentStatusForTeam(ctx context.Context, arg SetAgentStatusForTeamParams) error {
+	_, err := q.exec(ctx, q.setAgentStatusForTeamStmt, setAgentStatusForTeam, arg.Status, arg.ID, arg.TeamID)
+	return err
+}
+
+const commitSession = `-- name: commitSession :exec
 INSERT INTO sessions (token, data, expiry)
 VALUES (?1, ?2, ?3)
 ON CONFLICT(token) DO UPDATE SET data = excluded.data, expiry = excluded.expiry
 `
 
-type CommitSessionQueryParams struct {
+type commitSessionParams struct {
 	Token  SessionToken `db:"token"`
 	Data   []byte       `db:"data"`
 	Expiry time.Time    `db:"expiry"`
 }
 
-func (q *Queries) CommitSessionQuery(ctx context.Context, arg CommitSessionQueryParams) error {
-	_, err := q.db.ExecContext(ctx, commitSessionQuery, arg.Token, arg.Data, arg.Expiry)
+func (q *Queries) commitSession(ctx context.Context, arg commitSessionParams) error {
+	_, err := q.exec(ctx, q.commitSessionStmt, commitSession, arg.Token, arg.Data, arg.Expiry)
 	return err
 }
 
-const createCPUSampleQuery = `-- name: CreateCPUSampleQuery :exec
+const createCPUSample = `-- name: createCPUSample :exec
 INSERT INTO cpu_samples (
     observed_at,
     used_percent,
@@ -50,7 +501,7 @@ INSERT INTO cpu_samples (
 )
 `
 
-type CreateCPUSampleQueryParams struct {
+type createCPUSampleParams struct {
 	ObservedAt     string  `db:"observed_at"`
 	UsedPercent    float64 `db:"used_percent"`
 	CoresLogical   int64   `db:"cores_logical"`
@@ -61,8 +512,8 @@ type CreateCPUSampleQueryParams struct {
 	Load15m        float64 `db:"load_15m"`
 }
 
-func (q *Queries) CreateCPUSampleQuery(ctx context.Context, arg CreateCPUSampleQueryParams) error {
-	_, err := q.db.ExecContext(ctx, createCPUSampleQuery,
+func (q *Queries) createCPUSample(ctx context.Context, arg createCPUSampleParams) error {
+	_, err := q.exec(ctx, q.createCPUSampleStmt, createCPUSample,
 		arg.ObservedAt,
 		arg.UsedPercent,
 		arg.CoresLogical,
@@ -75,7 +526,7 @@ func (q *Queries) CreateCPUSampleQuery(ctx context.Context, arg CreateCPUSampleQ
 	return err
 }
 
-const createDiskSampleQuery = `-- name: CreateDiskSampleQuery :exec
+const createDiskSample = `-- name: createDiskSample :exec
 INSERT INTO disk_samples (
     observed_at,
     is_total,
@@ -99,7 +550,7 @@ INSERT INTO disk_samples (
 )
 `
 
-type CreateDiskSampleQueryParams struct {
+type createDiskSampleParams struct {
 	ObservedAt  string  `db:"observed_at"`
 	IsTotal     int64   `db:"is_total"`
 	Device      string  `db:"device"`
@@ -111,8 +562,8 @@ type CreateDiskSampleQueryParams struct {
 	TotalBytes  int64   `db:"total_bytes"`
 }
 
-func (q *Queries) CreateDiskSampleQuery(ctx context.Context, arg CreateDiskSampleQueryParams) error {
-	_, err := q.db.ExecContext(ctx, createDiskSampleQuery,
+func (q *Queries) createDiskSample(ctx context.Context, arg createDiskSampleParams) error {
+	_, err := q.exec(ctx, q.createDiskSampleStmt, createDiskSample,
 		arg.ObservedAt,
 		arg.IsTotal,
 		arg.Device,
@@ -126,7 +577,7 @@ func (q *Queries) CreateDiskSampleQuery(ctx context.Context, arg CreateDiskSampl
 	return err
 }
 
-const createMemorySampleQuery = `-- name: CreateMemorySampleQuery :exec
+const createMemorySample = `-- name: createMemorySample :exec
 INSERT INTO memory_samples (
     observed_at,
     virtual_used_percent,
@@ -150,7 +601,7 @@ INSERT INTO memory_samples (
 )
 `
 
-type CreateMemorySampleQueryParams struct {
+type createMemorySampleParams struct {
 	ObservedAt            string  `db:"observed_at"`
 	VirtualUsedPercent    float64 `db:"virtual_used_percent"`
 	VirtualUsedBytes      int64   `db:"virtual_used_bytes"`
@@ -162,8 +613,8 @@ type CreateMemorySampleQueryParams struct {
 	SwapTotalBytes        int64   `db:"swap_total_bytes"`
 }
 
-func (q *Queries) CreateMemorySampleQuery(ctx context.Context, arg CreateMemorySampleQueryParams) error {
-	_, err := q.db.ExecContext(ctx, createMemorySampleQuery,
+func (q *Queries) createMemorySample(ctx context.Context, arg createMemorySampleParams) error {
+	_, err := q.exec(ctx, q.createMemorySampleStmt, createMemorySample,
 		arg.ObservedAt,
 		arg.VirtualUsedPercent,
 		arg.VirtualUsedBytes,
@@ -177,14 +628,14 @@ func (q *Queries) CreateMemorySampleQuery(ctx context.Context, arg CreateMemoryS
 	return err
 }
 
-const createTeamQuery = `-- name: CreateTeamQuery :one
+const createTeam = `-- name: createTeam :one
 INSERT INTO teams (name)
 VALUES (?1)
 RETURNING id, name, created_at, updated_at
 `
 
-func (q *Queries) CreateTeamQuery(ctx context.Context, name string) (Team, error) {
-	row := q.db.QueryRowContext(ctx, createTeamQuery, name)
+func (q *Queries) createTeam(ctx context.Context, name string) (Team, error) {
+	row := q.queryRow(ctx, q.createTeamStmt, createTeam, name)
 	var i Team
 	err := row.Scan(
 		&i.ID,
@@ -195,20 +646,20 @@ func (q *Queries) CreateTeamQuery(ctx context.Context, name string) (Team, error
 	return i, err
 }
 
-const createUserQuery = `-- name: CreateUserQuery :one
+const createUser = `-- name: createUser :one
 INSERT INTO users (team_id, email, password_hash)
 VALUES (?1, ?2, ?3)
 RETURNING id, team_id, email, password_hash, created_at, updated_at
 `
 
-type CreateUserQueryParams struct {
+type createUserParams struct {
 	TeamID       TeamID `db:"team_id"`
 	Email        string `db:"email"`
 	PasswordHash string `db:"password_hash"`
 }
 
-func (q *Queries) CreateUserQuery(ctx context.Context, arg CreateUserQueryParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, createUserQuery, arg.TeamID, arg.Email, arg.PasswordHash)
+func (q *Queries) createUser(ctx context.Context, arg createUserParams) (User, error) {
+	row := q.queryRow(ctx, q.createUserStmt, createUser, arg.TeamID, arg.Email, arg.PasswordHash)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -221,553 +672,66 @@ func (q *Queries) CreateUserQuery(ctx context.Context, arg CreateUserQueryParams
 	return i, err
 }
 
-const deleteOldCPUSamplesQuery = `-- name: DeleteOldCPUSamplesQuery :exec
+const deleteOldCPUSamples = `-- name: deleteOldCPUSamples :exec
 DELETE FROM cpu_samples
 WHERE observed_at < ?1
 `
 
-func (q *Queries) DeleteOldCPUSamplesQuery(ctx context.Context, cutoff string) error {
-	_, err := q.db.ExecContext(ctx, deleteOldCPUSamplesQuery, cutoff)
+func (q *Queries) deleteOldCPUSamples(ctx context.Context, cutoff string) error {
+	_, err := q.exec(ctx, q.deleteOldCPUSamplesStmt, deleteOldCPUSamples, cutoff)
 	return err
 }
 
-const deleteOldDiskSamplesQuery = `-- name: DeleteOldDiskSamplesQuery :exec
+const deleteOldDiskSamples = `-- name: deleteOldDiskSamples :exec
 DELETE FROM disk_samples
 WHERE observed_at < ?1
 `
 
-func (q *Queries) DeleteOldDiskSamplesQuery(ctx context.Context, cutoff string) error {
-	_, err := q.db.ExecContext(ctx, deleteOldDiskSamplesQuery, cutoff)
+func (q *Queries) deleteOldDiskSamples(ctx context.Context, cutoff string) error {
+	_, err := q.exec(ctx, q.deleteOldDiskSamplesStmt, deleteOldDiskSamples, cutoff)
 	return err
 }
 
-const deleteOldMemorySamplesQuery = `-- name: DeleteOldMemorySamplesQuery :exec
+const deleteOldMemorySamples = `-- name: deleteOldMemorySamples :exec
 DELETE FROM memory_samples
 WHERE observed_at < ?1
 `
 
-func (q *Queries) DeleteOldMemorySamplesQuery(ctx context.Context, cutoff string) error {
-	_, err := q.db.ExecContext(ctx, deleteOldMemorySamplesQuery, cutoff)
+func (q *Queries) deleteOldMemorySamples(ctx context.Context, cutoff string) error {
+	_, err := q.exec(ctx, q.deleteOldMemorySamplesStmt, deleteOldMemorySamples, cutoff)
 	return err
 }
 
-const deleteSessionQuery = `-- name: DeleteSessionQuery :exec
+const deleteSession = `-- name: deleteSession :exec
 DELETE FROM sessions
 WHERE token = ?1
 `
 
-func (q *Queries) DeleteSessionQuery(ctx context.Context, token SessionToken) error {
-	_, err := q.db.ExecContext(ctx, deleteSessionQuery, token)
+func (q *Queries) deleteSession(ctx context.Context, token SessionToken) error {
+	_, err := q.exec(ctx, q.deleteSessionStmt, deleteSession, token)
 	return err
 }
 
-const findSessionQuery = `-- name: FindSessionQuery :one
+const findSession = `-- name: findSession :one
 SELECT data
 FROM sessions
 WHERE token = ?1
 AND expiry > ?2
 `
 
-type FindSessionQueryParams struct {
+type findSessionParams struct {
 	Token SessionToken `db:"token"`
 	Now   time.Time    `db:"now"`
 }
 
-func (q *Queries) FindSessionQuery(ctx context.Context, arg FindSessionQueryParams) ([]byte, error) {
-	row := q.db.QueryRowContext(ctx, findSessionQuery, arg.Token, arg.Now)
+func (q *Queries) findSession(ctx context.Context, arg findSessionParams) ([]byte, error) {
+	row := q.queryRow(ctx, q.findSessionStmt, findSession, arg.Token, arg.Now)
 	var data []byte
 	err := row.Scan(&data)
 	return data, err
 }
 
-const getAgentByAPIKeyQuery = `-- name: GetAgentByAPIKeyQuery :one
-SELECT agents.id, agents.team_id, agents.name, agents.version, agents.status, agents.host_id, agents.api_key, agents.created_at, agents.updated_at
-FROM agents
-WHERE api_key = ?1
-`
-
-type GetAgentByAPIKeyQueryRow struct {
-	Agent Agent `db:"agent"`
-}
-
-func (q *Queries) GetAgentByAPIKeyQuery(ctx context.Context, apiKey AgentAPIKey) (GetAgentByAPIKeyQueryRow, error) {
-	row := q.db.QueryRowContext(ctx, getAgentByAPIKeyQuery, apiKey)
-	var i GetAgentByAPIKeyQueryRow
-	err := row.Scan(
-		&i.Agent.ID,
-		&i.Agent.TeamID,
-		&i.Agent.Name,
-		&i.Agent.Version,
-		&i.Agent.Status,
-		&i.Agent.HostID,
-		&i.Agent.ApiKey,
-		&i.Agent.CreatedAt,
-		&i.Agent.UpdatedAt,
-	)
-	return i, err
-}
-
-const getAgentForTeamQuery = `-- name: GetAgentForTeamQuery :one
-SELECT agents.id, agents.team_id, agents.name, agents.version, agents.status, agents.host_id, agents.api_key, agents.created_at, agents.updated_at
-FROM agents
-WHERE id = ?1
-AND team_id = ?2
-`
-
-type GetAgentForTeamQueryParams struct {
-	ID     AgentID `db:"id"`
-	TeamID TeamID  `db:"team_id"`
-}
-
-type GetAgentForTeamQueryRow struct {
-	Agent Agent `db:"agent"`
-}
-
-func (q *Queries) GetAgentForTeamQuery(ctx context.Context, arg GetAgentForTeamQueryParams) (GetAgentForTeamQueryRow, error) {
-	row := q.db.QueryRowContext(ctx, getAgentForTeamQuery, arg.ID, arg.TeamID)
-	var i GetAgentForTeamQueryRow
-	err := row.Scan(
-		&i.Agent.ID,
-		&i.Agent.TeamID,
-		&i.Agent.Name,
-		&i.Agent.Version,
-		&i.Agent.Status,
-		&i.Agent.HostID,
-		&i.Agent.ApiKey,
-		&i.Agent.CreatedAt,
-		&i.Agent.UpdatedAt,
-	)
-	return i, err
-}
-
-const getLatestCPUSampleQuery = `-- name: GetLatestCPUSampleQuery :one
-SELECT cpu_samples.id, cpu_samples.observed_at, cpu_samples.used_percent, cpu_samples.cores_logical, cpu_samples.cores_physical, cpu_samples.per_core_percent, cpu_samples.load_1m, cpu_samples.load_5m, cpu_samples.load_15m
-FROM cpu_samples
-ORDER BY observed_at DESC
-LIMIT 1
-`
-
-type GetLatestCPUSampleQueryRow struct {
-	CpuSample CpuSample `db:"cpu_sample"`
-}
-
-func (q *Queries) GetLatestCPUSampleQuery(ctx context.Context) (GetLatestCPUSampleQueryRow, error) {
-	row := q.db.QueryRowContext(ctx, getLatestCPUSampleQuery)
-	var i GetLatestCPUSampleQueryRow
-	err := row.Scan(
-		&i.CpuSample.ID,
-		&i.CpuSample.ObservedAt,
-		&i.CpuSample.UsedPercent,
-		&i.CpuSample.CoresLogical,
-		&i.CpuSample.CoresPhysical,
-		&i.CpuSample.PerCorePercent,
-		&i.CpuSample.Load1m,
-		&i.CpuSample.Load5m,
-		&i.CpuSample.Load15m,
-	)
-	return i, err
-}
-
-const getLatestMemorySampleQuery = `-- name: GetLatestMemorySampleQuery :one
-SELECT memory_samples.id, memory_samples.observed_at, memory_samples.virtual_used_percent, memory_samples.virtual_used_bytes, memory_samples.virtual_available_bytes, memory_samples.virtual_total_bytes, memory_samples.swap_used_percent, memory_samples.swap_used_bytes, memory_samples.swap_available_bytes, memory_samples.swap_total_bytes
-FROM memory_samples
-ORDER BY observed_at DESC
-LIMIT 1
-`
-
-type GetLatestMemorySampleQueryRow struct {
-	MemorySample MemorySample `db:"memory_sample"`
-}
-
-func (q *Queries) GetLatestMemorySampleQuery(ctx context.Context) (GetLatestMemorySampleQueryRow, error) {
-	row := q.db.QueryRowContext(ctx, getLatestMemorySampleQuery)
-	var i GetLatestMemorySampleQueryRow
-	err := row.Scan(
-		&i.MemorySample.ID,
-		&i.MemorySample.ObservedAt,
-		&i.MemorySample.VirtualUsedPercent,
-		&i.MemorySample.VirtualUsedBytes,
-		&i.MemorySample.VirtualAvailableBytes,
-		&i.MemorySample.VirtualTotalBytes,
-		&i.MemorySample.SwapUsedPercent,
-		&i.MemorySample.SwapUsedBytes,
-		&i.MemorySample.SwapAvailableBytes,
-		&i.MemorySample.SwapTotalBytes,
-	)
-	return i, err
-}
-
-const getTeamByAgentAPIKeyQuery = `-- name: GetTeamByAgentAPIKeyQuery :one
-SELECT teams.id, teams.name, teams.created_at, teams.updated_at
-FROM teams
-JOIN agents ON agents.team_id = teams.id
-WHERE agents.api_key = ?1
-`
-
-type GetTeamByAgentAPIKeyQueryRow struct {
-	Team Team `db:"team"`
-}
-
-func (q *Queries) GetTeamByAgentAPIKeyQuery(ctx context.Context, agentApiKey AgentAPIKey) (GetTeamByAgentAPIKeyQueryRow, error) {
-	row := q.db.QueryRowContext(ctx, getTeamByAgentAPIKeyQuery, agentApiKey)
-	var i GetTeamByAgentAPIKeyQueryRow
-	err := row.Scan(
-		&i.Team.ID,
-		&i.Team.Name,
-		&i.Team.CreatedAt,
-		&i.Team.UpdatedAt,
-	)
-	return i, err
-}
-
-const getTeamByIDQuery = `-- name: GetTeamByIDQuery :one
-SELECT teams.id, teams.name, teams.created_at, teams.updated_at
-FROM teams
-WHERE id = ?1
-`
-
-type GetTeamByIDQueryRow struct {
-	Team Team `db:"team"`
-}
-
-func (q *Queries) GetTeamByIDQuery(ctx context.Context, id TeamID) (GetTeamByIDQueryRow, error) {
-	row := q.db.QueryRowContext(ctx, getTeamByIDQuery, id)
-	var i GetTeamByIDQueryRow
-	err := row.Scan(
-		&i.Team.ID,
-		&i.Team.Name,
-		&i.Team.CreatedAt,
-		&i.Team.UpdatedAt,
-	)
-	return i, err
-}
-
-const getUserByEmailQuery = `-- name: GetUserByEmailQuery :one
-SELECT users.id, users.team_id, users.email, users.password_hash, users.created_at, users.updated_at
-FROM users
-WHERE email = ?1
-`
-
-type GetUserByEmailQueryRow struct {
-	User User `db:"user"`
-}
-
-func (q *Queries) GetUserByEmailQuery(ctx context.Context, email string) (GetUserByEmailQueryRow, error) {
-	row := q.db.QueryRowContext(ctx, getUserByEmailQuery, email)
-	var i GetUserByEmailQueryRow
-	err := row.Scan(
-		&i.User.ID,
-		&i.User.TeamID,
-		&i.User.Email,
-		&i.User.PasswordHash,
-		&i.User.CreatedAt,
-		&i.User.UpdatedAt,
-	)
-	return i, err
-}
-
-const getUserByIDQuery = `-- name: GetUserByIDQuery :one
-SELECT users.id, users.team_id, users.email, users.password_hash, users.created_at, users.updated_at
-FROM users
-WHERE id = ?1
-`
-
-type GetUserByIDQueryRow struct {
-	User User `db:"user"`
-}
-
-func (q *Queries) GetUserByIDQuery(ctx context.Context, id UserID) (GetUserByIDQueryRow, error) {
-	row := q.db.QueryRowContext(ctx, getUserByIDQuery, id)
-	var i GetUserByIDQueryRow
-	err := row.Scan(
-		&i.User.ID,
-		&i.User.TeamID,
-		&i.User.Email,
-		&i.User.PasswordHash,
-		&i.User.CreatedAt,
-		&i.User.UpdatedAt,
-	)
-	return i, err
-}
-
-const listAgentsForTeamQuery = `-- name: ListAgentsForTeamQuery :many
-SELECT agents.id, agents.team_id, agents.name, agents.version, agents.status, agents.host_id, agents.api_key, agents.created_at, agents.updated_at
-FROM agents
-WHERE team_id = ?1
-ORDER BY updated_at DESC
-`
-
-type ListAgentsForTeamQueryRow struct {
-	Agent Agent `db:"agent"`
-}
-
-func (q *Queries) ListAgentsForTeamQuery(ctx context.Context, teamID TeamID) ([]ListAgentsForTeamQueryRow, error) {
-	rows, err := q.db.QueryContext(ctx, listAgentsForTeamQuery, teamID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListAgentsForTeamQueryRow
-	for rows.Next() {
-		var i ListAgentsForTeamQueryRow
-		if err := rows.Scan(
-			&i.Agent.ID,
-			&i.Agent.TeamID,
-			&i.Agent.Name,
-			&i.Agent.Version,
-			&i.Agent.Status,
-			&i.Agent.HostID,
-			&i.Agent.ApiKey,
-			&i.Agent.CreatedAt,
-			&i.Agent.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listCPUSamplesSinceQuery = `-- name: ListCPUSamplesSinceQuery :many
-SELECT cpu_samples.id, cpu_samples.observed_at, cpu_samples.used_percent, cpu_samples.cores_logical, cpu_samples.cores_physical, cpu_samples.per_core_percent, cpu_samples.load_1m, cpu_samples.load_5m, cpu_samples.load_15m
-FROM cpu_samples
-WHERE observed_at >= ?1
-ORDER BY observed_at
-`
-
-type ListCPUSamplesSinceQueryRow struct {
-	CpuSample CpuSample `db:"cpu_sample"`
-}
-
-func (q *Queries) ListCPUSamplesSinceQuery(ctx context.Context, since string) ([]ListCPUSamplesSinceQueryRow, error) {
-	rows, err := q.db.QueryContext(ctx, listCPUSamplesSinceQuery, since)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListCPUSamplesSinceQueryRow
-	for rows.Next() {
-		var i ListCPUSamplesSinceQueryRow
-		if err := rows.Scan(
-			&i.CpuSample.ID,
-			&i.CpuSample.ObservedAt,
-			&i.CpuSample.UsedPercent,
-			&i.CpuSample.CoresLogical,
-			&i.CpuSample.CoresPhysical,
-			&i.CpuSample.PerCorePercent,
-			&i.CpuSample.Load1m,
-			&i.CpuSample.Load5m,
-			&i.CpuSample.Load15m,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listDiskSamplesForMountSinceQuery = `-- name: ListDiskSamplesForMountSinceQuery :many
-SELECT disk_samples.id, disk_samples.observed_at, disk_samples.is_total, disk_samples.device, disk_samples.mount, disk_samples.filesystem, disk_samples.used_percent, disk_samples.used_bytes, disk_samples.free_bytes, disk_samples.total_bytes
-FROM disk_samples
-WHERE mount = ?1
-  AND observed_at >= ?2
-ORDER BY observed_at
-`
-
-type ListDiskSamplesForMountSinceQueryParams struct {
-	Mount string `db:"mount"`
-	Since string `db:"since"`
-}
-
-type ListDiskSamplesForMountSinceQueryRow struct {
-	DiskSample DiskSample `db:"disk_sample"`
-}
-
-func (q *Queries) ListDiskSamplesForMountSinceQuery(ctx context.Context, arg ListDiskSamplesForMountSinceQueryParams) ([]ListDiskSamplesForMountSinceQueryRow, error) {
-	rows, err := q.db.QueryContext(ctx, listDiskSamplesForMountSinceQuery, arg.Mount, arg.Since)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListDiskSamplesForMountSinceQueryRow
-	for rows.Next() {
-		var i ListDiskSamplesForMountSinceQueryRow
-		if err := rows.Scan(
-			&i.DiskSample.ID,
-			&i.DiskSample.ObservedAt,
-			&i.DiskSample.IsTotal,
-			&i.DiskSample.Device,
-			&i.DiskSample.Mount,
-			&i.DiskSample.Filesystem,
-			&i.DiskSample.UsedPercent,
-			&i.DiskSample.UsedBytes,
-			&i.DiskSample.FreeBytes,
-			&i.DiskSample.TotalBytes,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listDiskSamplesSinceQuery = `-- name: ListDiskSamplesSinceQuery :many
-SELECT disk_samples.id, disk_samples.observed_at, disk_samples.is_total, disk_samples.device, disk_samples.mount, disk_samples.filesystem, disk_samples.used_percent, disk_samples.used_bytes, disk_samples.free_bytes, disk_samples.total_bytes
-FROM disk_samples
-WHERE observed_at >= ?1
-ORDER BY observed_at, is_total DESC, mount
-`
-
-type ListDiskSamplesSinceQueryRow struct {
-	DiskSample DiskSample `db:"disk_sample"`
-}
-
-func (q *Queries) ListDiskSamplesSinceQuery(ctx context.Context, since string) ([]ListDiskSamplesSinceQueryRow, error) {
-	rows, err := q.db.QueryContext(ctx, listDiskSamplesSinceQuery, since)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListDiskSamplesSinceQueryRow
-	for rows.Next() {
-		var i ListDiskSamplesSinceQueryRow
-		if err := rows.Scan(
-			&i.DiskSample.ID,
-			&i.DiskSample.ObservedAt,
-			&i.DiskSample.IsTotal,
-			&i.DiskSample.Device,
-			&i.DiskSample.Mount,
-			&i.DiskSample.Filesystem,
-			&i.DiskSample.UsedPercent,
-			&i.DiskSample.UsedBytes,
-			&i.DiskSample.FreeBytes,
-			&i.DiskSample.TotalBytes,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listLatestDiskSamplesQuery = `-- name: ListLatestDiskSamplesQuery :many
-SELECT disk_samples.id, disk_samples.observed_at, disk_samples.is_total, disk_samples.device, disk_samples.mount, disk_samples.filesystem, disk_samples.used_percent, disk_samples.used_bytes, disk_samples.free_bytes, disk_samples.total_bytes
-FROM disk_samples
-WHERE observed_at = (
-    SELECT MAX(observed_at)
-    FROM disk_samples
-)
-ORDER BY is_total DESC, free_bytes, mount
-`
-
-type ListLatestDiskSamplesQueryRow struct {
-	DiskSample DiskSample `db:"disk_sample"`
-}
-
-func (q *Queries) ListLatestDiskSamplesQuery(ctx context.Context) ([]ListLatestDiskSamplesQueryRow, error) {
-	rows, err := q.db.QueryContext(ctx, listLatestDiskSamplesQuery)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListLatestDiskSamplesQueryRow
-	for rows.Next() {
-		var i ListLatestDiskSamplesQueryRow
-		if err := rows.Scan(
-			&i.DiskSample.ID,
-			&i.DiskSample.ObservedAt,
-			&i.DiskSample.IsTotal,
-			&i.DiskSample.Device,
-			&i.DiskSample.Mount,
-			&i.DiskSample.Filesystem,
-			&i.DiskSample.UsedPercent,
-			&i.DiskSample.UsedBytes,
-			&i.DiskSample.FreeBytes,
-			&i.DiskSample.TotalBytes,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listMemorySamplesSinceQuery = `-- name: ListMemorySamplesSinceQuery :many
-SELECT memory_samples.id, memory_samples.observed_at, memory_samples.virtual_used_percent, memory_samples.virtual_used_bytes, memory_samples.virtual_available_bytes, memory_samples.virtual_total_bytes, memory_samples.swap_used_percent, memory_samples.swap_used_bytes, memory_samples.swap_available_bytes, memory_samples.swap_total_bytes
-FROM memory_samples
-WHERE observed_at >= ?1
-ORDER BY observed_at
-`
-
-type ListMemorySamplesSinceQueryRow struct {
-	MemorySample MemorySample `db:"memory_sample"`
-}
-
-func (q *Queries) ListMemorySamplesSinceQuery(ctx context.Context, since string) ([]ListMemorySamplesSinceQueryRow, error) {
-	rows, err := q.db.QueryContext(ctx, listMemorySamplesSinceQuery, since)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListMemorySamplesSinceQueryRow
-	for rows.Next() {
-		var i ListMemorySamplesSinceQueryRow
-		if err := rows.Scan(
-			&i.MemorySample.ID,
-			&i.MemorySample.ObservedAt,
-			&i.MemorySample.VirtualUsedPercent,
-			&i.MemorySample.VirtualUsedBytes,
-			&i.MemorySample.VirtualAvailableBytes,
-			&i.MemorySample.VirtualTotalBytes,
-			&i.MemorySample.SwapUsedPercent,
-			&i.MemorySample.SwapUsedBytes,
-			&i.MemorySample.SwapAvailableBytes,
-			&i.MemorySample.SwapTotalBytes,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const touchAgentForTeamQuery = `-- name: TouchAgentForTeamQuery :execrows
+const touchAgentForTeam = `-- name: touchAgentForTeam :execrows
 UPDATE agents
 SET version = ?1,
     updated_at = CURRENT_TIMESTAMP
@@ -775,38 +739,38 @@ WHERE id = ?2
 AND team_id = ?3
 `
 
-type TouchAgentForTeamQueryParams struct {
+type touchAgentForTeamParams struct {
 	Version string  `db:"version"`
 	ID      AgentID `db:"id"`
 	TeamID  TeamID  `db:"team_id"`
 }
 
-func (q *Queries) TouchAgentForTeamQuery(ctx context.Context, arg TouchAgentForTeamQueryParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, touchAgentForTeamQuery, arg.Version, arg.ID, arg.TeamID)
+func (q *Queries) touchAgentForTeam(ctx context.Context, arg touchAgentForTeamParams) (int64, error) {
+	result, err := q.exec(ctx, q.touchAgentForTeamStmt, touchAgentForTeam, arg.Version, arg.ID, arg.TeamID)
 	if err != nil {
 		return 0, err
 	}
 	return result.RowsAffected()
 }
 
-const updateAgentHostIDQuery = `-- name: UpdateAgentHostIDQuery :exec
+const updateAgentHostID = `-- name: updateAgentHostID :exec
 UPDATE agents
 SET host_id = ?1,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?2
 `
 
-type UpdateAgentHostIDQueryParams struct {
+type updateAgentHostIDParams struct {
 	HostID sql.NullString `db:"host_id"`
 	ID     AgentID        `db:"id"`
 }
 
-func (q *Queries) UpdateAgentHostIDQuery(ctx context.Context, arg UpdateAgentHostIDQueryParams) error {
-	_, err := q.db.ExecContext(ctx, updateAgentHostIDQuery, arg.HostID, arg.ID)
+func (q *Queries) updateAgentHostID(ctx context.Context, arg updateAgentHostIDParams) error {
+	_, err := q.exec(ctx, q.updateAgentHostIDStmt, updateAgentHostID, arg.HostID, arg.ID)
 	return err
 }
 
-const upsertAgentForTeamQuery = `-- name: UpsertAgentForTeamQuery :one
+const upsertAgentForTeam = `-- name: upsertAgentForTeam :one
 INSERT INTO agents (id, team_id, name, version, status, api_key)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
 ON CONFLICT(id) DO UPDATE SET
@@ -818,7 +782,7 @@ WHERE agents.team_id = excluded.team_id
 RETURNING id, team_id, name, version, status, host_id, api_key, created_at, updated_at
 `
 
-type UpsertAgentForTeamQueryParams struct {
+type upsertAgentForTeamParams struct {
 	ID      AgentID     `db:"id"`
 	TeamID  TeamID      `db:"team_id"`
 	Name    string      `db:"name"`
@@ -827,8 +791,8 @@ type UpsertAgentForTeamQueryParams struct {
 	ApiKey  AgentAPIKey `db:"api_key"`
 }
 
-func (q *Queries) UpsertAgentForTeamQuery(ctx context.Context, arg UpsertAgentForTeamQueryParams) (Agent, error) {
-	row := q.db.QueryRowContext(ctx, upsertAgentForTeamQuery,
+func (q *Queries) upsertAgentForTeam(ctx context.Context, arg upsertAgentForTeamParams) (Agent, error) {
+	row := q.queryRow(ctx, q.upsertAgentForTeamStmt, upsertAgentForTeam,
 		arg.ID,
 		arg.TeamID,
 		arg.Name,

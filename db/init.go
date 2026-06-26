@@ -43,3 +43,7 @@ func Connect(dbPath string) (*Conn, error) {
 func (c *Conn) SessionDB() *sql.DB {
 	return c.DB
 }
+
+func (c *Conn) Close() error {
+	return c.DB.Close()
+}
