@@ -14,7 +14,7 @@ import (
 func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 	user := s.GetAuthenticatedUser(r)
 
-	data, err := s.indexData(r.Context(), user.TeamID)
+	data, err := s.indexData(r.Context(), r, user.TeamID)
 	if err != nil {
 		s.Logger.Warn("agents index: list agents", "err", err)
 		http.Error(w, "Could not load your agents.", http.StatusInternalServerError)
@@ -24,7 +24,7 @@ func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 	s.Renderer.RenderIndexPage(w, data)
 }
 
-func (s *Server) indexData(ctx context.Context, teamID int64) (views.AgentsIndexPageData, error) {
+func (s *Server) indexData(ctx context.Context, r *http.Request, teamID int64) (views.AgentsIndexPageData, error) {
 	agents, err := s.DB.ListAgentsForTeam(ctx, teamID)
 	if err != nil {
 		return views.AgentsIndexPageData{}, err
@@ -33,10 +33,11 @@ func (s *Server) indexData(ctx context.Context, teamID int64) (views.AgentsIndex
 	rows := make([]views.AgentRow, 0, len(agents))
 	for _, agent := range agents {
 		rows = append(rows, views.AgentRow{
-			ID:        agent.ID,
-			Name:      agent.Name,
-			Version:   agent.Version,
-			UpdatedAt: agent.UpdatedAt,
+			ID:             agent.ID,
+			Name:           agent.Name,
+			Version:        agent.Version,
+			UpdatedAt:      agent.UpdatedAt,
+			InstallCommand: s.agentInstallCommand(r, agent.ApiKey),
 		})
 	}
 	return views.AgentsIndexPageData{Agents: rows}, nil
@@ -82,7 +83,7 @@ func (s *Server) HandleIndexEvents(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			data, err := s.indexData(r.Context(), user.TeamID)
+			data, err := s.indexData(r.Context(), r, user.TeamID)
 			if err != nil {
 				s.Logger.Warn("index events: list agents", "err", err)
 				return
@@ -94,7 +95,7 @@ func (s *Server) HandleIndexEvents(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			data, err := s.indexData(r.Context(), user.TeamID)
+			data, err := s.indexData(r.Context(), r, user.TeamID)
 			if err != nil {
 				s.Logger.Warn("index events: list agents", "err", err)
 				return

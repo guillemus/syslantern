@@ -40,10 +40,11 @@ type AgentsIndexPageData struct {
 }
 
 type AgentRow struct {
-	ID        string
-	Name      string
-	Version   string
-	UpdatedAt time.Time
+	ID             string
+	Name           string
+	Version        string
+	UpdatedAt      time.Time
+	InstallCommand string
 }
 
 func (r *Renderer) RenderIndexPage(w io.Writer, data AgentsIndexPageData) {
@@ -213,7 +214,13 @@ func CopyCommandDialog(commandToCopy string) Node {
 				),
 				Button(
 					Type("button"),
-					Data("on:click", fmt.Sprintf("navigator.clipboard.writeText(%s)", commandToCopy)),
+					Data("on:click", fmt.Sprintf(`
+						navigator.clipboard.writeText('%s');
+						el.textContent = 'Copied!';
+						setTimeout(() => {
+							el.textContent = 'Copy'
+						}, 1000);
+					`, commandToCopy)),
 					Class("rounded-md bg-orange-600 px-3 py-2 text-sm font-medium text-white transition hover:brightness-110"),
 					Text("Copy"),
 				),
@@ -307,11 +314,11 @@ func (r *Renderer) agentsTableBody(agents []AgentRow) Node {
 
 func (r *Renderer) agentRow(data AgentRow) Node {
 	agentID := url.PathEscape(data.ID)
-	href := r.URL("GET", "/agents/"+agentID)
+	viewAgentHref := r.URL("GET", "/agents/"+agentID)
 	deleteHref := r.URL("POST", "/agents/"+agentID+"/delete")
 
 	return Tr(
-		Td(Class("border-b border-zinc-800 px-4 py-3"), A(Href(href), Class("font-semibold text-zinc-100 hover:text-emerald-300"), Text(valueOr(data.Name, "unnamed")))),
+		Td(Class("border-b border-zinc-800 px-4 py-3"), A(Href(viewAgentHref), Class("font-semibold text-zinc-100 hover:text-emerald-300"), Text(valueOr(data.Name, "unnamed")))),
 		Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text(data.ID)),
 		Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text(valueOr(data.Version, "—"))),
 		Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text(updatedAt(data.UpdatedAt))),
@@ -331,7 +338,19 @@ func (r *Renderer) agentRow(data AgentRow) Node {
 					TabIndex("-1"),
 					Class("dropdown-content menu rounded-box z-10 mt-2 w-40 border border-zinc-800 bg-zinc-950 p-2 text-zinc-100 shadow-xl shadow-black/40"),
 					Li(
-						A(Href(href), Class("hover:bg-zinc-800"), Text("View")),
+						A(Href(viewAgentHref), Class("hover:bg-zinc-800"), Text("View")),
+					),
+					Li(
+						Span(Class("hover:bg-zinc-800"),
+							Data("on:click", fmt.Sprintf(`
+								navigator.clipboard.writeText('%s');
+								el.textContent = 'Copied!';
+								setTimeout(() => {
+									el.textContent = 'Copy'
+								}, 1000);
+							`, data.InstallCommand)),
+							Text("Copy install command"),
+						),
 					),
 					Li(
 						Button(
