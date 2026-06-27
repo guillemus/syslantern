@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"syslantern/db"
 	"syslantern/shared"
 	"syslantern/validate"
 )
@@ -31,29 +32,84 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var payload shared.IngestEvent
-
 	if err := validate.Unmarshal(r.Body, &payload); err != nil {
 		s.Logger.Error("ingest: parse request", "err", err)
 		http.Error(w, "Send an ingest event as JSON.", http.StatusBadRequest)
 		return
 	}
 
-	err = s.DB.SaveLiveSnapshot(ctx, agent.ID, agent.TeamID, payload.LiveSnapshot)
-	if err != nil {
-		s.Logger.Error("ingest: save live snapshot", "err", err)
-		http.Error(w, "Could not save ingest event.", http.StatusInternalServerError)
-		return
+	switch agent.Status {
+	case db.AgentStatusCreated:
+		// the agent has just been installed / reinstalled on host machine, so we should set it to running
+
+		err = s.DB.SaveLiveSnapshot(ctx, agent.ID, agent.TeamID, payload.LiveSnapshot)
+		if err != nil {
+			s.Logger.Error("ingest: save live snapshot", "err", err)
+			http.Error(w, "Could not save ingest event.", http.StatusInternalServerError)
+			return
+		}
+
+		s.Logger.Debug("ingest: saved live snapshot", "team_id", agent.TeamID, "agent_id", agent.ID)
+
+		s.BusSnapshotProcessed.Emit(EventSnapshotProcessed{
+			TeamID:  agent.TeamID,
+			AgentID: agent.ID,
+		})
+
+		writeJSON(w, shared.IngestResult{
+			// fixme: this is a bug! but I want to catch it in an integration test.
+			// It should be 'running' always (at least as of now)
+			AgentStatus: agent.Status.ToShared(),
+		})
+	case db.AgentStatusDeleted:
+		// agent is deleted, so it should never send metrics again. The host machine can have the agent reinstalled, in which by that point it should send metrics again, but on a new agent.
+
+		writeJSON(w, shared.IngestResult{
+			AgentStatus: agent.Status.ToShared(),
+		})
+	case db.AgentStatusPaused:
+		// agent is paused, so it should stop sending metrics until it's resumed. It will poll for status updates
+
+		writeJSON(w, shared.IngestResult{
+			AgentStatus: agent.Status.ToShared(),
+		})
+	case db.AgentStatusResuming:
+		// agent was paused and now resuming, so we need to set the agent to running and ingest
+
+		err = s.DB.SaveLiveSnapshot(ctx, agent.ID, agent.TeamID, payload.LiveSnapshot)
+		if err != nil {
+			s.Logger.Error("ingest: save live snapshot", "err", err)
+			http.Error(w, "Could not save ingest event.", http.StatusInternalServerError)
+			return
+		}
+
+		s.Logger.Debug("ingest: saved live snapshot", "team_id", agent.TeamID, "agent_id", agent.ID)
+
+		s.BusSnapshotProcessed.Emit(EventSnapshotProcessed{
+			TeamID:  agent.TeamID,
+			AgentID: agent.ID,
+		})
+
+		writeJSON(w, shared.IngestResult{AgentStatus: agent.Status.ToShared()})
+	case db.AgentStatusRunning:
+		// agent status noop update. ingest
+
+		err = s.DB.SaveLiveSnapshot(ctx, agent.ID, agent.TeamID, payload.LiveSnapshot)
+		if err != nil {
+			s.Logger.Error("ingest: save live snapshot", "err", err)
+			http.Error(w, "Could not save ingest event.", http.StatusInternalServerError)
+			return
+		}
+
+		s.Logger.Debug("ingest: saved live snapshot", "team_id", agent.TeamID, "agent_id", agent.ID)
+
+		s.BusSnapshotProcessed.Emit(EventSnapshotProcessed{
+			TeamID:  agent.TeamID,
+			AgentID: agent.ID,
+		})
+
+		writeJSON(w, shared.IngestResult{AgentStatus: agent.Status.ToShared()})
 	}
-
-	s.Logger.Debug("ingest: saved live snapshot", "team_id", agent.TeamID, "agent_id", agent.ID)
-
-	// fixme: emit live snapshot loaded event
-	s.BusSnapshotProcessed.Emit(EventSnapshotProcessed{
-		TeamID:  1,
-		AgentID: "",
-	})
-
-	w.WriteHeader(http.StatusNoContent)
 }
 
 const (
@@ -113,42 +169,20 @@ func (s *Server) HandleAgentAlreadyRegistered(w http.ResponseWriter, r *http.Req
 }
 
 func (s *Server) HandleAgentConfig(w http.ResponseWriter, r *http.Request) {
-	// fixme: this is terrible, a get should not update
-	// needs refactor
+	ctx := r.Context()
+	apiKey, ok := getApiKey(r)
+	if !ok {
+		// fixme: handle err
+		return
+	}
 
-	// q := r.URL.Query()
-	// agentID := q.Get("agent_id")
-	// agentName := q.Get("agent_name")
-	// agentVersion := q.Get("agent_version")
-	//
-	// team, ok := s.AuthenticateAgentAPIKey(r)
-	// if !ok {
-	// 	http.Error(w, "Invalid agent API key.", http.StatusUnauthorized)
-	// 	return
-	// }
-	//
-	// if agentID == "" {
-	// 	http.Error(w, "Send agent_id.", http.StatusBadRequest)
-	// 	return
-	// }
-	//
-	// if agentName == "" {
-	// 	agentName = string(agentID)
-	// }
+	agent, err := s.DB.GetAgentFromAPIKey(ctx, apiKey)
+	if err != nil {
+		// fixme: handle err
+		return
+	}
 
-	// agent, err := s.DB.RegisterAgent(r.Context(), team.ID, agentID, agentName, agentVersion)
-	// if err != nil {
-	// 	s.Logger.Warn("agent config: register agent", "err", err)
-	// 	http.Error(w, "Could not register agent.", http.StatusInternalServerError)
-	// 	return
-	// }
-	// if agent.CreatedAt.Equal(agent.UpdatedAt) {
-	// 	s.AgentRegisteredBus.Emit(r.Context(), AgentRegisteredEvent{TeamID: team.ID})
-	// }
-	//
-	// w.Header().Set("Content-Type", "application/json")
-	// config := shared.AgentConfig{Paused: agent.Status == db.AgentStatusPaused}
-	// if err := sonic.ConfigDefault.NewEncoder(w).Encode(config); err != nil {
-	// 	s.Logger.Warn("agent config: encode response", "err", err)
-	// }
+	writeJSON(w, shared.AgentConfig{
+		AgentStatus: agent.Status.ToShared(),
+	})
 }

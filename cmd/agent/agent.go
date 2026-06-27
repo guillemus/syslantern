@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"syslantern/shared"
 	"time"
 )
@@ -36,48 +37,71 @@ func NewAgent() (*Agent, error) {
 func StartAgent(ctx context.Context) {
 	agent, err := NewAgent()
 	if err != nil {
-		fmt.Println(err)
+		// fixme: handle err
 		return
 	}
 
-	agent.Start(ctx)
+	if err := agent.Start(ctx); err != nil {
+		// fixme: handle err
+		os.Exit(1)
+	}
 }
 
-func (a *Agent) Start(ctx context.Context) {
+func (a *Agent) Start(ctx context.Context) error {
+	// fixme: handle retry
+	agentCfg, err := a.client.GetAgentConfig(ctx)
+	if err != nil {
+		// fixme: handle err
+		return err
+	}
+
+	agentStatus := agentCfg.AgentStatus
+
 	collectMetricsTick := time.NewTicker(2 * time.Second)
 	defer collectMetricsTick.Stop()
+
+	pollTick := time.NewTicker(5 * time.Second)
+	defer pollTick.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			return
-		case <-collectMetricsTick.C:
-			cfg, err := a.client.GetAgentConfig(ctx, a.agent, a.host)
+			return nil
+		case <-pollTick.C:
+			if !agentStatus.ShouldAgentPoll() {
+				continue
+			}
+
+			agentCfg, err := a.client.GetAgentConfig(ctx)
 			if err != nil {
-				fmt.Println("get agent config err:", err)
+				// fixme: handle err
 				continue
 			}
-			if cfg.Paused {
-				fmt.Println("agent paused") // fixme: should we even log
+
+			agentStatus = agentCfg.AgentStatus
+
+		case <-collectMetricsTick.C:
+			if !agentStatus.ShouldAgentSendMetrics() {
 				continue
 			}
+			// if config is not running
+
 			fmt.Println("ticked, sending snapshot") // fixme: here aswell :S, maybe debug log
-			if err := a.collectSaveSendLiveSnapshot(ctx); err != nil {
-				fmt.Println("collect save send live snapshot err:", err)
+
+			snapshot, err := collectLiveSnapshot(a.agent, a.host)
+			if err != nil {
+				// fixme: handle err
+				continue
 			}
+
+			// fixme: handle retries
+			result, err := a.client.SendLiveSnapshot(ctx, snapshot)
+			if err != nil {
+				// fixme: handle err
+				continue
+			}
+
+			agentStatus = result.AgentStatus
 		}
 	}
-}
-
-func (a *Agent) collectSaveSendLiveSnapshot(ctx context.Context) error {
-	snapshot, err := collectLiveSnapshot(a.agent, a.host)
-	if err != nil {
-		return fmt.Errorf("collect snapshot: %w", err)
-	}
-
-	if err := a.client.SendLiveSnapshot(ctx, snapshot); err != nil {
-		return fmt.Errorf("send snapshot: %w", err)
-	}
-
-	return nil
 }

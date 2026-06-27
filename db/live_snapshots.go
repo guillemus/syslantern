@@ -32,7 +32,7 @@ func (c *Conn) SaveLiveSnapshot(ctx context.Context, agentID string, teamID int6
 	}
 
 	err = queries.setAgentStatus(ctx, setAgentStatusParams{
-		Status: string(AgentStatusRunning),
+		Status: AgentStatusRunning,
 		ID:     agentID,
 		TeamID: teamID,
 	})

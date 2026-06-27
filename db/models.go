@@ -14,7 +14,7 @@ type Agent struct {
 	TeamID    int64          `db:"team_id"`
 	Name      string         `db:"name"`
 	Version   string         `db:"version"`
-	Status    string         `db:"status"`
+	Status    AgentStatus    `db:"status"`
 	HostID    sql.NullString `db:"host_id"`
 	ApiKey    string         `db:"api_key"`
 	CreatedAt time.Time      `db:"created_at"`

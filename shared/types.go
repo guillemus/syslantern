@@ -6,6 +6,42 @@ type IngestEvent struct {
 	LiveSnapshot *LiveSnapshot `json:"live_snapshot,omitempty"`
 }
 
+type AgentStatus string
+
+const (
+	AgentStatusCreated  AgentStatus = "created"
+	AgentStatusRunning  AgentStatus = "running"
+	AgentStatusDeleted  AgentStatus = "deleted"
+	AgentStatusPaused   AgentStatus = "paused"
+	AgentStatusResuming AgentStatus = "resuming"
+)
+
+func (s AgentStatus) ShouldAgentPoll() bool {
+	switch s {
+	case AgentStatusPaused:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s AgentStatus) ShouldAgentSendMetrics() bool {
+	switch s {
+	case AgentStatusCreated, AgentStatusResuming, AgentStatusRunning:
+		return true
+	default:
+		return false
+	}
+}
+
+type IngestResult struct {
+	AgentStatus AgentStatus `json:"agent_status"`
+}
+
+type AgentConfig struct {
+	AgentStatus AgentStatus `json:"agent_status"`
+}
+
 type LiveSnapshot struct {
 	ID      string          `json:"id"`
 	Agent   Agent           `json:"agent"`
@@ -16,10 +52,6 @@ type LiveSnapshot struct {
 
 type Agent struct {
 	Version string `json:"version"`
-}
-
-type AgentConfig struct {
-	Paused bool `json:"paused"`
 }
 
 type Host struct {

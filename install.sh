@@ -113,7 +113,7 @@ Wants=network-online.target
 User=syslantern
 Group=syslantern
 ExecStart=/usr/local/bin/syslantern
-Restart=always
+Restart=on-failure
 RestartSec=5
 
 [Install]

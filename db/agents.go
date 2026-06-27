@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"syslantern/shared"
 )
 
 type AgentStatus string
@@ -16,6 +17,10 @@ const (
 	AgentStatusPaused   AgentStatus = "paused"
 	AgentStatusResuming AgentStatus = "resuming"
 )
+
+func (s AgentStatus) ToShared() shared.AgentStatus {
+	return shared.AgentStatus(s)
+}
 
 func newAgentID() string {
 	buf := make([]byte, 16)
@@ -42,7 +47,7 @@ func (c *Conn) CreateAgent(
 		TeamID:  teamID,
 		Name:    name,
 		Version: version,
-		Status:  string(AgentStatusCreated),
+		Status:  AgentStatusCreated,
 		ApiKey:  newApiKey(),
 	})
 }
@@ -54,7 +59,7 @@ type DeleteAgentParams struct {
 
 func (c *Conn) DeleteAgent(ctx context.Context, arg DeleteAgentParams) error {
 	return c.setAgentStatus(ctx, setAgentStatusParams{
-		Status: string(AgentStatusDeleted),
+		Status: AgentStatusDeleted,
 		ID:     arg.ID,
 		TeamID: arg.TeamID,
 	})
