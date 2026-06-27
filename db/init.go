@@ -12,7 +12,7 @@ import (
 var SchemaSQL string
 
 type Conn struct {
-	*sql.DB
+	db *sql.DB
 	*Queries
 }
 
@@ -37,13 +37,18 @@ func Connect(dbPath string) (*Conn, error) {
 		return nil, fmt.Errorf("ping DB: %w", err)
 	}
 
-	return &Conn{DB: db, Queries: New(db)}, nil
+	return &Conn{db: db, Queries: New(db)}, nil
 }
 
 func (c *Conn) SessionDB() *sql.DB {
-	return c.DB
+	return c.db
 }
 
 func (c *Conn) Close() error {
-	return c.DB.Close()
+	return c.db.Close()
+}
+
+func (c *Conn) ExecSchemaScript() error {
+	_, err := c.db.Exec(SchemaSQL)
+	return err
 }

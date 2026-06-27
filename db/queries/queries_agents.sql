@@ -9,6 +9,10 @@ ON CONFLICT(id) DO UPDATE SET
 WHERE agents.team_id = excluded.team_id
 RETURNING *;
 
+-- name: InsertAgent :exec
+INSERT INTO agents (id, team_id, name, version, status, host_id, api_key)
+VALUES (?, ?, ?, '', 'created', NULLIF(?, ''), ?);
+
 -- name: ListAgentsForTeam :many
 SELECT agents.*
 FROM agents

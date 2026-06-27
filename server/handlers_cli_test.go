@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"syslantern/db"
 )
 
 func TestHandleAgentAlreadyRegistered(t *testing.T) {
@@ -97,17 +99,12 @@ func createAgentAlreadyRegisteredFixture(
 	user, err := s.DB.CreateUserAndTeam(t.Context(), agentID+"@example.com", "hash")
 	require.NoError(t, err)
 
-	_, err = s.DB.ExecContext(
-		t.Context(),
-		`
-		INSERT INTO agents (id, team_id, name, version, status, host_id, api_key)
-		VALUES (?, ?, ?, '', 'created', NULLIF(?, ''), ?)
-	`,
-		agentID,
-		user.TeamID,
-		agentID,
-		hostID,
-		apiKey,
-	)
+	err = s.DB.InsertAgent(t.Context(), db.InsertAgentParams{
+		ID:     agentID,
+		TeamID: user.TeamID,
+		Name:   agentID,
+		NULLIF: hostID,
+		ApiKey: apiKey,
+	})
 	require.NoError(t, err)
 }

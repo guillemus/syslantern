@@ -11,7 +11,7 @@ import (
 const sampleRetention = 30 * 24 * time.Hour
 
 func (c *Conn) SaveLiveSnapshot(ctx context.Context, teamID int64, snapshot shared.LiveSnapshot) error {
-	tx, err := c.DB.BeginTx(ctx, nil)
+	tx, err := c.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}

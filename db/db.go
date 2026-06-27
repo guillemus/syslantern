@@ -48,6 +48,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getUserByIDStmt, err = db.PrepareContext(ctx, getUserByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetUserByID: %w", err)
 	}
+	if q.insertAgentStmt, err = db.PrepareContext(ctx, insertAgent); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertAgent: %w", err)
+	}
 	if q.listAgentsForTeamStmt, err = db.PrepareContext(ctx, listAgentsForTeam); err != nil {
 		return nil, fmt.Errorf("error preparing query ListAgentsForTeam: %w", err)
 	}
@@ -154,6 +157,11 @@ func (q *Queries) Close() error {
 	if q.getUserByIDStmt != nil {
 		if cerr := q.getUserByIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getUserByIDStmt: %w", cerr)
+		}
+	}
+	if q.insertAgentStmt != nil {
+		if cerr := q.insertAgentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertAgentStmt: %w", cerr)
 		}
 	}
 	if q.listAgentsForTeamStmt != nil {
@@ -308,6 +316,7 @@ type Queries struct {
 	getTeamByIDStmt                  *sql.Stmt
 	getUserByEmailStmt               *sql.Stmt
 	getUserByIDStmt                  *sql.Stmt
+	insertAgentStmt                  *sql.Stmt
 	listAgentsForTeamStmt            *sql.Stmt
 	listCPUSamplesSinceStmt          *sql.Stmt
 	listDiskSamplesForMountSinceStmt *sql.Stmt
@@ -343,6 +352,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getTeamByIDStmt:                  q.getTeamByIDStmt,
 		getUserByEmailStmt:               q.getUserByEmailStmt,
 		getUserByIDStmt:                  q.getUserByIDStmt,
+		insertAgentStmt:                  q.insertAgentStmt,
 		listAgentsForTeamStmt:            q.listAgentsForTeamStmt,
 		listCPUSamplesSinceStmt:          q.listCPUSamplesSinceStmt,
 		listDiskSamplesForMountSinceStmt: q.listDiskSamplesForMountSinceStmt,

@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"syslantern/config"
-	"syslantern/db"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
@@ -118,8 +117,7 @@ func newTestServer(t *testing.T) *Server {
 	})
 	t.Cleanup(func() { require.NoError(t, s.DB.Close(), "close test DB") })
 
-	_, err := s.DB.Exec(db.SchemaSQL)
-	require.NoError(t, err, "apply schema")
+	require.NoError(t, s.DB.ExecSchemaScript(), "apply schema")
 
 	return s
 }

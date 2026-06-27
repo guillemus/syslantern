@@ -3,7 +3,7 @@ package db
 import "context"
 
 func (c *Conn) CreateUserAndTeam(ctx context.Context, email, passwordHash string) (User, error) {
-	tx, err := c.DB.BeginTx(ctx, nil)
+	tx, err := c.db.BeginTx(ctx, nil)
 	if err != nil {
 		return User{}, err
 	}
