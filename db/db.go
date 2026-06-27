@@ -24,11 +24,11 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
-	if q.getAgentByAPIKeyStmt, err = db.PrepareContext(ctx, getAgentByAPIKey); err != nil {
-		return nil, fmt.Errorf("error preparing query GetAgentByAPIKey: %w", err)
+	if q.getAgentStmt, err = db.PrepareContext(ctx, getAgent); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAgent: %w", err)
 	}
-	if q.getAgentForTeamStmt, err = db.PrepareContext(ctx, getAgentForTeam); err != nil {
-		return nil, fmt.Errorf("error preparing query GetAgentForTeam: %w", err)
+	if q.getAgentFromAPIKeyStmt, err = db.PrepareContext(ctx, getAgentFromAPIKey); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAgentFromAPIKey: %w", err)
 	}
 	if q.getLatestCPUSampleStmt, err = db.PrepareContext(ctx, getLatestCPUSample); err != nil {
 		return nil, fmt.Errorf("error preparing query GetLatestCPUSample: %w", err)
@@ -51,8 +51,8 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.insertAgentStmt, err = db.PrepareContext(ctx, insertAgent); err != nil {
 		return nil, fmt.Errorf("error preparing query InsertAgent: %w", err)
 	}
-	if q.listAgentsForTeamStmt, err = db.PrepareContext(ctx, listAgentsForTeam); err != nil {
-		return nil, fmt.Errorf("error preparing query ListAgentsForTeam: %w", err)
+	if q.listAgentsStmt, err = db.PrepareContext(ctx, listAgents); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAgents: %w", err)
 	}
 	if q.listCPUSamplesSinceStmt, err = db.PrepareContext(ctx, listCPUSamplesSince); err != nil {
 		return nil, fmt.Errorf("error preparing query ListCPUSamplesSince: %w", err)
@@ -102,31 +102,31 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.findSessionStmt, err = db.PrepareContext(ctx, findSession); err != nil {
 		return nil, fmt.Errorf("error preparing query findSession: %w", err)
 	}
-	if q.setAgentStatusForTeamStmt, err = db.PrepareContext(ctx, setAgentStatusForTeam); err != nil {
-		return nil, fmt.Errorf("error preparing query setAgentStatusForTeam: %w", err)
+	if q.setAgentStatusStmt, err = db.PrepareContext(ctx, setAgentStatus); err != nil {
+		return nil, fmt.Errorf("error preparing query setAgentStatus: %w", err)
 	}
-	if q.touchAgentForTeamStmt, err = db.PrepareContext(ctx, touchAgentForTeam); err != nil {
-		return nil, fmt.Errorf("error preparing query touchAgentForTeam: %w", err)
+	if q.setAgentVersionStmt, err = db.PrepareContext(ctx, setAgentVersion); err != nil {
+		return nil, fmt.Errorf("error preparing query setAgentVersion: %w", err)
 	}
 	if q.updateAgentHostIDStmt, err = db.PrepareContext(ctx, updateAgentHostID); err != nil {
 		return nil, fmt.Errorf("error preparing query updateAgentHostID: %w", err)
 	}
-	if q.upsertAgentForTeamStmt, err = db.PrepareContext(ctx, upsertAgentForTeam); err != nil {
-		return nil, fmt.Errorf("error preparing query upsertAgentForTeam: %w", err)
+	if q.upsertAgentStmt, err = db.PrepareContext(ctx, upsertAgent); err != nil {
+		return nil, fmt.Errorf("error preparing query upsertAgent: %w", err)
 	}
 	return &q, nil
 }
 
 func (q *Queries) Close() error {
 	var err error
-	if q.getAgentByAPIKeyStmt != nil {
-		if cerr := q.getAgentByAPIKeyStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getAgentByAPIKeyStmt: %w", cerr)
+	if q.getAgentStmt != nil {
+		if cerr := q.getAgentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAgentStmt: %w", cerr)
 		}
 	}
-	if q.getAgentForTeamStmt != nil {
-		if cerr := q.getAgentForTeamStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getAgentForTeamStmt: %w", cerr)
+	if q.getAgentFromAPIKeyStmt != nil {
+		if cerr := q.getAgentFromAPIKeyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAgentFromAPIKeyStmt: %w", cerr)
 		}
 	}
 	if q.getLatestCPUSampleStmt != nil {
@@ -164,9 +164,9 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing insertAgentStmt: %w", cerr)
 		}
 	}
-	if q.listAgentsForTeamStmt != nil {
-		if cerr := q.listAgentsForTeamStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing listAgentsForTeamStmt: %w", cerr)
+	if q.listAgentsStmt != nil {
+		if cerr := q.listAgentsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAgentsStmt: %w", cerr)
 		}
 	}
 	if q.listCPUSamplesSinceStmt != nil {
@@ -249,14 +249,14 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing findSessionStmt: %w", cerr)
 		}
 	}
-	if q.setAgentStatusForTeamStmt != nil {
-		if cerr := q.setAgentStatusForTeamStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing setAgentStatusForTeamStmt: %w", cerr)
+	if q.setAgentStatusStmt != nil {
+		if cerr := q.setAgentStatusStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing setAgentStatusStmt: %w", cerr)
 		}
 	}
-	if q.touchAgentForTeamStmt != nil {
-		if cerr := q.touchAgentForTeamStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing touchAgentForTeamStmt: %w", cerr)
+	if q.setAgentVersionStmt != nil {
+		if cerr := q.setAgentVersionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing setAgentVersionStmt: %w", cerr)
 		}
 	}
 	if q.updateAgentHostIDStmt != nil {
@@ -264,9 +264,9 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateAgentHostIDStmt: %w", cerr)
 		}
 	}
-	if q.upsertAgentForTeamStmt != nil {
-		if cerr := q.upsertAgentForTeamStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing upsertAgentForTeamStmt: %w", cerr)
+	if q.upsertAgentStmt != nil {
+		if cerr := q.upsertAgentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing upsertAgentStmt: %w", cerr)
 		}
 	}
 	return err
@@ -308,8 +308,8 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 type Queries struct {
 	db                               DBTX
 	tx                               *sql.Tx
-	getAgentByAPIKeyStmt             *sql.Stmt
-	getAgentForTeamStmt              *sql.Stmt
+	getAgentStmt                     *sql.Stmt
+	getAgentFromAPIKeyStmt           *sql.Stmt
 	getLatestCPUSampleStmt           *sql.Stmt
 	getLatestMemorySampleStmt        *sql.Stmt
 	getTeamByAgentAPIKeyStmt         *sql.Stmt
@@ -317,7 +317,7 @@ type Queries struct {
 	getUserByEmailStmt               *sql.Stmt
 	getUserByIDStmt                  *sql.Stmt
 	insertAgentStmt                  *sql.Stmt
-	listAgentsForTeamStmt            *sql.Stmt
+	listAgentsStmt                   *sql.Stmt
 	listCPUSamplesSinceStmt          *sql.Stmt
 	listDiskSamplesForMountSinceStmt *sql.Stmt
 	listDiskSamplesSinceStmt         *sql.Stmt
@@ -334,18 +334,18 @@ type Queries struct {
 	deleteOldMemorySamplesStmt       *sql.Stmt
 	deleteSessionStmt                *sql.Stmt
 	findSessionStmt                  *sql.Stmt
-	setAgentStatusForTeamStmt        *sql.Stmt
-	touchAgentForTeamStmt            *sql.Stmt
+	setAgentStatusStmt               *sql.Stmt
+	setAgentVersionStmt              *sql.Stmt
 	updateAgentHostIDStmt            *sql.Stmt
-	upsertAgentForTeamStmt           *sql.Stmt
+	upsertAgentStmt                  *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
 		db:                               tx,
 		tx:                               tx,
-		getAgentByAPIKeyStmt:             q.getAgentByAPIKeyStmt,
-		getAgentForTeamStmt:              q.getAgentForTeamStmt,
+		getAgentStmt:                     q.getAgentStmt,
+		getAgentFromAPIKeyStmt:           q.getAgentFromAPIKeyStmt,
 		getLatestCPUSampleStmt:           q.getLatestCPUSampleStmt,
 		getLatestMemorySampleStmt:        q.getLatestMemorySampleStmt,
 		getTeamByAgentAPIKeyStmt:         q.getTeamByAgentAPIKeyStmt,
@@ -353,7 +353,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getUserByEmailStmt:               q.getUserByEmailStmt,
 		getUserByIDStmt:                  q.getUserByIDStmt,
 		insertAgentStmt:                  q.insertAgentStmt,
-		listAgentsForTeamStmt:            q.listAgentsForTeamStmt,
+		listAgentsStmt:                   q.listAgentsStmt,
 		listCPUSamplesSinceStmt:          q.listCPUSamplesSinceStmt,
 		listDiskSamplesForMountSinceStmt: q.listDiskSamplesForMountSinceStmt,
 		listDiskSamplesSinceStmt:         q.listDiskSamplesSinceStmt,
@@ -370,9 +370,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteOldMemorySamplesStmt:       q.deleteOldMemorySamplesStmt,
 		deleteSessionStmt:                q.deleteSessionStmt,
 		findSessionStmt:                  q.findSessionStmt,
-		setAgentStatusForTeamStmt:        q.setAgentStatusForTeamStmt,
-		touchAgentForTeamStmt:            q.touchAgentForTeamStmt,
+		setAgentStatusStmt:               q.setAgentStatusStmt,
+		setAgentVersionStmt:              q.setAgentVersionStmt,
 		updateAgentHostIDStmt:            q.updateAgentHostIDStmt,
-		upsertAgentForTeamStmt:           q.upsertAgentForTeamStmt,
+		upsertAgentStmt:                  q.upsertAgentStmt,
 	}
 }

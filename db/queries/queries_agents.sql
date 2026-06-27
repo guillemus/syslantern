@@ -1,4 +1,4 @@
--- name: upsertAgentForTeam :one
+-- name: upsertAgent :one
 INSERT INTO agents (id, team_id, name, version, status, api_key)
 VALUES (@id, @team_id, @name, @version, @status, @api_key)
 ON CONFLICT(id) DO UPDATE SET
@@ -11,22 +11,22 @@ RETURNING *;
 
 -- name: InsertAgent :exec
 INSERT INTO agents (id, team_id, name, version, status, host_id, api_key)
-VALUES (?, ?, ?, '', 'created', NULLIF(?, ''), ?);
+VALUES (@id, @team_id, @name, '', 'created', @host_id, @api_key);
 
--- name: ListAgentsForTeam :many
+-- name: ListAgents :many
 SELECT agents.*
 FROM agents
 WHERE team_id = @team_id
 AND STATUS != 'deleted'
 ORDER BY updated_at DESC;
 
--- name: GetAgentForTeam :one
+-- name: GetAgent :one
 SELECT agents.*
 FROM agents
 WHERE id = @id
 AND team_id = @team_id;
 
--- name: GetAgentByAPIKey :one
+-- name: GetAgentFromAPIKey :one
 SELECT agents.*
 FROM agents
 WHERE api_key = @api_key;
@@ -37,14 +37,14 @@ SET host_id = @host_id,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = @id;
 
--- name: touchAgentForTeam :execrows
+-- name: setAgentVersion :execrows
 UPDATE agents
 SET version = @version,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = @id
 AND team_id = @team_id;
 
--- name: setAgentStatusForTeam :exec
+-- name: setAgentStatus :exec
 UPDATE agents
 SET status = @status,
     updated_at = CURRENT_TIMESTAMP

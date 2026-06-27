@@ -33,11 +33,11 @@ func newApiKey() string {
 	return string(hex.EncodeToString(buf))
 }
 
-func (c *Conn) CreateAgentForTeam(
+func (c *Conn) CreateAgent(
 	ctx context.Context, teamID int64, name string, version string,
 ) (Agent, error) {
 	id := newAgentID()
-	return c.upsertAgentForTeam(ctx, upsertAgentForTeamParams{
+	return c.upsertAgent(ctx, upsertAgentParams{
 		ID:      id,
 		TeamID:  teamID,
 		Name:    name,
@@ -53,7 +53,7 @@ type DeleteAgentParams struct {
 }
 
 func (c *Conn) DeleteAgent(ctx context.Context, arg DeleteAgentParams) error {
-	return c.setAgentStatusForTeam(ctx, setAgentStatusForTeamParams{
+	return c.setAgentStatus(ctx, setAgentStatusParams{
 		Status: string(AgentStatusDeleted),
 		ID:     arg.ID,
 		TeamID: arg.TeamID,

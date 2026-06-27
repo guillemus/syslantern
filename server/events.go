@@ -1,11 +1,16 @@
 package server
 
-type AgentCreatedEvent struct {
+type EventSnapshotProcessed struct {
 	TeamID  int64
 	AgentID string
 }
 
-type AgentDeletedEvent struct {
+type EventAgentCreated struct {
+	TeamID  int64
+	AgentID string
+}
+
+type EventAgentDeleted struct {
 	TeamID  int64
 	AgentID string
 }

@@ -10,7 +10,6 @@ import (
 	"syslantern/config"
 	"syslantern/db"
 	"syslantern/logger"
-	"syslantern/shared"
 	"syslantern/views"
 
 	"github.com/alexedwards/scs/v2"
@@ -26,10 +25,9 @@ type Server struct {
 	Cfg                   *config.Config
 	Logger                *slog.Logger
 
-	CommandBus      *EventBus[shared.AgentCommand]    // fixme: this has to go
-	DashboardBus    *EventBus[views.AgentMetricsData] // fixme: this has to go
-	AgentCreatedBus *EventBus[AgentCreatedEvent]
-	AgentDeletedBus *EventBus[AgentDeletedEvent]
+	BusSnapshotProcessed *EventBus[EventSnapshotProcessed]
+	BusAgentCreated      *EventBus[EventAgentCreated]
+	BusAgentDeleted      *EventBus[EventAgentDeleted]
 }
 
 func NewServer() *Server {
@@ -62,10 +60,9 @@ func NewServerFromConfig(cfg config.Config) *Server {
 		Logger:                log,
 		Cfg:                   &cfg,
 
-		CommandBus:      NewEventBus[shared.AgentCommand](),
-		DashboardBus:    NewEventBus[views.AgentMetricsData](),
-		AgentCreatedBus: NewEventBus[AgentCreatedEvent](),
-		AgentDeletedBus: NewEventBus[AgentDeletedEvent](),
+		BusAgentCreated:      NewEventBus[EventAgentCreated](),
+		BusAgentDeleted:      NewEventBus[EventAgentDeleted](),
+		BusSnapshotProcessed: NewEventBus[EventSnapshotProcessed](),
 	}
 
 	r.Use(s.CrossOriginProtection.Handler)

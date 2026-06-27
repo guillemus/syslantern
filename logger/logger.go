@@ -15,7 +15,7 @@ func NewLogger(debug bool) *slog.Logger {
 
 	if debug {
 		opts := &tint.Options{
-			Level:     slog.LevelDebug,
+			Level:     slog.LevelInfo,
 			AddSource: true,
 			ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 				if a.Key == slog.TimeKey && len(groups) == 0 {
@@ -26,6 +26,9 @@ func NewLogger(debug bool) *slog.Logger {
 			TimeFormat: "",
 			NoColor:    false,
 		}
+
+		// opts.Level = slog.LevelDebug // uncomment to debug
+
 		logger = slog.New(tint.NewHandler(w, opts))
 	} else {
 		opts := &slog.HandlerOptions{

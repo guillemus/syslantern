@@ -5,33 +5,53 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"syslantern/db"
 	"syslantern/shared"
 	"syslantern/validate"
 )
 
+func getApiKey(r *http.Request) (string, bool) {
+	apiKey, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	return apiKey, ok && apiKey != ""
+}
+
 func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
-	team, ok := s.AuthenticateAgentAPIKey(r)
+	ctx := r.Context()
+	apiKey, ok := getApiKey(r)
 	if !ok {
-		http.Error(w, "Invalid agent API key.", http.StatusUnauthorized)
+		s.Logger.Error("ingest: missing api key")
+		http.Error(w, "API key not found", http.StatusUnauthorized)
+		return
+	}
+
+	agent, err := s.DB.GetAgentFromAPIKey(ctx, apiKey)
+	if err != nil {
+		s.Logger.Error("ingest: invalid api key", "err", err)
+		http.Error(w, "Invalid api key", http.StatusUnauthorized)
 		return
 	}
 
 	var payload shared.IngestEvent
 
 	if err := validate.Unmarshal(r.Body, &payload); err != nil {
-		s.Logger.Warn("ingest: parse request", "err", err)
+		s.Logger.Error("ingest: parse request", "err", err)
 		http.Error(w, "Send an ingest event as JSON.", http.StatusBadRequest)
 		return
 	}
 
-	if err := s.DB.SaveLiveSnapshot(r.Context(), team.ID, *payload.LiveSnapshot); err != nil {
+	err = s.DB.SaveLiveSnapshot(ctx, agent.ID, agent.TeamID, payload.LiveSnapshot)
+	if err != nil {
 		s.Logger.Error("ingest: save live snapshot", "err", err)
 		http.Error(w, "Could not save ingest event.", http.StatusInternalServerError)
 		return
 	}
 
+	s.Logger.Debug("ingest: saved live snapshot", "team_id", agent.TeamID, "agent_id", agent.ID)
+
 	// fixme: emit live snapshot loaded event
+	s.BusSnapshotProcessed.Emit(EventSnapshotProcessed{
+		TeamID:  1,
+		AgentID: "",
+	})
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -45,6 +65,7 @@ const (
 
 func (s *Server) HandleAgentAlreadyRegistered(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	s.Logger.Debug("agent already registered: check")
 	// parse host id from json payload
 	var payload struct {
 		ApiKey string `json:"api_key" validate:"required"`
@@ -56,7 +77,7 @@ func (s *Server) HandleAgentAlreadyRegistered(w http.ResponseWriter, r *http.Req
 	}
 
 	// check api key
-	agent, err := s.DB.GetAgentByAPIKey(ctx, payload.ApiKey)
+	agent, err := s.DB.GetAgentFromAPIKey(ctx, payload.ApiKey)
 	if errors.Is(err, sql.ErrNoRows) {
 		writeErr(w, err, INVALID_API_KEY)
 		return
@@ -115,7 +136,7 @@ func (s *Server) HandleAgentConfig(w http.ResponseWriter, r *http.Request) {
 	// 	agentName = string(agentID)
 	// }
 
-	// agent, err := s.DB.RegisterAgentForTeam(r.Context(), team.ID, agentID, agentName, agentVersion)
+	// agent, err := s.DB.RegisterAgent(r.Context(), team.ID, agentID, agentName, agentVersion)
 	// if err != nil {
 	// 	s.Logger.Warn("agent config: register agent", "err", err)
 	// 	http.Error(w, "Could not register agent.", http.StatusInternalServerError)
@@ -130,23 +151,4 @@ func (s *Server) HandleAgentConfig(w http.ResponseWriter, r *http.Request) {
 	// if err := sonic.ConfigDefault.NewEncoder(w).Encode(config); err != nil {
 	// 	s.Logger.Warn("agent config: encode response", "err", err)
 	// }
-}
-
-func (s *Server) IsValidAgentAPIKey(r *http.Request) bool {
-	_, ok := s.AuthenticateAgentAPIKey(r)
-	return ok
-}
-
-func (s *Server) AuthenticateAgentAPIKey(r *http.Request) (db.Team, bool) {
-	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-	if !ok || token == "" {
-		return db.Team{}, false
-	}
-
-	team, err := s.DB.GetTeamByAgentAPIKey(r.Context(), token)
-	if err != nil {
-		return team, false
-	}
-
-	return team, true
 }

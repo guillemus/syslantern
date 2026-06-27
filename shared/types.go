@@ -15,7 +15,6 @@ type LiveSnapshot struct {
 }
 
 type Agent struct {
-	ID      string `json:"id"`
 	Version string `json:"version"`
 }
 

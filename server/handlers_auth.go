@@ -139,19 +139,20 @@ func (s *Server) HandleLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetUserFromSession(r *http.Request) (user db.User, exists bool) {
-	userID := s.Sessions.GetInt64(r.Context(), "user_id")
+	ctx := r.Context()
+	userID := s.Sessions.GetInt64(ctx, "user_id")
 	if userID == 0 {
 		return db.User{}, false
 	}
 
-	user, err := s.DB.GetUserByID(r.Context(), userID)
+	user, err := s.DB.GetUserByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			s.Logger.Warn("auth: session user not found", "user_id", userID)
 		} else {
 			s.Logger.Error("auth: load session user", "user_id", userID, "err", err)
 		}
-		s.Sessions.Remove(r.Context(), "user_id")
+		s.Sessions.Remove(ctx, "user_id")
 		return db.User{}, false
 	}
 
@@ -173,13 +174,15 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		r = r.WithContext(context.WithValue(r.Context(), authenticatedUserContextKey{}, user))
+		ctx := r.Context()
+		r = r.WithContext(context.WithValue(ctx, authenticatedUserContextKey{}, user))
 		next.ServeHTTP(w, r)
 	})
 }
 
 func (s *Server) GetAuthenticatedUserOr(r *http.Request) (db.User, bool) {
-	user, ok := r.Context().Value(authenticatedUserContextKey{}).(db.User)
+	ctx := r.Context()
+	user, ok := ctx.Value(authenticatedUserContextKey{}).(db.User)
 	return user, ok
 }
 

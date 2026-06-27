@@ -1,6 +1,7 @@
 package server
 
 import (
+	"database/sql"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -43,7 +44,7 @@ func TestHandleAgentAlreadyRegistered(t *testing.T) {
 		require.Equal(t, http.StatusOK, rr.Code)
 		require.Equal(t, ALLOW_INSTALL, rr.Body.String())
 
-		agent, err := s.DB.GetAgentByAPIKey(t.Context(), "api-key-a")
+		agent, err := s.DB.GetAgentFromAPIKey(t.Context(), "api-key-a")
 		require.NoError(t, err)
 		require.True(t, agent.HostID.Valid)
 		require.Equal(t, "host-a", agent.HostID.String)
@@ -103,7 +104,7 @@ func createAgentAlreadyRegisteredFixture(
 		ID:     agentID,
 		TeamID: user.TeamID,
 		Name:   agentID,
-		NULLIF: hostID,
+		HostID: sql.NullString{String: hostID, Valid: true},
 		ApiKey: apiKey,
 	})
 	require.NoError(t, err)

@@ -12,9 +12,10 @@ import (
 )
 
 func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	user := s.GetAuthenticatedUser(r)
 
-	data, err := s.indexData(r.Context(), r, user.TeamID)
+	data, err := s.indexData(ctx, r, user.TeamID)
 	if err != nil {
 		s.Logger.Warn("agents index: list agents", "err", err)
 		http.Error(w, "Could not load your agents.", http.StatusInternalServerError)
@@ -25,7 +26,7 @@ func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) indexData(ctx context.Context, r *http.Request, teamID int64) (views.AgentsIndexPageData, error) {
-	agents, err := s.DB.ListAgentsForTeam(ctx, teamID)
+	agents, err := s.DB.ListAgents(ctx, teamID)
 	if err != nil {
 		return views.AgentsIndexPageData{}, err
 	}
@@ -46,6 +47,10 @@ func (s *Server) indexData(ctx context.Context, r *http.Request, teamID int64) (
 
 func (s *Server) agentInstallCommand(r *http.Request, agentAPIKey string) string {
 	if s.Cfg.Dev {
+		// In dev, the test agent runs inside a Multipass VM. From inside that VM,
+		// localhost points to the VM itself, not to the host machine where the hub
+		// serves install.sh and the agent tarball. host.multipass lets the VM reach
+		// the host, so the generated install command works without extra setup.
 		url := "http://host.multipass:3000"
 		return fmt.Sprintf(
 			"curl -fsSL %s/install.sh -o /tmp/syslantern-install.sh && chmod +x /tmp/syslantern-install.sh && sudo env SYSLANTERN_AGENT_URL=%s/public/syslantern-agent.tar.gz /tmp/syslantern-install.sh %q",
@@ -69,22 +74,39 @@ func hubURL(r *http.Request) string {
 }
 
 func (s *Server) HandleIndexEvents(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	user := s.GetAuthenticatedUser(r)
 
-	agentCreatedC := s.AgentCreatedBus.Subscribe(r.Context())
-	agentDeletedC := s.AgentDeletedBus.Subscribe(r.Context())
+	snapshotReceivedC := s.BusSnapshotProcessed.Subscribe(ctx)
+	agentCreatedC := s.BusAgentCreated.Subscribe(ctx)
+	agentDeletedC := s.BusAgentDeleted.Subscribe(ctx)
 
 	sse := datastar.NewSSE(w, r)
 	for {
 		select {
-		case <-r.Context().Done():
+		case <-ctx.Done():
 			return
-		case evt := <-agentCreatedC:
+		case evt := <-snapshotReceivedC:
+			s.Logger.Debug("index events: agent created", "team_id", evt.TeamID, "agent_id", evt.AgentID)
 			if evt.TeamID != user.TeamID {
 				continue
 			}
 
-			data, err := s.indexData(r.Context(), r, user.TeamID)
+			data, err := s.indexData(ctx, r, user.TeamID)
+			if err != nil {
+				s.Logger.Warn("index events: list agents", "err", err)
+				return
+			}
+
+			s.Renderer.PatchAgentsIndexTable(sse, data)
+
+		case evt := <-agentCreatedC:
+			s.Logger.Debug("index events: agent created", "team_id", evt.TeamID, "agent_id", evt.AgentID)
+			if evt.TeamID != user.TeamID {
+				continue
+			}
+
+			data, err := s.indexData(ctx, r, user.TeamID)
 			if err != nil {
 				s.Logger.Warn("index events: list agents", "err", err)
 				return
@@ -92,11 +114,12 @@ func (s *Server) HandleIndexEvents(w http.ResponseWriter, r *http.Request) {
 
 			s.Renderer.PatchAgentsIndexTable(sse, data)
 		case evt := <-agentDeletedC:
+			s.Logger.Debug("index events: agent deleted", "team_id", evt.TeamID, "agent_id", evt.AgentID)
 			if evt.TeamID != user.TeamID {
 				continue
 			}
 
-			data, err := s.indexData(r.Context(), r, user.TeamID)
+			data, err := s.indexData(ctx, r, user.TeamID)
 			if err != nil {
 				s.Logger.Warn("index events: list agents", "err", err)
 				return
@@ -119,14 +142,16 @@ func (s *Server) HandleAgentsNew(w http.ResponseWriter, r *http.Request) {
 	}
 
 	version := "unknown" // we don't know yet which version the agent has, it has not been installed
-	createdAgent, err := s.DB.CreateAgentForTeam(ctx, user.TeamID, sig.NewAgentName, version)
+	createdAgent, err := s.DB.CreateAgent(ctx, user.TeamID, sig.NewAgentName, version)
 	if err != nil {
 		s.Logger.Error("agent new: create agent", "team_id", user.TeamID, "err", err)
 		s.Renderer.PatchNewAgentDialogErr(w, r, "Could not add the agent. Try again.")
 		return
 	}
 
-	s.AgentCreatedBus.Emit(AgentCreatedEvent{
+	s.Logger.Info("agent new: created agent", "team_id", createdAgent.TeamID, "agent_id", createdAgent.ID)
+
+	s.BusAgentCreated.Emit(EventAgentCreated{
 		TeamID:  createdAgent.TeamID,
 		AgentID: createdAgent.ID,
 	})
@@ -153,7 +178,9 @@ func (s *Server) HandleAgentsDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.AgentDeletedBus.Emit(AgentDeletedEvent{
+	s.Logger.Info("agent delete: deleted agent", "team_id", user.TeamID, "agent_id", agentID)
+
+	s.BusAgentDeleted.Emit(EventAgentDeleted{
 		TeamID:  user.TeamID,
 		AgentID: agentID,
 	})

@@ -45,11 +45,7 @@ func collectAgentHost() (shared.Agent, shared.Host, error) {
 		return shared.Agent{}, shared.Host{}, err
 	}
 
-	// fixme: maybe this should come from the server instead
-	agentID := hostInfo.HostID
-
 	agent := shared.Agent{
-		ID:      agentID,
 		Version: version,
 	}
 	host := shared.Host{

@@ -4,30 +4,40 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"syslantern/shared"
 	"time"
 )
 
 const sampleRetention = 30 * 24 * time.Hour
 
-func (c *Conn) SaveLiveSnapshot(ctx context.Context, teamID int64, snapshot shared.LiveSnapshot) error {
+func (c *Conn) SaveLiveSnapshot(ctx context.Context, agentID string, teamID int64, snapshot *shared.LiveSnapshot) error {
 	tx, err := c.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("begin live snapshot transaction: %w", err)
 	}
 	defer tx.Rollback()
 
 	queries := c.Queries.WithTx(tx)
-	updated, err := queries.touchAgentForTeam(ctx, touchAgentForTeamParams{
-		ID:      snapshot.Agent.ID,
+	updated, err := queries.setAgentVersion(ctx, setAgentVersionParams{
+		ID:      agentID,
 		TeamID:  teamID,
 		Version: snapshot.Agent.Version,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("set agent %s version for team %d: %w", agentID, teamID, err)
 	}
 	if updated == 0 {
-		return sql.ErrNoRows
+		return fmt.Errorf("set agent %s version for team %d: %w", agentID, teamID, sql.ErrNoRows)
+	}
+
+	err = queries.setAgentStatus(ctx, setAgentStatusParams{
+		Status: string(AgentStatusRunning),
+		ID:     agentID,
+		TeamID: teamID,
+	})
+	if err != nil {
+		return fmt.Errorf("set agent %s running status for team %d: %w", agentID, teamID, err)
 	}
 
 	metrics := snapshot.Metrics
@@ -35,7 +45,7 @@ func (c *Conn) SaveLiveSnapshot(ctx context.Context, teamID int64, snapshot shar
 
 	perCorePercent, err := json.Marshal(metrics.CPU.PerCorePercent)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal CPU per-core percent: %w", err)
 	}
 	if err := queries.createCPUSample(ctx, createCPUSampleParams{
 		ObservedAt:     observedAt,
@@ -47,7 +57,7 @@ func (c *Conn) SaveLiveSnapshot(ctx context.Context, teamID int64, snapshot shar
 		Load5m:         metrics.CPU.Load5M,
 		Load15m:        metrics.CPU.Load15M,
 	}); err != nil {
-		return err
+		return fmt.Errorf("create CPU sample: %w", err)
 	}
 
 	if err := queries.createMemorySample(ctx, createMemorySampleParams{
@@ -61,30 +71,34 @@ func (c *Conn) SaveLiveSnapshot(ctx context.Context, teamID int64, snapshot shar
 		SwapAvailableBytes:    int64(metrics.SwapMemory.AvailableBytes),
 		SwapTotalBytes:        int64(metrics.SwapMemory.TotalBytes),
 	}); err != nil {
-		return err
+		return fmt.Errorf("create memory sample: %w", err)
 	}
 
 	if err := saveDiskSample(ctx, queries, observedAt, true, metrics.Disk.Total); err != nil {
-		return err
+		return fmt.Errorf("create total disk sample: %w", err)
 	}
 	for _, partition := range metrics.Disk.Partitions {
 		if err := saveDiskSample(ctx, queries, observedAt, false, partition); err != nil {
-			return err
+			return fmt.Errorf("create disk sample for mount %s: %w", partition.Mount, err)
 		}
 	}
 
 	cutoff := snapshot.SentAt.Add(-sampleRetention).Format(time.RFC3339Nano)
 	if err := queries.deleteOldCPUSamples(ctx, cutoff); err != nil {
-		return err
+		return fmt.Errorf("delete old CPU samples: %w", err)
 	}
 	if err := queries.deleteOldMemorySamples(ctx, cutoff); err != nil {
-		return err
+		return fmt.Errorf("delete old memory samples: %w", err)
 	}
 	if err := queries.deleteOldDiskSamples(ctx, cutoff); err != nil {
-		return err
+		return fmt.Errorf("delete old disk samples: %w", err)
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit live snapshot transaction: %w", err)
+	}
+
+	return nil
 }
 
 func saveDiskSample(ctx context.Context, queries *Queries, observedAt string, isTotal bool, disk shared.DiskUsage) error {
