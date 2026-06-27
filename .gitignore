@@ -17,3 +17,4 @@ coverage.out
 *.out
 
 *.sql.go
+mockups

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"syslantern/shared"
 	"time"
@@ -13,9 +14,10 @@ type Agent struct {
 	client *Client
 	agent  shared.Agent
 	host   shared.Host
+	logger *slog.Logger
 }
 
-func NewAgent() (*Agent, error) {
+func NewAgent(logger *slog.Logger) (*Agent, error) {
 	cfg, err := ParseConfig()
 	if err != nil {
 		return nil, fmt.Errorf("parse config: %w", err)
@@ -26,36 +28,50 @@ func NewAgent() (*Agent, error) {
 		return nil, fmt.Errorf("collect agent identity: %w", err)
 	}
 
+	logger = logger.With(
+		"agent_version", agent.Version,
+		"host_id", host.ID,
+		"host_name", host.Name,
+		"host_os", host.OS,
+		"host_arch", host.Arch,
+	)
+
 	return &Agent{
 		cfg:    cfg,
 		client: NewClient(cfg.HubURL, cfg.AgentAPIKey),
 		agent:  agent,
 		host:   host,
+		logger: logger,
 	}, nil
 }
 
 func StartAgent(ctx context.Context) {
-	agent, err := NewAgent()
+	loggerOpts := &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}
+	// loggerOpts.Level = slog.LevelDebug
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, loggerOpts))
+
+	agent, err := NewAgent(logger)
 	if err != nil {
-		// fixme: handle err
+		logger.Error("failed to create new agent", "error", err)
 		return
 	}
 
-	if err := agent.Start(ctx); err != nil {
-		// fixme: handle err
-		os.Exit(1)
+	if err := agent.Collect(ctx); err != nil {
+		logger.Error("failed to collect metrics", "error", err)
 	}
 }
 
-func (a *Agent) Start(ctx context.Context) error {
-	// fixme: handle retry
+func (a *Agent) Collect(ctx context.Context) error {
 	agentCfg, err := a.client.GetAgentConfig(ctx)
 	if err != nil {
-		// fixme: handle err
-		return err
+		return fmt.Errorf("failed to get agent config: %w", err)
 	}
 
 	agentStatus := agentCfg.AgentStatus
+
+	// fixme: what happens if polling makes metrics collection loose a few snapshots?
 
 	collectMetricsTick := time.NewTicker(2 * time.Second)
 	defer collectMetricsTick.Stop()
@@ -72,34 +88,33 @@ func (a *Agent) Start(ctx context.Context) error {
 				continue
 			}
 
+			a.logger.Debug("polling for config", "status", agentStatus)
+
 			agentCfg, err := a.client.GetAgentConfig(ctx)
 			if err != nil {
-				// fixme: handle err
-				continue
+				return fmt.Errorf("failed to get agent config: %w", err)
 			}
 
 			agentStatus = agentCfg.AgentStatus
+
+			a.logger.Debug("polled for config", "status", agentStatus)
 
 		case <-collectMetricsTick.C:
 			if !agentStatus.ShouldAgentSendMetrics() {
 				continue
 			}
-			// if config is not running
-
-			fmt.Println("ticked, sending snapshot") // fixme: here aswell :S, maybe debug log
 
 			snapshot, err := collectLiveSnapshot(a.agent, a.host)
 			if err != nil {
-				// fixme: handle err
-				continue
+				return fmt.Errorf("failed to collect snapshot: %w", err)
 			}
 
-			// fixme: handle retries
 			result, err := a.client.SendLiveSnapshot(ctx, snapshot)
 			if err != nil {
-				// fixme: handle err
-				continue
+				return fmt.Errorf("failed to send snapshot: %w", err)
 			}
+
+			a.logger.Debug("sent snapshot")
 
 			agentStatus = result.AgentStatus
 		}

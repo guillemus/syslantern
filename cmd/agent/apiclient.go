@@ -15,57 +15,106 @@ type Client struct {
 }
 
 func NewClient(hubURL string, agentAPIKey string) *Client {
+	client := resty.New().
+		SetBaseURL(hubURL).
+		SetTimeout(10*time.Second).
+		SetHeader("Authorization", "Bearer "+agentAPIKey)
+
 	return &Client{
-		resty: resty.New().
-			SetBaseURL(hubURL).
-			SetHeader("Authorization", "Bearer "+agentAPIKey),
+		resty: client,
 	}
 }
 
 func (c *Client) SendLiveSnapshot(
 	ctx context.Context, snapshot shared.LiveSnapshot,
 ) (result shared.IngestResult, err error) {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
+	for attempt := 0; ; attempt++ {
+		resp, err := c.resty.R().
+			SetContext(ctx).
+			SetHeader("Content-Type", "application/json").
+			SetBody(shared.IngestEvent{LiveSnapshot: &snapshot}).
+			SetResult(&result).
+			Post("/ingest")
+		if err != nil {
+			if ctx.Err() != nil {
+				return result, fmt.Errorf("send live snapshot: %w", ctx.Err())
+			}
+			if err := waitBeforeRetry(ctx, attempt); err != nil {
+				return result, fmt.Errorf("send live snapshot: %w", err)
+			}
+			continue
+		}
 
-	resp, err := c.resty.R().
-		SetContext(ctx).
-		SetHeader("Content-Type", "application/json").
-		SetBody(shared.IngestEvent{LiveSnapshot: &snapshot}).
-		SetResult(&result).
-		Post("/ingest")
-	if err != nil {
-		return result, fmt.Errorf("send live snapshot: %w", err)
+		if resp.StatusCode() >= 500 {
+			if err := waitBeforeRetry(ctx, attempt); err != nil {
+				return result, fmt.Errorf("send live snapshot: %w", err)
+			}
+			continue
+		}
+
+		if resp.IsError() {
+			return result, fmt.Errorf(
+				"send live snapshot: %s: %s",
+				resp.Status(), string(resp.Body()),
+			)
+		}
+
+		return result, nil
 	}
-
-	if resp.IsError() {
-		return result, fmt.Errorf(
-			"send live snapshot: %s: %s",
-			resp.Status(), string(resp.Body()),
-		)
-	}
-
-	return result, nil
 }
 
 func (c *Client) GetAgentConfig(ctx context.Context) (cfg shared.AgentConfig, err error) {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
+	for attempt := 0; ; attempt++ {
+		resp, err := c.resty.R().
+			SetContext(ctx).
+			SetResult(&cfg).
+			Get("/agent/config")
+		if err != nil {
+			if ctx.Err() != nil {
+				return cfg, fmt.Errorf("get agent config: %w", ctx.Err())
+			}
+			if err := waitBeforeRetry(ctx, attempt); err != nil {
+				return cfg, fmt.Errorf("get agent config: %w", err)
+			}
+			continue
+		}
 
-	resp, err := c.resty.R().
-		SetContext(ctx).
-		SetResult(&cfg).
-		Get("/agent/config")
-	if err != nil {
-		return cfg, fmt.Errorf("get agent config: %w", err)
+		if resp.StatusCode() >= 500 {
+			if err := waitBeforeRetry(ctx, attempt); err != nil {
+				return cfg, fmt.Errorf("get agent config: %w", err)
+			}
+			continue
+		}
+
+		if resp.IsError() {
+			return cfg, fmt.Errorf(
+				"get agent config: %s: %s",
+				resp.Status(), string(resp.Body()),
+			)
+		}
+
+		return cfg, nil
+	}
+}
+
+func waitBeforeRetry(ctx context.Context, attempt int) error {
+	var delay time.Duration
+	switch attempt {
+	case 0:
+		delay = 2 * time.Second
+	case 1:
+		delay = 4 * time.Second
+	default:
+		delay = 8 * time.Second
 	}
 
-	if resp.IsError() {
-		return cfg, fmt.Errorf(
-			"get agent config: %s: %s",
-			resp.Status(), string(resp.Body()),
-		)
-	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
 
-	return cfg, nil
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }

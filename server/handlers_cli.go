@@ -1,13 +1,12 @@
 package server
 
 import (
-	"database/sql"
-	"errors"
 	"net/http"
 	"strings"
 	"syslantern/db"
 	"syslantern/shared"
-	"syslantern/validate"
+
+	"github.com/bytedance/sonic"
 )
 
 func getApiKey(r *http.Request) (string, bool) {
@@ -24,17 +23,21 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	agent, err := s.DB.GetAgentFromAPIKey(ctx, apiKey)
-	if err != nil {
+	agent, notFound, err := s.DB.GetAgentFromAPIKey(ctx, apiKey)
+	if notFound {
 		s.Logger.Error("ingest: invalid api key", "err", err)
 		http.Error(w, "Invalid api key", http.StatusUnauthorized)
+		return
+	} else if err != nil {
+		s.Logger.Error("failed to get agent from api key", "err", err)
+		http.Error(w, "database error", http.StatusInternalServerError)
 		return
 	}
 
 	var payload shared.IngestEvent
-	if err := validate.Unmarshal(r.Body, &payload); err != nil {
+	if err := sonic.ConfigDefault.NewDecoder(r.Body).Decode(&payload); err != nil {
 		s.Logger.Error("ingest: parse request", "err", err)
-		http.Error(w, "Send an ingest event as JSON.", http.StatusBadRequest)
+		http.Error(w, "parse error", http.StatusInternalServerError)
 		return
 	}
 
@@ -119,10 +122,12 @@ const (
 	DATABASE_ERROR  = "DATABASE_ERROR"
 )
 
+// HandleAgentAlreadyRegistered checks if the given agent has been installed in another machine.
+// If so, it errors out, informing the user that he needs to run the command in the original
+// machine it was installed in.
 func (s *Server) HandleAgentAlreadyRegistered(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	s.Logger.Debug("agent already registered: check")
-	// parse host id from json payload
 	var payload struct {
 		ApiKey string `json:"api_key" validate:"required"`
 		HostID string `json:"host_id" validate:"required"`
@@ -132,13 +137,11 @@ func (s *Server) HandleAgentAlreadyRegistered(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// check api key
-	agent, err := s.DB.GetAgentFromAPIKey(ctx, payload.ApiKey)
-	if errors.Is(err, sql.ErrNoRows) {
+	agent, notFound, err := s.DB.GetAgentFromAPIKey(ctx, payload.ApiKey)
+	if notFound {
 		writeErr(w, err, INVALID_API_KEY)
 		return
-	}
-	if err != nil {
+	} else if err != nil {
 		writeErr(w, err, DATABASE_ERROR)
 		return
 	}
@@ -172,13 +175,19 @@ func (s *Server) HandleAgentConfig(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	apiKey, ok := getApiKey(r)
 	if !ok {
-		// fixme: handle err
+		s.Logger.Error("ingest: missing api key")
+		http.Error(w, "API key not found", http.StatusUnauthorized)
 		return
 	}
 
-	agent, err := s.DB.GetAgentFromAPIKey(ctx, apiKey)
-	if err != nil {
-		// fixme: handle err
+	agent, notFound, err := s.DB.GetAgentFromAPIKey(ctx, apiKey)
+	if notFound {
+		s.Logger.Error("ingest: invalid api key", "err", err)
+		http.Error(w, "Invalid api key", http.StatusUnauthorized)
+		return
+	} else if err != nil {
+		s.Logger.Error("failed to get agent from api key", "err", err)
+		http.Error(w, "database error", http.StatusInternalServerError)
 		return
 	}
 

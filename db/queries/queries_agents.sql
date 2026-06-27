@@ -26,7 +26,7 @@ FROM agents
 WHERE id = @id
 AND team_id = @team_id;
 
--- name: GetAgentFromAPIKey :one
+-- name: getAgentFromAPIKey :one
 SELECT agents.*
 FROM agents
 WHERE api_key = @api_key;

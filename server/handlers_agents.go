@@ -5,5 +5,5 @@ import (
 )
 
 func (s *Server) HandleAgentsPage(w http.ResponseWriter, r *http.Request) {
-	// fixme: implement
+	// TODO: to be done.
 }

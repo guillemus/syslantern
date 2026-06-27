@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"syslantern/shared"
 )
 
@@ -50,6 +51,20 @@ func (c *Conn) CreateAgent(
 		Status:  AgentStatusCreated,
 		ApiKey:  newApiKey(),
 	})
+}
+
+func (c *Conn) GetAgentFromAPIKey(
+	ctx context.Context, apiKey string,
+) (agent Agent, notFound bool, err error) {
+	agent, err = c.getAgentFromAPIKey(ctx, apiKey)
+	if errors.Is(err, sql.ErrNoRows) {
+		return agent, true, nil
+	}
+	if err != nil {
+		return agent, false, err
+	}
+
+	return agent, false, nil
 }
 
 type DeleteAgentParams struct {

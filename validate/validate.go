@@ -17,13 +17,6 @@ func Unmarshal(payload io.Reader, v any) error {
 		return fmt.Errorf("decode strict json: %w", err)
 	}
 
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		if err == nil {
-			return fmt.Errorf("decode strict json: unexpected trailing data")
-		}
-		return fmt.Errorf("decode strict json: %w", err)
-	}
-
 	if err := V.Struct(v); err != nil {
 		return fmt.Errorf("validate strict json: %w", err)
 	}
