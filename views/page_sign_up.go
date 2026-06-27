@@ -56,7 +56,7 @@ func (r *Renderer) SignUp(email string, err string) Node {
 				),
 				Button(
 					Class("w-full rounded-md bg-orange-600 px-3 py-2 font-medium text-white transition hover:brightness-110"),
-					r.DataPost("on:click", "/sign-up"),
+					Data("on:click", r.Post("/sign-up")),
 					Text("Sign Up"),
 				),
 			),

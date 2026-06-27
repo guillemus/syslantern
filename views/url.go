@@ -5,9 +5,6 @@ import (
 	"log"
 
 	"github.com/go-chi/chi/v5"
-
-	. "maragu.dev/gomponents"
-	. "maragu.dev/gomponents/html"
 )
 
 func (r *Renderer) MatchPath(method, path string) {
@@ -25,17 +22,14 @@ func (r *Renderer) URL(method, path string) string {
 	return path
 }
 
-func (r *Renderer) DataGet(name, path string) Node {
+// Asserts and creates a datastar @get action
+func (r *Renderer) Get(path string) string {
 	r.MatchPath("GET", path)
-	return Data(name, fmt.Sprintf("@get(%q)", path))
+	return fmt.Sprintf("@get(%q)", path)
 }
 
-func (r *Renderer) DataPost(name, path string) Node {
-	r.MatchPath("POST", path)
-	return Data(name, fmt.Sprintf("@post(%q)", path))
-}
-
-func (r *Renderer) PostAction(path string) string {
+// Asserts and creates a datastar @post action
+func (r *Renderer) Post(path string) string {
 	r.MatchPath("POST", path)
 	return fmt.Sprintf("@post(%q)", path)
 }

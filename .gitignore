@@ -15,3 +15,5 @@ bin/
 coverage.out
 *.test
 *.out
+
+*.sql.go

@@ -20,7 +20,7 @@ type AgentMetricsData struct {
 func (r *Renderer) AgentMetrics(data AgentMetricsData) Node {
 	return Div(
 		Class("min-h-dvh bg-zinc-950 p-4 font-mono text-zinc-100 sm:p-6"),
-		r.DataGet("init", "/agents/"+string(data.AgentID)+"/events"),
+		Data("init", r.Get("/agents/"+data.AgentID+"/events")),
 		Main(
 			Class("mx-auto flex max-w-7xl flex-col gap-4"),
 			dashboardHeader(data),

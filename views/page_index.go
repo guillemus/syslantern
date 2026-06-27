@@ -15,9 +15,9 @@ import (
 
 const (
 	newAgentNameSignal        = "new_agent_name"
-	_newAgentLoadingSignal    = "_new_agent_loading"
 	deleteAgentNameSignal     = "delete_agent_name"
 	deleteAgentURLSignal      = "delete_agent_url"
+	_newAgentLoadingSignal    = "_new_agent_loading"
 	_deleteAgentLoadingSignal = "_delete_agent_loading"
 )
 
@@ -50,7 +50,9 @@ func (r *Renderer) RenderIndexPage(w io.Writer, data AgentsIndexPageData) {
 	r.RenderPage(w, "syslantern", r.AgentsIndex(data))
 }
 
-func (r *Renderer) PatchIndexPageTableData(sse *datastar.ServerSentEventGenerator, data AgentsIndexPageData) {
+func (r *Renderer) PatchIndexPageTableData(
+	sse *datastar.ServerSentEventGenerator, data AgentsIndexPageData,
+) {
 	ssePatch(sse, r.AgentsIndex(data))
 }
 
@@ -72,7 +74,7 @@ func (r *Renderer) AgentsIndex(data AgentsIndexPageData) Node {
 					Text("Add agent"),
 				),
 			),
-			r.DataGet("init", "/events"),
+			Data("init", r.Get("/events")),
 			r.AgentsIndexTable(data),
 
 			r.NewAgentDialogForm(),
@@ -143,7 +145,7 @@ func (r *Renderer) NewAgentDialogForm() Node {
 			Data("on:submit", `
 				evt.preventDefault()
 				$`+_newAgentLoadingSignal+` = true;
-				`+r.PostAction("/agents/new")+`;
+				`+r.Post("/agents/new")+`;
 			`),
 			Class("p-6"),
 			H2(Class("text-xl font-semibold"), Text("Add agent")),
@@ -327,7 +329,7 @@ func (r *Renderer) agentRow(data AgentRow) Node {
 				),
 				Ul(
 					TabIndex("-1"),
-					Class("dropdown-content menu menu-sm rounded-box z-10 mt-2 w-40 border border-zinc-800 bg-zinc-950 p-2 text-zinc-100 shadow-xl shadow-black/40"),
+					Class("dropdown-content menu rounded-box z-10 mt-2 w-40 border border-zinc-800 bg-zinc-950 p-2 text-zinc-100 shadow-xl shadow-black/40"),
 					Li(
 						A(Href(href), Class("hover:bg-zinc-800"), Text("View")),
 					),
