@@ -63,3 +63,11 @@ func sseExecJS(sse *datastar.ServerSentEventGenerator, script string) {
 func InlineScript(script string) Node {
 	return Script(Raw(fmt.Sprintf("{ %s }", script)))
 }
+
+func DataBind(signal, val string) Node {
+	return Data("bind:"+signal, val)
+}
+
+func DataSignals(signal, val string) Node {
+	return Data("signals:"+signal, val)
+}

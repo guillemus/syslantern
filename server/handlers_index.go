@@ -148,7 +148,7 @@ func (s *Server) HandleAgentsDelete(w http.ResponseWriter, r *http.Request) {
 			"team_id", user.TeamID,
 			"agent_id", agentID,
 			"err", err)
-		views.PatchErrorToast(w, r, "Could not delete the agent", "Try again.")
+		s.Renderer.PatchDeleteAgentDialogErr(w, r)
 		return
 	}
 
@@ -156,4 +156,5 @@ func (s *Server) HandleAgentsDelete(w http.ResponseWriter, r *http.Request) {
 		TeamID:  user.TeamID,
 		AgentID: agentID,
 	})
+	s.Renderer.PatchDeleteAgentDialogDeleted(w, r)
 }

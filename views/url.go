@@ -2,6 +2,7 @@ package views
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/go-chi/chi/v5"
 
@@ -14,7 +15,7 @@ func (r *Renderer) MatchPath(method, path string) {
 		ctx := chi.NewRouteContext()
 		matches := chi.Routes.Match(r.Routes, ctx, method, path)
 		if !matches {
-			panic(fmt.Sprintf("\033[31mmethod %s, path: %s is not registered\033[0m", method, path))
+			log.Fatalf("\033[31mmethod %s, path: %s is not registered\033[0m", method, path)
 		}
 	}
 }
@@ -32,4 +33,9 @@ func (r *Renderer) DataGet(name, path string) Node {
 func (r *Renderer) DataPost(name, path string) Node {
 	r.MatchPath("POST", path)
 	return Data(name, fmt.Sprintf("@post(%q)", path))
+}
+
+func (r *Renderer) PostAction(path string) string {
+	r.MatchPath("POST", path)
+	return fmt.Sprintf("@post(%q)", path)
 }
