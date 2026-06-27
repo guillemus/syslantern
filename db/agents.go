@@ -47,15 +47,14 @@ func (c *Conn) CreateAgentForTeam(
 	})
 }
 
-type SetAgentStatusForTeamParams struct {
-	Status AgentStatus
+type DeleteAgentParams struct {
 	ID     string
 	TeamID int64
 }
 
-func (c *Conn) SetAgentStatusForTeam(ctx context.Context, arg SetAgentStatusForTeamParams) error {
+func (c *Conn) DeleteAgent(ctx context.Context, arg DeleteAgentParams) error {
 	return c.setAgentStatusForTeam(ctx, setAgentStatusForTeamParams{
-		Status: string(arg.Status),
+		Status: string(AgentStatusDeleted),
 		ID:     arg.ID,
 		TeamID: arg.TeamID,
 	})

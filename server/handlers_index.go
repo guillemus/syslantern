@@ -138,8 +138,7 @@ func (s *Server) HandleAgentsDelete(w http.ResponseWriter, r *http.Request) {
 	agentID := chi.URLParam(r, "agentID")
 	user := s.GetAuthenticatedUser(r)
 
-	err := s.DB.SetAgentStatusForTeam(ctx, db.SetAgentStatusForTeamParams{
-		Status: db.AgentStatusDeleted,
+	err := s.DB.DeleteAgent(ctx, db.DeleteAgentParams{
 		ID:     agentID,
 		TeamID: user.TeamID,
 	})
