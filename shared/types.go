@@ -14,12 +14,9 @@ type LiveSnapshot struct {
 	Metrics MetricsSnapshot `json:"metrics"`
 }
 
-// fixme: this might have to go
-type AgentID string
-
 type Agent struct {
-	ID      AgentID `json:"id"`
-	Version string  `json:"version"`
+	ID      string `json:"id"`
+	Version string `json:"version"`
 }
 
 type AgentConfig struct {
@@ -91,7 +88,7 @@ type DiskAnalyticsSample struct {
 }
 
 type AgentCommand struct {
-	AgentID AgentID `json:"agent_id"`
+	AgentID string  `json:"agent_id"`
 	Command Command `json:"command"`
 }
 

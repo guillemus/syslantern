@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"syslantern/shared"
 	"time"
 
 	"github.com/starfederation/datastar-go/datastar"
@@ -13,7 +12,7 @@ import (
 )
 
 type AgentMetricsData struct {
-	AgentID   shared.AgentID
+	AgentID   string
 	Stats     DashboardStatsData
 	Analytics DashboardAnalyticsData
 }

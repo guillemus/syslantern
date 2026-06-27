@@ -10,7 +10,7 @@ import (
 
 const sampleRetention = 30 * 24 * time.Hour
 
-func (c *Conn) SaveLiveSnapshot(ctx context.Context, teamID TeamID, snapshot shared.LiveSnapshot) error {
+func (c *Conn) SaveLiveSnapshot(ctx context.Context, teamID int64, snapshot shared.LiveSnapshot) error {
 	tx, err := c.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -19,7 +19,7 @@ func (c *Conn) SaveLiveSnapshot(ctx context.Context, teamID TeamID, snapshot sha
 
 	queries := c.Queries.WithTx(tx)
 	updated, err := queries.touchAgentForTeam(ctx, touchAgentForTeamParams{
-		ID:      AgentID(snapshot.Agent.ID),
+		ID:      snapshot.Agent.ID,
 		TeamID:  teamID,
 		Version: snapshot.Agent.Version,
 	})

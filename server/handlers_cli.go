@@ -56,7 +56,7 @@ func (s *Server) HandleAgentAlreadyRegistered(w http.ResponseWriter, r *http.Req
 	}
 
 	// check api key
-	agent, err := s.DB.GetAgentByAPIKey(ctx, db.AgentAPIKey(payload.ApiKey))
+	agent, err := s.DB.GetAgentByAPIKey(ctx, payload.ApiKey)
 	if errors.Is(err, sql.ErrNoRows) {
 		writeErr(w, err, INVALID_API_KEY)
 		return
@@ -96,7 +96,7 @@ func (s *Server) HandleAgentConfig(w http.ResponseWriter, r *http.Request) {
 	// needs refactor
 
 	// q := r.URL.Query()
-	// agentID := shared.AgentID(q.Get("agent_id"))
+	// agentID := q.Get("agent_id")
 	// agentName := q.Get("agent_name")
 	// agentVersion := q.Get("agent_version")
 	//
@@ -143,7 +143,7 @@ func (s *Server) AuthenticateAgentAPIKey(r *http.Request) (db.Team, bool) {
 		return db.Team{}, false
 	}
 
-	team, err := s.DB.GetTeamByAgentAPIKey(r.Context(), db.AgentAPIKey(token))
+	team, err := s.DB.GetTeamByAgentAPIKey(r.Context(), token)
 	if err != nil {
 		return team, false
 	}

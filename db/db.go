@@ -66,9 +66,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.listMemorySamplesSinceStmt, err = db.PrepareContext(ctx, listMemorySamplesSince); err != nil {
 		return nil, fmt.Errorf("error preparing query ListMemorySamplesSince: %w", err)
 	}
-	if q.setAgentStatusForTeamStmt, err = db.PrepareContext(ctx, setAgentStatusForTeam); err != nil {
-		return nil, fmt.Errorf("error preparing query SetAgentStatusForTeam: %w", err)
-	}
 	if q.commitSessionStmt, err = db.PrepareContext(ctx, commitSession); err != nil {
 		return nil, fmt.Errorf("error preparing query commitSession: %w", err)
 	}
@@ -101,6 +98,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.findSessionStmt, err = db.PrepareContext(ctx, findSession); err != nil {
 		return nil, fmt.Errorf("error preparing query findSession: %w", err)
+	}
+	if q.setAgentStatusForTeamStmt, err = db.PrepareContext(ctx, setAgentStatusForTeam); err != nil {
+		return nil, fmt.Errorf("error preparing query setAgentStatusForTeam: %w", err)
 	}
 	if q.touchAgentForTeamStmt, err = db.PrepareContext(ctx, touchAgentForTeam); err != nil {
 		return nil, fmt.Errorf("error preparing query touchAgentForTeam: %w", err)
@@ -186,11 +186,6 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing listMemorySamplesSinceStmt: %w", cerr)
 		}
 	}
-	if q.setAgentStatusForTeamStmt != nil {
-		if cerr := q.setAgentStatusForTeamStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing setAgentStatusForTeamStmt: %w", cerr)
-		}
-	}
 	if q.commitSessionStmt != nil {
 		if cerr := q.commitSessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing commitSessionStmt: %w", cerr)
@@ -244,6 +239,11 @@ func (q *Queries) Close() error {
 	if q.findSessionStmt != nil {
 		if cerr := q.findSessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing findSessionStmt: %w", cerr)
+		}
+	}
+	if q.setAgentStatusForTeamStmt != nil {
+		if cerr := q.setAgentStatusForTeamStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing setAgentStatusForTeamStmt: %w", cerr)
 		}
 	}
 	if q.touchAgentForTeamStmt != nil {
@@ -314,7 +314,6 @@ type Queries struct {
 	listDiskSamplesSinceStmt         *sql.Stmt
 	listLatestDiskSamplesStmt        *sql.Stmt
 	listMemorySamplesSinceStmt       *sql.Stmt
-	setAgentStatusForTeamStmt        *sql.Stmt
 	commitSessionStmt                *sql.Stmt
 	createCPUSampleStmt              *sql.Stmt
 	createDiskSampleStmt             *sql.Stmt
@@ -326,6 +325,7 @@ type Queries struct {
 	deleteOldMemorySamplesStmt       *sql.Stmt
 	deleteSessionStmt                *sql.Stmt
 	findSessionStmt                  *sql.Stmt
+	setAgentStatusForTeamStmt        *sql.Stmt
 	touchAgentForTeamStmt            *sql.Stmt
 	updateAgentHostIDStmt            *sql.Stmt
 	upsertAgentForTeamStmt           *sql.Stmt
@@ -349,7 +349,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		listDiskSamplesSinceStmt:         q.listDiskSamplesSinceStmt,
 		listLatestDiskSamplesStmt:        q.listLatestDiskSamplesStmt,
 		listMemorySamplesSinceStmt:       q.listMemorySamplesSinceStmt,
-		setAgentStatusForTeamStmt:        q.setAgentStatusForTeamStmt,
 		commitSessionStmt:                q.commitSessionStmt,
 		createCPUSampleStmt:              q.createCPUSampleStmt,
 		createDiskSampleStmt:             q.createDiskSampleStmt,
@@ -361,6 +360,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteOldMemorySamplesStmt:       q.deleteOldMemorySamplesStmt,
 		deleteSessionStmt:                q.deleteSessionStmt,
 		findSessionStmt:                  q.findSessionStmt,
+		setAgentStatusForTeamStmt:        q.setAgentStatusForTeamStmt,
 		touchAgentForTeamStmt:            q.touchAgentForTeamStmt,
 		updateAgentHostIDStmt:            q.updateAgentHostIDStmt,
 		upsertAgentForTeamStmt:           q.upsertAgentForTeamStmt,

@@ -144,7 +144,7 @@ func (s *Server) GetUserFromSession(r *http.Request) (user db.User, exists bool)
 		return db.User{}, false
 	}
 
-	user, err := s.DB.GetUserByID(r.Context(), db.UserID(userID))
+	user, err := s.DB.GetUserByID(r.Context(), userID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			s.Logger.Warn("auth: session user not found", "user_id", userID)

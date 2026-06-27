@@ -6,8 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"syslantern/db"
-
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,7 +41,7 @@ func TestHandleAgentAlreadyRegistered(t *testing.T) {
 		require.Equal(t, http.StatusOK, rr.Code)
 		require.Equal(t, ALLOW_INSTALL, rr.Body.String())
 
-		agent, err := s.DB.GetAgentByAPIKey(t.Context(), db.AgentAPIKey("api-key-a"))
+		agent, err := s.DB.GetAgentByAPIKey(t.Context(), "api-key-a")
 		require.NoError(t, err)
 		require.True(t, agent.HostID.Valid)
 		require.Equal(t, "host-a", agent.HostID.String)
@@ -105,11 +103,11 @@ func createAgentAlreadyRegisteredFixture(
 		INSERT INTO agents (id, team_id, name, version, status, host_id, api_key)
 		VALUES (?, ?, ?, '', 'created', NULLIF(?, ''), ?)
 	`,
-		db.AgentID(agentID),
+		agentID,
 		user.TeamID,
 		agentID,
 		hostID,
-		db.AgentAPIKey(apiKey),
+		apiKey,
 	)
 	require.NoError(t, err)
 }

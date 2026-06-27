@@ -24,7 +24,7 @@ func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 	s.Renderer.RenderIndexPage(w, data)
 }
 
-func (s *Server) indexData(ctx context.Context, teamID db.TeamID) (views.AgentsIndexPageData, error) {
+func (s *Server) indexData(ctx context.Context, teamID int64) (views.AgentsIndexPageData, error) {
 	agents, err := s.DB.ListAgentsForTeam(ctx, teamID)
 	if err != nil {
 		return views.AgentsIndexPageData{}, err
@@ -33,7 +33,7 @@ func (s *Server) indexData(ctx context.Context, teamID db.TeamID) (views.AgentsI
 	rows := make([]views.AgentRow, 0, len(agents))
 	for _, agent := range agents {
 		rows = append(rows, views.AgentRow{
-			ID:        string(agent.ID),
+			ID:        agent.ID,
 			Name:      agent.Name,
 			Version:   agent.Version,
 			UpdatedAt: agent.UpdatedAt,
@@ -42,15 +42,15 @@ func (s *Server) indexData(ctx context.Context, teamID db.TeamID) (views.AgentsI
 	return views.AgentsIndexPageData{Agents: rows}, nil
 }
 
-func (s *Server) agentInstallCommand(r *http.Request, agentAPIKey db.AgentAPIKey) string {
+func (s *Server) agentInstallCommand(r *http.Request, agentAPIKey string) string {
 	if s.Cfg.Dev {
 		url := "http://host.multipass:3000"
 		return fmt.Sprintf(
 			"curl -fsSL %s/install.sh -o /tmp/syslantern-install.sh && chmod +x /tmp/syslantern-install.sh && sudo env SYSLANTERN_AGENT_URL=%s/public/syslantern-agent.tar.gz /tmp/syslantern-install.sh %q",
-			url, url, string(agentAPIKey))
+			url, url, agentAPIKey)
 	}
 	url := hubURL(r)
-	return fmt.Sprintf("curl -fsSL %s/install.sh -o /tmp/syslantern-install.sh && chmod +x /tmp/syslantern-install.sh && sudo /tmp/syslantern-install.sh %q", url, string(agentAPIKey))
+	return fmt.Sprintf("curl -fsSL %s/install.sh -o /tmp/syslantern-install.sh && chmod +x /tmp/syslantern-install.sh && sudo /tmp/syslantern-install.sh %q", url, agentAPIKey)
 }
 
 // hubURL uses the current request host so self-hosted hubs generate install
@@ -135,7 +135,7 @@ func (s *Server) HandleAgentsNew(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) HandleAgentsDelete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	agentID := db.AgentID(chi.URLParam(r, "agentID"))
+	agentID := chi.URLParam(r, "agentID")
 	user := s.GetAuthenticatedUser(r)
 
 	err := s.DB.SetAgentStatusForTeam(ctx, db.SetAgentStatusForTeamParams{

@@ -20,7 +20,7 @@ func (s *SessionStore) Delete(token string) error {
 }
 
 func (s *SessionStore) DeleteCtx(ctx context.Context, token string) error {
-	return s.conn.deleteSession(ctx, SessionToken(token))
+	return s.conn.deleteSession(ctx, token)
 }
 
 func (s *SessionStore) Find(token string) ([]byte, bool, error) {
@@ -28,7 +28,7 @@ func (s *SessionStore) Find(token string) ([]byte, bool, error) {
 }
 
 func (s *SessionStore) FindCtx(ctx context.Context, token string) ([]byte, bool, error) {
-	data, err := s.conn.findSession(ctx, findSessionParams{Token: SessionToken(token), Now: time.Now().UTC()})
+	data, err := s.conn.findSession(ctx, findSessionParams{Token: token, Now: time.Now().UTC()})
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, false, nil
 	}
@@ -43,5 +43,5 @@ func (s *SessionStore) Commit(token string, data []byte, expiry time.Time) error
 }
 
 func (s *SessionStore) CommitCtx(ctx context.Context, token string, data []byte, expiry time.Time) error {
-	return s.conn.commitSession(ctx, commitSessionParams{Token: SessionToken(token), Data: data, Expiry: expiry.UTC()})
+	return s.conn.commitSession(ctx, commitSessionParams{Token: token, Data: data, Expiry: expiry.UTC()})
 }

@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 )
 
+type AgentStatus string
+
 const (
 	AgentStatusCreated  AgentStatus = "created"
 	AgentStatusRunning  AgentStatus = "running"
@@ -15,24 +17,24 @@ const (
 	AgentStatusResuming AgentStatus = "resuming"
 )
 
-func newAgentID() AgentID {
+func newAgentID() string {
 	buf := make([]byte, 16)
 	if _, err := rand.Read(buf); err != nil {
 		panic(err)
 	}
-	return AgentID(hex.EncodeToString(buf))
+	return string(hex.EncodeToString(buf))
 }
 
-func newApiKey() AgentAPIKey {
+func newApiKey() string {
 	buf := make([]byte, 24)
 	if _, err := rand.Read(buf); err != nil {
 		panic(err)
 	}
-	return AgentAPIKey(hex.EncodeToString(buf))
+	return string(hex.EncodeToString(buf))
 }
 
 func (c *Conn) CreateAgentForTeam(
-	ctx context.Context, teamID TeamID, name string, version string,
+	ctx context.Context, teamID int64, name string, version string,
 ) (Agent, error) {
 	id := newAgentID()
 	return c.upsertAgentForTeam(ctx, upsertAgentForTeamParams{
@@ -40,12 +42,26 @@ func (c *Conn) CreateAgentForTeam(
 		TeamID:  teamID,
 		Name:    name,
 		Version: version,
-		Status:  AgentStatusCreated,
+		Status:  string(AgentStatusCreated),
 		ApiKey:  newApiKey(),
 	})
 }
 
-func (c *Conn) UpdateAgentHostID(ctx context.Context, agentID AgentID, hostID string) error {
+type SetAgentStatusForTeamParams struct {
+	Status AgentStatus
+	ID     string
+	TeamID int64
+}
+
+func (c *Conn) SetAgentStatusForTeam(ctx context.Context, arg SetAgentStatusForTeamParams) error {
+	return c.setAgentStatusForTeam(ctx, setAgentStatusForTeamParams{
+		Status: string(arg.Status),
+		ID:     arg.ID,
+		TeamID: arg.TeamID,
+	})
+}
+
+func (c *Conn) UpdateAgentHostID(ctx context.Context, agentID string, hostID string) error {
 	return c.updateAgentHostID(ctx, updateAgentHostIDParams{
 		ID:     agentID,
 		HostID: sql.NullString{String: hostID, Valid: true},

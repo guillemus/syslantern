@@ -53,7 +53,7 @@ func (c *Client) GetAgentConfig(ctx context.Context, agent shared.Agent, host sh
 	resp, err := c.resty.R().
 		SetContext(ctx).
 		SetResult(&cfg).
-		SetQueryParam("agent_id", string(agent.ID)).
+		SetQueryParam("agent_id", agent.ID).
 		SetQueryParam("agent_name", host.Name).
 		SetQueryParam("agent_version", agent.Version).
 		Get("/agent/config")

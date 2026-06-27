@@ -13,37 +13,3 @@ sql:
         emit_prepared_queries: true
         emit_interface: false
         emit_exact_table_names: false
-        overrides:
-          - column: "agents.id"
-            go_type:
-              type: "AgentID"
-          - column: "agents.team_id"
-            go_type:
-              type: "TeamID"
-          - column: "teams.id"
-            go_type:
-              type: "TeamID"
-          - column: "agents.api_key"
-            go_type:
-              type: "AgentAPIKey"
-          - column: "agents.status"
-            go_type:
-              type: "AgentStatus"
-          - column: "users.id"
-            go_type:
-              type: "UserID"
-          - column: "users.team_id"
-            go_type:
-              type: "TeamID"
-          - column: "cpu_samples.id"
-            go_type:
-              type: "CPUSampleID"
-          - column: "disk_samples.id"
-            go_type:
-              type: "DiskSampleID"
-          - column: "memory_samples.id"
-            go_type:
-              type: "MemorySampleID"
-          - column: "sessions.token"
-            go_type:
-              type: "SessionToken"

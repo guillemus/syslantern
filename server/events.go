@@ -1,15 +1,11 @@
 package server
 
-import (
-	"syslantern/db"
-)
-
 type AgentCreatedEvent struct {
-	TeamID  db.TeamID
-	AgentID db.AgentID
+	TeamID  int64
+	AgentID string
 }
 
 type AgentDeletedEvent struct {
-	TeamID  db.TeamID
-	AgentID db.AgentID
+	TeamID  int64
+	AgentID string
 }

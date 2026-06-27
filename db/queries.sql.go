@@ -17,7 +17,7 @@ FROM agents
 WHERE api_key = ?1
 `
 
-func (q *Queries) GetAgentByAPIKey(ctx context.Context, apiKey AgentAPIKey) (Agent, error) {
+func (q *Queries) GetAgentByAPIKey(ctx context.Context, apiKey string) (Agent, error) {
 	row := q.queryRow(ctx, q.getAgentByAPIKeyStmt, getAgentByAPIKey, apiKey)
 	var i Agent
 	err := row.Scan(
@@ -42,8 +42,8 @@ AND team_id = ?2
 `
 
 type GetAgentForTeamParams struct {
-	ID     AgentID `db:"id"`
-	TeamID TeamID  `db:"team_id"`
+	ID     string `db:"id"`
+	TeamID int64  `db:"team_id"`
 }
 
 func (q *Queries) GetAgentForTeam(ctx context.Context, arg GetAgentForTeamParams) (Agent, error) {
@@ -119,7 +119,7 @@ JOIN agents ON agents.team_id = teams.id
 WHERE agents.api_key = ?1
 `
 
-func (q *Queries) GetTeamByAgentAPIKey(ctx context.Context, agentApiKey AgentAPIKey) (Team, error) {
+func (q *Queries) GetTeamByAgentAPIKey(ctx context.Context, agentApiKey string) (Team, error) {
 	row := q.queryRow(ctx, q.getTeamByAgentAPIKeyStmt, getTeamByAgentAPIKey, agentApiKey)
 	var i Team
 	err := row.Scan(
@@ -137,7 +137,7 @@ FROM teams
 WHERE id = ?1
 `
 
-func (q *Queries) GetTeamByID(ctx context.Context, id TeamID) (Team, error) {
+func (q *Queries) GetTeamByID(ctx context.Context, id int64) (Team, error) {
 	row := q.queryRow(ctx, q.getTeamByIDStmt, getTeamByID, id)
 	var i Team
 	err := row.Scan(
@@ -175,7 +175,7 @@ FROM users
 WHERE id = ?1
 `
 
-func (q *Queries) GetUserByID(ctx context.Context, id UserID) (User, error) {
+func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 	row := q.queryRow(ctx, q.getUserByIDStmt, getUserByID, id)
 	var i User
 	err := row.Scan(
@@ -197,7 +197,7 @@ AND STATUS != 'deleted'
 ORDER BY updated_at DESC
 `
 
-func (q *Queries) ListAgentsForTeam(ctx context.Context, teamID TeamID) ([]Agent, error) {
+func (q *Queries) ListAgentsForTeam(ctx context.Context, teamID int64) ([]Agent, error) {
 	rows, err := q.query(ctx, q.listAgentsForTeamStmt, listAgentsForTeam, teamID)
 	if err != nil {
 		return nil, err
@@ -443,25 +443,6 @@ func (q *Queries) ListMemorySamplesSince(ctx context.Context, since string) ([]M
 	return items, nil
 }
 
-const setAgentStatusForTeam = `-- name: SetAgentStatusForTeam :exec
-UPDATE agents
-SET status = ?1,
-    updated_at = CURRENT_TIMESTAMP
-WHERE id = ?2
-AND team_id = ?3
-`
-
-type SetAgentStatusForTeamParams struct {
-	Status AgentStatus `db:"status"`
-	ID     AgentID     `db:"id"`
-	TeamID TeamID      `db:"team_id"`
-}
-
-func (q *Queries) SetAgentStatusForTeam(ctx context.Context, arg SetAgentStatusForTeamParams) error {
-	_, err := q.exec(ctx, q.setAgentStatusForTeamStmt, setAgentStatusForTeam, arg.Status, arg.ID, arg.TeamID)
-	return err
-}
-
 const commitSession = `-- name: commitSession :exec
 INSERT INTO sessions (token, data, expiry)
 VALUES (?1, ?2, ?3)
@@ -469,9 +450,9 @@ ON CONFLICT(token) DO UPDATE SET data = excluded.data, expiry = excluded.expiry
 `
 
 type commitSessionParams struct {
-	Token  SessionToken `db:"token"`
-	Data   []byte       `db:"data"`
-	Expiry time.Time    `db:"expiry"`
+	Token  string    `db:"token"`
+	Data   []byte    `db:"data"`
+	Expiry time.Time `db:"expiry"`
 }
 
 func (q *Queries) commitSession(ctx context.Context, arg commitSessionParams) error {
@@ -653,7 +634,7 @@ RETURNING id, team_id, email, password_hash, created_at, updated_at
 `
 
 type createUserParams struct {
-	TeamID       TeamID `db:"team_id"`
+	TeamID       int64  `db:"team_id"`
 	Email        string `db:"email"`
 	PasswordHash string `db:"password_hash"`
 }
@@ -707,7 +688,7 @@ DELETE FROM sessions
 WHERE token = ?1
 `
 
-func (q *Queries) deleteSession(ctx context.Context, token SessionToken) error {
+func (q *Queries) deleteSession(ctx context.Context, token string) error {
 	_, err := q.exec(ctx, q.deleteSessionStmt, deleteSession, token)
 	return err
 }
@@ -720,8 +701,8 @@ AND expiry > ?2
 `
 
 type findSessionParams struct {
-	Token SessionToken `db:"token"`
-	Now   time.Time    `db:"now"`
+	Token string    `db:"token"`
+	Now   time.Time `db:"now"`
 }
 
 func (q *Queries) findSession(ctx context.Context, arg findSessionParams) ([]byte, error) {
@@ -729,6 +710,25 @@ func (q *Queries) findSession(ctx context.Context, arg findSessionParams) ([]byt
 	var data []byte
 	err := row.Scan(&data)
 	return data, err
+}
+
+const setAgentStatusForTeam = `-- name: setAgentStatusForTeam :exec
+UPDATE agents
+SET status = ?1,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = ?2
+AND team_id = ?3
+`
+
+type setAgentStatusForTeamParams struct {
+	Status string `db:"status"`
+	ID     string `db:"id"`
+	TeamID int64  `db:"team_id"`
+}
+
+func (q *Queries) setAgentStatusForTeam(ctx context.Context, arg setAgentStatusForTeamParams) error {
+	_, err := q.exec(ctx, q.setAgentStatusForTeamStmt, setAgentStatusForTeam, arg.Status, arg.ID, arg.TeamID)
+	return err
 }
 
 const touchAgentForTeam = `-- name: touchAgentForTeam :execrows
@@ -740,9 +740,9 @@ AND team_id = ?3
 `
 
 type touchAgentForTeamParams struct {
-	Version string  `db:"version"`
-	ID      AgentID `db:"id"`
-	TeamID  TeamID  `db:"team_id"`
+	Version string `db:"version"`
+	ID      string `db:"id"`
+	TeamID  int64  `db:"team_id"`
 }
 
 func (q *Queries) touchAgentForTeam(ctx context.Context, arg touchAgentForTeamParams) (int64, error) {
@@ -762,7 +762,7 @@ WHERE id = ?2
 
 type updateAgentHostIDParams struct {
 	HostID sql.NullString `db:"host_id"`
-	ID     AgentID        `db:"id"`
+	ID     string         `db:"id"`
 }
 
 func (q *Queries) updateAgentHostID(ctx context.Context, arg updateAgentHostIDParams) error {
@@ -783,12 +783,12 @@ RETURNING id, team_id, name, version, status, host_id, api_key, created_at, upda
 `
 
 type upsertAgentForTeamParams struct {
-	ID      AgentID     `db:"id"`
-	TeamID  TeamID      `db:"team_id"`
-	Name    string      `db:"name"`
-	Version string      `db:"version"`
-	Status  AgentStatus `db:"status"`
-	ApiKey  AgentAPIKey `db:"api_key"`
+	ID      string `db:"id"`
+	TeamID  int64  `db:"team_id"`
+	Name    string `db:"name"`
+	Version string `db:"version"`
+	Status  string `db:"status"`
+	ApiKey  string `db:"api_key"`
 }
 
 func (q *Queries) upsertAgentForTeam(ctx context.Context, arg upsertAgentForTeamParams) (Agent, error) {
