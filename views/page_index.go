@@ -3,6 +3,7 @@ package views
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -41,6 +42,7 @@ type AgentsIndexPageData struct {
 
 type AgentRow struct {
 	ID             string
+	Status         string
 	Name           string
 	Version        string
 	UpdatedAt      time.Time
@@ -101,6 +103,7 @@ func (r *Renderer) AgentsIndexTable(data AgentsIndexPageData) Node {
 		Table(
 			Class("w-full text-left text-sm"),
 			THead(Tr(
+				Th(Class("w-1 border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("")),
 				Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("Name")),
 				Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("Agent ID")),
 				Th(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text("Version")),
@@ -304,12 +307,45 @@ func (r *Renderer) agentsTableBody(agents []AgentRow) Node {
 	}
 	if len(rows) == 0 {
 		rows = append(rows, Tr(
-			Td(ColSpan("5"), Class("p-6 text-zinc-500"), Text("No agents added yet.")),
+			Td(ColSpan("6"), Class("p-6 text-zinc-500"), Text("No agents added yet.")),
 		))
 	}
 	nodes := []Node{ID(agentsTableBodyID)}
 	nodes = append(nodes, rows...)
 	return TBody(nodes...)
+}
+
+func agentStatusDot(status string) Node {
+	class := "block h-2.5 w-2.5 rounded-full bg-zinc-600"
+	switch status {
+	case "created":
+		class = "block h-2.5 w-2.5 rounded-full bg-orange-400"
+	case "running":
+		class = "block h-2.5 w-2.5 rounded-full bg-emerald-400"
+	case "deleted":
+		// ignore, it shouldn't show in the dashboard
+	case "paused":
+		class = "block h-2.5 w-2.5 rounded-full bg-zinc-500"
+	case "resuming":
+		class = "block h-2.5 w-2.5 rounded-full bg-sky-400"
+	default:
+		slog.Warn("unkown status", "status", status)
+	}
+
+	return Div(
+		Class("-m-3 p-3"),
+		Data("on:mouseenter", "el.querySelector('.tooltip').classList.add('tooltip-open')"),
+		Data("on:mouseleave", "el.querySelector('.tooltip').classList.remove('tooltip-open')"),
+
+		Div(
+			Class("tooltip"),
+			Attr("data-status-tooltip", ""),
+			Data("tip", status),
+			Aria("label", "Agent status: "+valueOr(status, "unknown")),
+
+			Span(Class(class)),
+		),
+	)
 }
 
 func (r *Renderer) agentRow(data AgentRow) Node {
@@ -318,6 +354,7 @@ func (r *Renderer) agentRow(data AgentRow) Node {
 	deleteHref := r.URL("POST", "/agents/"+agentID+"/delete")
 
 	return Tr(
+		Td(Class("border-b border-zinc-800 px-4 py-3"), agentStatusDot(data.Status)),
 		Td(Class("border-b border-zinc-800 px-4 py-3"), A(Href(viewAgentHref), Class("font-semibold text-zinc-100 hover:text-emerald-300"), Text(valueOr(data.Name, "unnamed")))),
 		Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text(data.ID)),
 		Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500"), Text(valueOr(data.Version, "—"))),

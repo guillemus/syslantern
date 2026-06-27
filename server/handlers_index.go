@@ -38,6 +38,7 @@ func (s *Server) indexData(ctx context.Context, r *http.Request, teamID int64) (
 			Version:        agent.Version,
 			UpdatedAt:      agent.UpdatedAt,
 			InstallCommand: s.agentInstallCommand(r, agent.ApiKey),
+			Status:         agent.Status,
 		})
 	}
 	return views.AgentsIndexPageData{Agents: rows}, nil

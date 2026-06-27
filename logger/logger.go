@@ -11,6 +11,8 @@ import (
 func NewLogger(debug bool) *slog.Logger {
 	w := os.Stderr
 
+	var logger *slog.Logger
+
 	if debug {
 		opts := &tint.Options{
 			Level:     slog.LevelDebug,
@@ -24,16 +26,20 @@ func NewLogger(debug bool) *slog.Logger {
 			TimeFormat: "",
 			NoColor:    false,
 		}
-		return slog.New(tint.NewHandler(w, opts))
+		logger = slog.New(tint.NewHandler(w, opts))
+	} else {
+		opts := &slog.HandlerOptions{
+			Level:       slog.LevelInfo,
+			AddSource:   true,
+			ReplaceAttr: nil,
+		}
+
+		logger = slog.New(slog.NewJSONHandler(w, opts))
 	}
 
-	opts := &slog.HandlerOptions{
-		Level:       slog.LevelInfo,
-		AddSource:   true,
-		ReplaceAttr: nil,
-	}
+	slog.SetDefault(logger)
 
-	return slog.New(slog.NewJSONHandler(w, opts))
+	return logger
 }
 
 func PrettyJSON(s string) string {
