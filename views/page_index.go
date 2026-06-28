@@ -297,7 +297,7 @@ func PatchDeleteAgentDialogDeleted(w http.ResponseWriter, r *http.Request) {
 func PatchDeleteAgentDialogErr(w http.ResponseWriter, r *http.Request) {
 	sse := datastar.NewSSE(w, r)
 	ssePatchSignal(sse, _deleteAgentLoadingSignal, false)
-	PatchToast(sse, ToastProps{Title: "Could not delete the agent", Message: "Try again.", Action: nil})
+	PatchToast(sse, ToastProps{Title: "Could not delete the agent", Message: "Try again."})
 }
 
 func (r *Renderer) agentsTableBody(agents []AgentRow) Node {

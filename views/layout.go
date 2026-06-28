@@ -12,8 +12,7 @@ func (r *Renderer) Layout(title string, body Node) Node {
 	return HTML5(HTML5Props{
 		Title:       title,
 		Language:    "en",
-		Description: "",
-		HTMLAttrs:   []Node{},
+		Description: "Open-source VPS monitoring for metrics and logs.",
 		Head: []Node{
 			Meta(Attr("charset", "UTF-8")),
 			Meta(Attr("name", "viewport"), Attr("content", "width=device-width, initial-scale=1.0")),

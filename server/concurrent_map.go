@@ -12,8 +12,8 @@ type ConcurrentMap[K comparable, V any] struct {
 
 func NewConcurrentMap[K comparable, V any]() *ConcurrentMap[K, V] {
 	return &ConcurrentMap[K, V]{
-		mu: sync.RWMutex{},
 		m:  make(map[K]V),
+		mu: sync.RWMutex{},
 	}
 }
 

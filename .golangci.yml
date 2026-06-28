@@ -1,8 +1,6 @@
 version: "2"
 
 linters:
-  enable:
-    - exhaustruct
   disable:
     - goconst
   exclusions:
@@ -16,9 +14,6 @@ linters:
           - staticcheck
         path: views/.*\.go
         text: "ST1001: should not use dot imports"
-      - linters:
-          - exhaustruct
-        text: "slog.Attr is missing fields"
   settings:
     errcheck:
       exclude-functions:

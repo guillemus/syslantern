@@ -172,16 +172,15 @@ func ingestBody(t *testing.T) string {
 	t.Helper()
 
 	now := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
-
-	var metrics shared.MetricsSnapshot
-	metrics.ObservedAt = now
-
 	body, err := json.Marshal(shared.IngestEvent{LiveSnapshot: &shared.LiveSnapshot{
-		ID:      "snapshot-a",
-		SentAt:  now,
-		Agent:   shared.Agent{Version: "agent-version-a"},
-		Host:    shared.Host{ID: "host-a", Name: "host-a", OS: "linux", Arch: "amd64"},
-		Metrics: metrics,
+		SentAt: now,
+		Agent:  shared.Agent{Version: "agent-version-a"},
+		Metrics: shared.MetricsSnapshot{
+			ObservedAt: now,
+			CPU: shared.CPUUsage{
+				PerCorePercent: []float64{},
+			},
+		},
 	}})
 	require.NoError(t, err)
 	return string(body)
