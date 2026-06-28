@@ -10,8 +10,10 @@ import (
 
 func (r *Renderer) Layout(title string, body Node) Node {
 	return HTML5(HTML5Props{
-		Title:    title,
-		Language: "en",
+		Title:       title,
+		Language:    "en",
+		Description: "",
+		HTMLAttrs:   []Node{},
 		Head: []Node{
 			Meta(Attr("charset", "UTF-8")),
 			Meta(Attr("name", "viewport"), Attr("content", "width=device-width, initial-scale=1.0")),

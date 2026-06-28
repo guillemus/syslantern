@@ -41,7 +41,7 @@ func Toast(data ToastProps) Node {
 
 func PatchErrorToast(w http.ResponseWriter, r *http.Request, title, message string) {
 	sse := datastar.NewSSE(w, r)
-	PatchToast(sse, ToastProps{Title: title, Message: message})
+	PatchToast(sse, ToastProps{Title: title, Message: message, Action: nil})
 }
 
 var ToastRegion = Static(Div(ID("toast-region"), Class("toast-region fixed right-5 bottom-5 z-10")))

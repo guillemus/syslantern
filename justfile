@@ -13,6 +13,9 @@ build-assets:
 sqlc:
     sqlc generate
 
+lint:
+    golangci-lint run ./...
+
 typecheck:
 	bunx tsc --noEmit
 

@@ -96,19 +96,19 @@ func TestHandleAgentAlreadyRegistered(t *testing.T) {
 			`{"api_key":"missing","host_id":"host-a"}`)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Equal(t, INVALID_API_KEY+"\n", rr.Body.String())
+		require.Equal(t, invalidAPIKey+"\n", rr.Body.String())
 	})
 
 	t.Run("stores first host id and allows install", func(t *testing.T) {
 		s := newTestServer(t)
-		createAgentAlreadyRegisteredFixture(t, s, "agent-a", "api-key-a", "")
+		createAgentAlreadyRegisteredFixture(t, s, "")
 
 		rr := sendAgentAlreadyRegistered(
 			t, s,
 			`{"api_key":"api-key-a","host_id":"host-a"}`)
 
 		require.Equal(t, http.StatusOK, rr.Code)
-		require.Equal(t, ALLOW_INSTALL, rr.Body.String())
+		require.Equal(t, allowInstall, rr.Body.String())
 
 		agent, notFound, err := s.DB.GetAgentFromAPIKey(t.Context(), "api-key-a")
 		require.NoError(t, err)
@@ -119,31 +119,26 @@ func TestHandleAgentAlreadyRegistered(t *testing.T) {
 
 	t.Run("blocks different host id", func(t *testing.T) {
 		s := newTestServer(t)
-		createAgentAlreadyRegisteredFixture(
-			t, s,
-			"agent-a", "api-key-a", "host-a",
-		)
+		createAgentAlreadyRegisteredFixture(t, s, "host-a")
 
 		rr := sendAgentAlreadyRegistered(
 			t, s,
 			`{"api_key":"api-key-a","host_id":"host-b"}`)
 
 		require.Equal(t, http.StatusOK, rr.Code)
-		require.Equal(t, DUPLICATED_HOST, rr.Body.String())
+		require.Equal(t, duplicatedHost, rr.Body.String())
 	})
 
 	t.Run("allows same host id", func(t *testing.T) {
 		s := newTestServer(t)
-		createAgentAlreadyRegisteredFixture(
-			t, s,
-			"agent-a", "api-key-a", "host-a")
+		createAgentAlreadyRegisteredFixture(t, s, "host-a")
 
 		rr := sendAgentAlreadyRegistered(
 			t, s,
 			`{"api_key":"api-key-a","host_id":"host-a"}`)
 
 		require.Equal(t, http.StatusOK, rr.Code)
-		require.Equal(t, ALLOW_INSTALL, rr.Body.String())
+		require.Equal(t, allowInstall, rr.Body.String())
 	})
 }
 
@@ -164,7 +159,7 @@ func sendIngest(
 func createIngestAgentFixture(t *testing.T, s *Server, status db.AgentStatus) {
 	t.Helper()
 
-	createAgentAlreadyRegisteredFixture(t, s, "agent-a", "api-key-a", "host-a")
+	createAgentAlreadyRegisteredFixture(t, s, "host-a")
 	_, err := s.DB.GetDB().ExecContext(
 		t.Context(),
 		`UPDATE agents SET status = ? WHERE id = 'agent-a'`,
@@ -177,15 +172,16 @@ func ingestBody(t *testing.T) string {
 	t.Helper()
 
 	now := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	var metrics shared.MetricsSnapshot
+	metrics.ObservedAt = now
+
 	body, err := json.Marshal(shared.IngestEvent{LiveSnapshot: &shared.LiveSnapshot{
-		SentAt: now,
-		Agent:  shared.Agent{Version: "agent-version-a"},
-		Metrics: shared.MetricsSnapshot{
-			ObservedAt: now,
-			CPU: shared.CPUUsage{
-				PerCorePercent: []float64{},
-			},
-		},
+		ID:      "snapshot-a",
+		SentAt:  now,
+		Agent:   shared.Agent{Version: "agent-version-a"},
+		Host:    shared.Host{ID: "host-a", Name: "host-a", OS: "linux", Arch: "amd64"},
+		Metrics: metrics,
 	}})
 	require.NoError(t, err)
 	return string(body)
@@ -265,20 +261,18 @@ func sendAgentAlreadyRegistered(
 	return rr
 }
 
-func createAgentAlreadyRegisteredFixture(
-	t *testing.T, s *Server, agentID string, apiKey string, hostID string,
-) {
+func createAgentAlreadyRegisteredFixture(t *testing.T, s *Server, hostID string) {
 	t.Helper()
 
-	user, err := s.DB.CreateUserAndTeam(t.Context(), agentID+"@example.com", "hash")
+	user, err := s.DB.CreateUserAndTeam(t.Context(), "agent-a@example.com", "hash")
 	require.NoError(t, err)
 
 	err = s.DB.InsertAgent(t.Context(), db.InsertAgentParams{
-		ID:     agentID,
+		ID:     "agent-a",
 		TeamID: user.TeamID,
-		Name:   agentID,
+		Name:   "agent-a",
 		HostID: sql.NullString{String: hostID, Valid: hostID != ""},
-		ApiKey: apiKey,
+		ApiKey: "api-key-a",
 	})
 	require.NoError(t, err)
 }

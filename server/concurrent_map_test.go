@@ -43,7 +43,7 @@ func TestConcurrentMap(t *testing.T) {
 	}
 }
 
-func TestConcurrentMapConcurrentAccess(t *testing.T) {
+func TestConcurrentMapConcurrentAccess(_ *testing.T) {
 	m := NewConcurrentMap[int, int]()
 
 	var wg sync.WaitGroup
@@ -58,7 +58,7 @@ func TestConcurrentMapConcurrentAccess(t *testing.T) {
 				m.Get(key)
 				m.Len()
 				if i%10 == 0 {
-					m.Range(func(key int, value int) bool {
+					m.Range(func(_ int, _ int) bool {
 						return true
 					})
 				}
@@ -75,7 +75,7 @@ func TestConcurrentMapRangeCanMutateMap(t *testing.T) {
 	m := NewConcurrentMap[int, int]()
 	m.Set(1, 1)
 
-	m.Range(func(key int, value int) bool {
+	m.Range(func(key int, _ int) bool {
 		m.Set(2, 2)
 		m.Delete(key)
 		return true

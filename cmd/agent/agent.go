@@ -46,11 +46,10 @@ func NewAgent(logger *slog.Logger) (*Agent, error) {
 }
 
 func StartAgent(ctx context.Context) {
-	loggerOpts := &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}
+	var loggerOpts slog.HandlerOptions
+	loggerOpts.Level = slog.LevelInfo
 	// loggerOpts.Level = slog.LevelDebug
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, loggerOpts))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &loggerOpts))
 
 	agent, err := NewAgent(logger)
 	if err != nil {

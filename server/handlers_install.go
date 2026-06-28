@@ -6,7 +6,7 @@ import (
 	"syslantern"
 )
 
-func (s *Server) HandleInstallScript(w http.ResponseWriter, r *http.Request) {
+func (*Server) HandleInstallScript(w http.ResponseWriter, r *http.Request) {
 	script := strings.ReplaceAll(syslantern.InstallScript, "__SYSLANTERN_HUB_URL__", hubURL(r))
 
 	w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")

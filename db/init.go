@@ -5,7 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // register sqlite driver
 )
 
 //go:embed schema.sql
@@ -29,11 +29,15 @@ func Connect(dbPath string) (*Conn, error) {
 		PRAGMA foreign_keys = ON;
 		PRAGMA temp_store = MEMORY;
 	`); err != nil {
-		db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			return nil, fmt.Errorf("configure DB: %w; close DB: %w", err, closeErr)
+		}
 		return nil, fmt.Errorf("configure DB: %w", err)
 	}
 	if err := db.Ping(); err != nil {
-		db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			return nil, fmt.Errorf("ping DB: %w; close DB: %w", err, closeErr)
+		}
 		return nil, fmt.Errorf("ping DB: %w", err)
 	}
 

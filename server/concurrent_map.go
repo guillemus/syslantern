@@ -1,6 +1,9 @@
 package server
 
-import "sync"
+import (
+	"maps"
+	"sync"
+)
 
 type ConcurrentMap[K comparable, V any] struct {
 	mu sync.RWMutex
@@ -9,7 +12,8 @@ type ConcurrentMap[K comparable, V any] struct {
 
 func NewConcurrentMap[K comparable, V any]() *ConcurrentMap[K, V] {
 	return &ConcurrentMap[K, V]{
-		m: make(map[K]V),
+		mu: sync.RWMutex{},
+		m:  make(map[K]V),
 	}
 }
 
@@ -45,9 +49,7 @@ func (m *ConcurrentMap[K, V]) Len() int {
 func (m *ConcurrentMap[K, V]) Range(fn func(key K, value V) bool) {
 	m.mu.RLock()
 	items := make(map[K]V, len(m.m))
-	for key, value := range m.m {
-		items[key] = value
-	}
+	maps.Copy(items, m.m)
 	m.mu.RUnlock()
 
 	for key, value := range items {

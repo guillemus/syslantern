@@ -9,7 +9,7 @@ func (c *Conn) CreateUserAndTeam(ctx context.Context, email, passwordHash string
 	}
 	defer tx.Rollback()
 
-	q := c.Queries.WithTx(tx)
+	q := c.WithTx(tx)
 
 	team, err := q.createTeam(ctx, "My Team")
 	if err != nil {

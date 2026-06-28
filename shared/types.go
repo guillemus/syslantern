@@ -20,18 +20,20 @@ func (s AgentStatus) ShouldAgentPoll() bool {
 	switch s {
 	case AgentStatusPaused:
 		return true
-	default:
+	case AgentStatusCreated, AgentStatusRunning, AgentStatusDeleted, AgentStatusResuming:
 		return false
 	}
+	return false
 }
 
 func (s AgentStatus) ShouldAgentSendMetrics() bool {
 	switch s {
 	case AgentStatusCreated, AgentStatusResuming, AgentStatusRunning:
 		return true
-	default:
+	case AgentStatusDeleted, AgentStatusPaused:
 		return false
 	}
+	return false
 }
 
 type IngestResult struct {

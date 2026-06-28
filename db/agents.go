@@ -28,15 +28,15 @@ func newAgentID() string {
 	if _, err := rand.Read(buf); err != nil {
 		panic(err)
 	}
-	return string(hex.EncodeToString(buf))
+	return hex.EncodeToString(buf)
 }
 
-func newApiKey() string {
+func newAPIKey() string {
 	buf := make([]byte, 24)
 	if _, err := rand.Read(buf); err != nil {
 		panic(err)
 	}
-	return string(hex.EncodeToString(buf))
+	return hex.EncodeToString(buf)
 }
 
 func (c *Conn) CreateAgent(
@@ -49,7 +49,7 @@ func (c *Conn) CreateAgent(
 		Name:    name,
 		Version: version,
 		Status:  AgentStatusCreated,
-		ApiKey:  newApiKey(),
+		ApiKey:  newAPIKey(),
 	})
 }
 

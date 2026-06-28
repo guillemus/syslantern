@@ -115,8 +115,8 @@ func (r *Renderer) AgentsIndexTable(data AgentsIndexPageData) Node {
 	)
 }
 
-func (r *Renderer) PatchNewAgentDialogErr(w http.ResponseWriter, rr *http.Request, err string) {
-	sse := datastar.NewSSE(w, rr)
+func PatchNewAgentDialogErr(w http.ResponseWriter, r *http.Request, err string) {
+	sse := datastar.NewSSE(w, r)
 	ssePatchSignal(sse, _newAgentLoadingSignal, false)
 	ssePatch(sse, Div(
 		ID(newAgentDialogErrorID),
@@ -125,10 +125,10 @@ func (r *Renderer) PatchNewAgentDialogErr(w http.ResponseWriter, rr *http.Reques
 	))
 }
 
-func (r *Renderer) PatchNewAgentDialogWithCopyCommmand(
-	w http.ResponseWriter, rr *http.Request, commandToCopy string,
+func PatchNewAgentDialogWithCopyCommmand(
+	w http.ResponseWriter, r *http.Request, commandToCopy string,
 ) {
-	sse := datastar.NewSSE(w, rr)
+	sse := datastar.NewSSE(w, r)
 	ssePatch(sse, CopyCommandDialog(commandToCopy))
 	ssePatchSignals(sse, map[string]any{
 		_newAgentLoadingSignal: false,
@@ -288,16 +288,16 @@ func DeleteAgentDialog() Node {
 	)
 }
 
-func (r *Renderer) PatchDeleteAgentDialogDeleted(w http.ResponseWriter, rr *http.Request) {
-	sse := datastar.NewSSE(w, rr)
+func PatchDeleteAgentDialogDeleted(w http.ResponseWriter, r *http.Request) {
+	sse := datastar.NewSSE(w, r)
 	ssePatchSignal(sse, _deleteAgentLoadingSignal, false)
 	sseExecJS(sse, deleteAgentDialogID+`.close()`)
 }
 
-func (r *Renderer) PatchDeleteAgentDialogErr(w http.ResponseWriter, rr *http.Request) {
-	sse := datastar.NewSSE(w, rr)
+func PatchDeleteAgentDialogErr(w http.ResponseWriter, r *http.Request) {
+	sse := datastar.NewSSE(w, r)
 	ssePatchSignal(sse, _deleteAgentLoadingSignal, false)
-	PatchToast(sse, ToastProps{Title: "Could not delete the agent", Message: "Try again."})
+	PatchToast(sse, ToastProps{Title: "Could not delete the agent", Message: "Try again.", Action: nil})
 }
 
 func (r *Renderer) agentsTableBody(agents []AgentRow) Node {
@@ -310,7 +310,8 @@ func (r *Renderer) agentsTableBody(agents []AgentRow) Node {
 			Td(ColSpan("6"), Class("p-6 text-zinc-500"), Text("No agents added yet.")),
 		))
 	}
-	nodes := []Node{ID(agentsTableBodyID)}
+	nodes := make([]Node, 0, 2+len(rows))
+	nodes = append(nodes, ID(agentsTableBodyID), Class("[&>tr:last-child>td]:border-b-0"))
 	nodes = append(nodes, rows...)
 	return TBody(nodes...)
 }
@@ -329,7 +330,7 @@ func agentStatusDot(status string) Node {
 	case "resuming":
 		class = "block h-2.5 w-2.5 rounded-full bg-sky-400"
 	default:
-		slog.Warn("unkown status", "status", status)
+		slog.Warn("unknown status", "status", status)
 	}
 
 	return Div(

@@ -85,7 +85,7 @@ func dashboardHeader(data AgentMetricsData) Node {
 		Div(
 			Div(
 				Class("flex flex-wrap items-center gap-2 text-sm text-zinc-500"),
-				Span(Class("rounded border border-zinc-700 px-2 py-0.5"), Text(valueOr(string(data.AgentID), "agent"))),
+				Span(Class("rounded border border-zinc-700 px-2 py-0.5"), Text(valueOr(data.AgentID, "agent"))),
 				Span(Text(headerMeta(data.Stats))),
 			),
 			H1(Class("mt-2 text-2xl font-semibold tracking-normal sm:text-3xl"), Text(host)),

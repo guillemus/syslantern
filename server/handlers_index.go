@@ -13,7 +13,7 @@ import (
 
 func (s *Server) HandleIndexPage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	user := s.GetAuthenticatedUser(r)
+	user := GetAuthenticatedUser(r)
 
 	data, err := s.indexData(ctx, r, user.TeamID)
 	if err != nil {
@@ -75,7 +75,7 @@ func hubURL(r *http.Request) string {
 
 func (s *Server) HandleIndexEvents(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	user := s.GetAuthenticatedUser(r)
+	user := GetAuthenticatedUser(r)
 
 	snapshotReceivedC := s.BusSnapshotProcessed.Subscribe(ctx)
 	agentCreatedC := s.BusAgentCreated.Subscribe(ctx)
@@ -132,12 +132,12 @@ func (s *Server) HandleIndexEvents(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) HandleAgentsNew(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	user := s.GetAuthenticatedUser(r)
+	user := GetAuthenticatedUser(r)
 
 	var sig views.NewAgentDialogSignals
 	if err := datastar.ReadSignals(r, &sig); err != nil {
 		s.Logger.Error("agent new: read signals", "err", err)
-		s.Renderer.PatchNewAgentDialogErr(w, r, "Could not read the agent details. Refresh the page and try again.")
+		views.PatchNewAgentDialogErr(w, r, "Could not read the agent details. Refresh the page and try again.")
 		return
 	}
 
@@ -145,7 +145,7 @@ func (s *Server) HandleAgentsNew(w http.ResponseWriter, r *http.Request) {
 	createdAgent, err := s.DB.CreateAgent(ctx, user.TeamID, sig.NewAgentName, version)
 	if err != nil {
 		s.Logger.Error("agent new: create agent", "team_id", user.TeamID, "err", err)
-		s.Renderer.PatchNewAgentDialogErr(w, r, "Could not add the agent. Try again.")
+		views.PatchNewAgentDialogErr(w, r, "Could not add the agent. Try again.")
 		return
 	}
 
@@ -157,13 +157,13 @@ func (s *Server) HandleAgentsNew(w http.ResponseWriter, r *http.Request) {
 	})
 
 	commandToInstall := s.agentInstallCommand(r, createdAgent.ApiKey)
-	s.Renderer.PatchNewAgentDialogWithCopyCommmand(w, r, commandToInstall)
+	views.PatchNewAgentDialogWithCopyCommmand(w, r, commandToInstall)
 }
 
 func (s *Server) HandleAgentsDelete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	agentID := chi.URLParam(r, "agentID")
-	user := s.GetAuthenticatedUser(r)
+	user := GetAuthenticatedUser(r)
 
 	err := s.DB.DeleteAgent(ctx, db.DeleteAgentParams{
 		ID:     agentID,
@@ -174,7 +174,7 @@ func (s *Server) HandleAgentsDelete(w http.ResponseWriter, r *http.Request) {
 			"team_id", user.TeamID,
 			"agent_id", agentID,
 			"err", err)
-		s.Renderer.PatchDeleteAgentDialogErr(w, r)
+		views.PatchDeleteAgentDialogErr(w, r)
 		return
 	}
 
@@ -184,5 +184,5 @@ func (s *Server) HandleAgentsDelete(w http.ResponseWriter, r *http.Request) {
 		TeamID:  user.TeamID,
 		AgentID: agentID,
 	})
-	s.Renderer.PatchDeleteAgentDialogDeleted(w, r)
+	views.PatchDeleteAgentDialogDeleted(w, r)
 }

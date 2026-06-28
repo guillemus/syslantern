@@ -22,13 +22,13 @@ func (r *Renderer) URL(method, path string) string {
 	return path
 }
 
-// Asserts and creates a datastar @get action
+// Get asserts and creates a datastar @get action.
 func (r *Renderer) Get(path string) string {
 	r.MatchPath("GET", path)
 	return fmt.Sprintf("@get(%q)", path)
 }
 
-// Asserts and creates a datastar @post action
+// Post asserts and creates a datastar @post action.
 func (r *Renderer) Post(path string) string {
 	r.MatchPath("POST", path)
 	return fmt.Sprintf("@post(%q)", path)

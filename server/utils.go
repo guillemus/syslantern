@@ -35,10 +35,7 @@ func writeJSON(w http.ResponseWriter, v any) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(b)
-	if err != nil {
-		slog.Error("http write error", "err", err)
-	}
+	w.Write(b)
 }
 
 func writeText(w http.ResponseWriter, text string) {

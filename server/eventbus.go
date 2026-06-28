@@ -15,6 +15,7 @@ type EventBus[T any] struct {
 func NewEventBus[T any]() *EventBus[T] {
 	return &EventBus[T]{
 		subs: []chan T{},
+		mu:   sync.RWMutex{},
 	}
 }
 

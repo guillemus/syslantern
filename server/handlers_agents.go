@@ -4,6 +4,6 @@ import (
 	"net/http"
 )
 
-func (s *Server) HandleAgentsPage(w http.ResponseWriter, r *http.Request) {
+func (*Server) HandleAgentsPage(_ http.ResponseWriter, _ *http.Request) {
 	// TODO: to be done.
 }

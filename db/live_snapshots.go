@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math"
 	"syslantern/shared"
 	"time"
 )
@@ -18,7 +19,7 @@ func (c *Conn) SaveLiveSnapshot(ctx context.Context, agentID string, teamID int6
 	}
 	defer tx.Rollback()
 
-	queries := c.Queries.WithTx(tx)
+	queries := c.WithTx(tx)
 	updated, err := queries.setAgentVersion(ctx, setAgentVersionParams{
 		ID:      agentID,
 		TeamID:  teamID,
@@ -42,6 +43,30 @@ func (c *Conn) SaveLiveSnapshot(ctx context.Context, agentID string, teamID int6
 
 	metrics := snapshot.Metrics
 	observedAt := metrics.ObservedAt.Format(time.RFC3339Nano)
+	virtualUsedBytes, err := int64FromUint64(metrics.VirtualMemory.UsedBytes)
+	if err != nil {
+		return "", fmt.Errorf("convert virtual used bytes: %w", err)
+	}
+	virtualAvailableBytes, err := int64FromUint64(metrics.VirtualMemory.AvailableBytes)
+	if err != nil {
+		return "", fmt.Errorf("convert virtual available bytes: %w", err)
+	}
+	virtualTotalBytes, err := int64FromUint64(metrics.VirtualMemory.TotalBytes)
+	if err != nil {
+		return "", fmt.Errorf("convert virtual total bytes: %w", err)
+	}
+	swapUsedBytes, err := int64FromUint64(metrics.SwapMemory.UsedBytes)
+	if err != nil {
+		return "", fmt.Errorf("convert swap used bytes: %w", err)
+	}
+	swapAvailableBytes, err := int64FromUint64(metrics.SwapMemory.AvailableBytes)
+	if err != nil {
+		return "", fmt.Errorf("convert swap available bytes: %w", err)
+	}
+	swapTotalBytes, err := int64FromUint64(metrics.SwapMemory.TotalBytes)
+	if err != nil {
+		return "", fmt.Errorf("convert swap total bytes: %w", err)
+	}
 
 	perCorePercent, err := json.Marshal(metrics.CPU.PerCorePercent)
 	if err != nil {
@@ -63,13 +88,13 @@ func (c *Conn) SaveLiveSnapshot(ctx context.Context, agentID string, teamID int6
 	if err := queries.createMemorySample(ctx, createMemorySampleParams{
 		ObservedAt:            observedAt,
 		VirtualUsedPercent:    metrics.VirtualMemory.UsedPercent,
-		VirtualUsedBytes:      int64(metrics.VirtualMemory.UsedBytes),
-		VirtualAvailableBytes: int64(metrics.VirtualMemory.AvailableBytes),
-		VirtualTotalBytes:     int64(metrics.VirtualMemory.TotalBytes),
+		VirtualUsedBytes:      virtualUsedBytes,
+		VirtualAvailableBytes: virtualAvailableBytes,
+		VirtualTotalBytes:     virtualTotalBytes,
 		SwapUsedPercent:       metrics.SwapMemory.UsedPercent,
-		SwapUsedBytes:         int64(metrics.SwapMemory.UsedBytes),
-		SwapAvailableBytes:    int64(metrics.SwapMemory.AvailableBytes),
-		SwapTotalBytes:        int64(metrics.SwapMemory.TotalBytes),
+		SwapUsedBytes:         swapUsedBytes,
+		SwapAvailableBytes:    swapAvailableBytes,
+		SwapTotalBytes:        swapTotalBytes,
 	}); err != nil {
 		return "", fmt.Errorf("create memory sample: %w", err)
 	}
@@ -106,6 +131,18 @@ func saveDiskSample(ctx context.Context, queries *Queries, observedAt string, is
 	if isTotal {
 		isTotalValue = 1
 	}
+	usedBytes, err := int64FromUint64(disk.UsedBytes)
+	if err != nil {
+		return fmt.Errorf("convert disk used bytes: %w", err)
+	}
+	freeBytes, err := int64FromUint64(disk.FreeBytes)
+	if err != nil {
+		return fmt.Errorf("convert disk free bytes: %w", err)
+	}
+	totalBytes, err := int64FromUint64(disk.TotalBytes)
+	if err != nil {
+		return fmt.Errorf("convert disk total bytes: %w", err)
+	}
 	return queries.createDiskSample(ctx, createDiskSampleParams{
 		ObservedAt:  observedAt,
 		IsTotal:     isTotalValue,
@@ -113,8 +150,15 @@ func saveDiskSample(ctx context.Context, queries *Queries, observedAt string, is
 		Mount:       disk.Mount,
 		Filesystem:  disk.Filesystem,
 		UsedPercent: disk.UsedPercent,
-		UsedBytes:   int64(disk.UsedBytes),
-		FreeBytes:   int64(disk.FreeBytes),
-		TotalBytes:  int64(disk.TotalBytes),
+		UsedBytes:   usedBytes,
+		FreeBytes:   freeBytes,
+		TotalBytes:  totalBytes,
 	})
+}
+
+func int64FromUint64(value uint64) (int64, error) {
+	if value > math.MaxInt64 {
+		return 0, fmt.Errorf("%d exceeds int64 max", value)
+	}
+	return int64(value), nil
 }

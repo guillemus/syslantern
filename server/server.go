@@ -105,7 +105,11 @@ func NewServerFromConfig(cfg config.Config) *Server {
 func (s *Server) Start() {
 	addr := ":" + s.Cfg.Port
 	s.Logger.Info("server starting", "addr", addr)
-	if err := http.ListenAndServe(addr, s.Router); err != nil {
+	var server http.Server
+	server.Addr = addr
+	server.Handler = s.Router
+	server.ReadHeaderTimeout = 5 * time.Second
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }

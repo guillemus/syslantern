@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"strings"
 
@@ -21,17 +20,13 @@ func ssePatchSignals(sse *datastar.ServerSentEventGenerator, v any) {
 		slog.Error("failed to marshal", "value", v)
 	}
 
-	sse.PatchSignals(bs)
+	if err := sse.PatchSignals(bs); err != nil {
+		slog.Error("sse.PatchSignals error", "err", err)
+	}
 }
 
 func ssePatchSignal(sse *datastar.ServerSentEventGenerator, signalName string, signalValue any) {
 	ssePatchSignals(sse, map[string]any{signalName: signalValue})
-}
-
-func renderNode(w io.Writer, node Node) {
-	if err := node.Render(w); err != nil {
-		slog.Error("view render error", "err", err)
-	}
 }
 
 func ssePatch(sse *datastar.ServerSentEventGenerator, node Node) {

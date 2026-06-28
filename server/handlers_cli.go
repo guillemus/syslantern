@@ -9,14 +9,14 @@ import (
 	"github.com/bytedance/sonic"
 )
 
-func getApiKey(r *http.Request) (string, bool) {
+func getAPIKey(r *http.Request) (string, bool) {
 	apiKey, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 	return apiKey, ok && apiKey != ""
 }
 
 func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	apiKey, ok := getApiKey(r)
+	apiKey, ok := getAPIKey(r)
 	if !ok {
 		s.Logger.Error("ingest: missing api key")
 		http.Error(w, "API key not found", http.StatusUnauthorized)
@@ -114,10 +114,10 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 }
 
 const (
-	ALLOW_INSTALL   = "ALLOW_INSTALL"
-	DUPLICATED_HOST = "DUPLICATED_HOST"
-	INVALID_API_KEY = "INVALID_API_KEY"
-	DATABASE_ERROR  = "DATABASE_ERROR"
+	allowInstall   = "ALLOW_INSTALL"
+	duplicatedHost = "DUPLICATED_HOST"
+	invalidAPIKey  = "INVALID_API_KEY" // #nosec G101 -- response code, not a credential
+	databaseError  = "DATABASE_ERROR"
 )
 
 // HandleAgentAlreadyRegistered checks if the given agent has been installed in another machine.
@@ -127,7 +127,7 @@ func (s *Server) HandleAgentAlreadyRegistered(w http.ResponseWriter, r *http.Req
 	ctx := r.Context()
 	s.Logger.Debug("agent already registered: check")
 	var payload struct {
-		ApiKey string `json:"api_key" validate:"required"`
+		APIKey string `json:"api_key" validate:"required"`
 		HostID string `json:"host_id" validate:"required"`
 	}
 	if err := readBody(r, &payload); err != nil {
@@ -135,12 +135,12 @@ func (s *Server) HandleAgentAlreadyRegistered(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	agent, notFound, err := s.DB.GetAgentFromAPIKey(ctx, payload.ApiKey)
+	agent, notFound, err := s.DB.GetAgentFromAPIKey(ctx, payload.APIKey)
 	if notFound {
-		writeErr(w, err, INVALID_API_KEY)
+		writeErr(w, err, invalidAPIKey)
 		return
 	} else if err != nil {
-		writeErr(w, err, DATABASE_ERROR)
+		writeErr(w, err, databaseError)
 		return
 	}
 
@@ -149,29 +149,29 @@ func (s *Server) HandleAgentAlreadyRegistered(w http.ResponseWriter, r *http.Req
 
 		// we save it
 		if err := s.DB.UpdateAgentHostID(ctx, agent.ID, payload.HostID); err != nil {
-			writeErr(w, err, DATABASE_ERROR)
+			writeErr(w, err, databaseError)
 			return
 		}
 
 		// and we allow installation
-		writeText(w, ALLOW_INSTALL)
+		writeText(w, allowInstall)
 		return
 	}
 
 	// if agent.HostID is different than the payload host id, duplication might happen,
 	// user should not install agent with that api key.
 	if agent.HostID.String != payload.HostID {
-		writeText(w, DUPLICATED_HOST)
+		writeText(w, duplicatedHost)
 		return
 	}
 
 	// agent host id is same, api key is valid, user can install correctly with the given api key.
-	writeText(w, ALLOW_INSTALL)
+	writeText(w, allowInstall)
 }
 
 func (s *Server) HandleAgentConfig(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	apiKey, ok := getApiKey(r)
+	apiKey, ok := getAPIKey(r)
 	if !ok {
 		s.Logger.Error("ingest: missing api key")
 		http.Error(w, "API key not found", http.StatusUnauthorized)

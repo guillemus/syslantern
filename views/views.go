@@ -19,7 +19,12 @@ type Renderer struct {
 }
 
 func NewRenderer(logger *slog.Logger, assetVersion string, dev bool) *Renderer {
-	return &Renderer{Logger: logger, AssetVersion: url.QueryEscape(assetVersion), Dev: dev}
+	return &Renderer{
+		AssetVersion: url.QueryEscape(assetVersion),
+		Dev:          dev,
+		Logger:       logger,
+		Routes:       nil,
+	}
 }
 
 func (r *Renderer) Render(w io.Writer, node Node) {

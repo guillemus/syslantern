@@ -18,20 +18,18 @@ import (
 func collectLiveSnapshot(agent shared.Agent, host shared.Host) (shared.LiveSnapshot, error) {
 	now := time.Now().UTC()
 
-	snapshot := shared.LiveSnapshot{
-		ID:     "snapshot_" + eventID(now, 0),
-		Agent:  agent,
-		Host:   host,
-		SentAt: now,
-	}
-
 	metrics, err := collectMetrics(now)
 	if err != nil {
 		return shared.LiveSnapshot{}, err
 	}
-	snapshot.Metrics = metrics
 
-	return snapshot, nil
+	return shared.LiveSnapshot{
+		ID:      "snapshot_" + eventID(now, 0),
+		Agent:   agent,
+		Host:    host,
+		SentAt:  now,
+		Metrics: metrics,
+	}, nil
 }
 
 func collectAgentHost() (shared.Agent, shared.Host, error) {

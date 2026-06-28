@@ -306,11 +306,17 @@ func clampPercent(value float64) float64 {
 }
 
 func cpuPointsJSON(points []DashboardCPUHistoryData) string {
-	b, _ := json.Marshal(points)
+	b, err := json.Marshal(points)
+	if err != nil {
+		return "[]"
+	}
 	return string(b)
 }
 
 func memoryPointsJSON(points []DashboardMemoryHistoryData) string {
-	b, _ := json.Marshal(points)
+	b, err := json.Marshal(points)
+	if err != nil {
+		return "[]"
+	}
 	return string(b)
 }

@@ -20,7 +20,7 @@ func TestAuthSignUpThenSignIn(t *testing.T) {
 	testPassword := "correct horse battery staple"
 	testPayload := fmt.Sprintf(`{"email":%q,"password":%q}`, testEmail, testPassword)
 
-	signUp := sendPostJson(
+	signUp := sendPostJSON(
 		s, "/sign-up", testPayload)
 	assertRedirectHome(t, signUp, "sign-up")
 	require.NotEmpty(
@@ -39,7 +39,7 @@ func TestAuthSignUpThenSignIn(t *testing.T) {
 
 	assertCookiesAuthenticate(t, s, signUp.Result().Cookies(), testEmail)
 
-	signIn := sendPostJson(s, "/sign-in", testPayload, signUp.Result().Cookies()...)
+	signIn := sendPostJSON(s, "/sign-in", testPayload, signUp.Result().Cookies()...)
 	assertRedirectHome(t, signIn, "sign-in")
 	require.NotEmpty(t, signIn.Result().Cookies(), "sign-in should set a session cookie")
 	assertCookiesAuthenticate(t, s, signIn.Result().Cookies(), testEmail)
@@ -54,7 +54,7 @@ func TestHandleSignInRejectsBadPassword(t *testing.T) {
 	require.NoError(t, err, "create existing user fixture")
 
 	testPayload := fmt.Sprintf(`{"email":%q,"password":%q}`, testEmail, wrongPassword)
-	rr := sendPostJson(s, "/sign-in", testPayload)
+	rr := sendPostJSON(s, "/sign-in", testPayload)
 
 	require.Equal(t, http.StatusOK, rr.Code, "bad sign-in should re-render the form")
 	require.Contains(t, rr.Body.String(), "Invalid email or password.", "bad sign-in should show invalid credentials copy")
@@ -63,7 +63,7 @@ func TestHandleSignInRejectsBadPassword(t *testing.T) {
 		"bad sign-in should not create a session cookie")
 }
 
-func sendPostJson(s *Server, url string, json string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+func sendPostJSON(s *Server, url string, json string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
 	req := newPostRequest(url, json)
 	for _, cookie := range cookies {
 		req.AddCookie(cookie)

@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func (s *Server) HandleSignInPage(w http.ResponseWriter, r *http.Request) {
+func (s *Server) HandleSignInPage(w http.ResponseWriter, _ *http.Request) {
 	s.Renderer.RenderSignIn(w)
 }
 
@@ -54,7 +54,7 @@ func (s *Server) HandleSignIn(w http.ResponseWriter, r *http.Request) {
 		s.Renderer.RenderSignInInvalidCredsErr(w, payload.Email)
 		return
 	}
-	s.Sessions.Put(ctx, "user_id", int64(user.ID))
+	s.Sessions.Put(ctx, "user_id", user.ID)
 
 	if err := s.WriteSessionCookie(ctx, w); err != nil {
 		s.Logger.Error("sign in: commit session", "err", err)
@@ -79,7 +79,7 @@ func (s *Server) WriteSessionCookie(ctx context.Context, w http.ResponseWriter) 
 	return nil
 }
 
-func (s *Server) HandleSignUpPage(w http.ResponseWriter, r *http.Request) {
+func (s *Server) HandleSignUpPage(w http.ResponseWriter, _ *http.Request) {
 	s.Renderer.RenderSignUp(w)
 }
 
@@ -112,7 +112,7 @@ func (s *Server) HandleSignUp(w http.ResponseWriter, r *http.Request) {
 		s.Renderer.RenderSignUpGenericAuthErr(w, payload.Email)
 		return
 	}
-	s.Sessions.Put(ctx, "user_id", int64(user.ID))
+	s.Sessions.Put(ctx, "user_id", user.ID)
 
 	if err := s.WriteSessionCookie(ctx, w); err != nil {
 		s.Logger.Error("sign up: commit session", "err", err)
@@ -142,7 +142,7 @@ func (s *Server) GetUserFromSession(r *http.Request) (user db.User, exists bool)
 	ctx := r.Context()
 	userID := s.Sessions.GetInt64(ctx, "user_id")
 	if userID == 0 {
-		return db.User{}, false
+		return user, false
 	}
 
 	user, err := s.DB.GetUserByID(ctx, userID)
@@ -153,7 +153,7 @@ func (s *Server) GetUserFromSession(r *http.Request) (user db.User, exists bool)
 			s.Logger.Error("auth: load session user", "user_id", userID, "err", err)
 		}
 		s.Sessions.Remove(ctx, "user_id")
-		return db.User{}, false
+		return user, false
 	}
 
 	return user, true
@@ -180,14 +180,14 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func (s *Server) GetAuthenticatedUserOr(r *http.Request) (db.User, bool) {
+func GetAuthenticatedUserOr(r *http.Request) (db.User, bool) {
 	ctx := r.Context()
 	user, ok := ctx.Value(authenticatedUserContextKey{}).(db.User)
 	return user, ok
 }
 
-func (s *Server) GetAuthenticatedUser(r *http.Request) db.User {
-	user, ok := s.GetAuthenticatedUserOr(r)
+func GetAuthenticatedUser(r *http.Request) db.User {
+	user, ok := GetAuthenticatedUserOr(r)
 	if !ok {
 		panic("GetAuthenticatedUser called without authMiddleware")
 	}
@@ -198,7 +198,7 @@ func (s *Server) GetAuthenticatedUser(r *http.Request) db.User {
 func (s *Server) HandleIsAuthenticated(w http.ResponseWriter, r *http.Request) {
 	user, exists := s.GetUserFromSession(r)
 	if exists {
-		_, _ = w.Write([]byte(user.Email))
+		w.Write([]byte(user.Email))
 	} else {
 		http.Error(w, "not authenticated", http.StatusUnauthorized)
 	}

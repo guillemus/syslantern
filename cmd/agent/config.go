@@ -42,7 +42,10 @@ func SaveConfig(cfg AgentConfig) error {
 
 func SetAPIKey(value string) error {
 	// Ignore load errors so the installer can create the config file on first setup.
-	cfg, _ := ParseConfig()
+	cfg, err := ParseConfig()
+	if err != nil {
+		cfg = AgentConfig{HubURL: "", AgentAPIKey: ""}
+	}
 	cfg.AgentAPIKey = value
 	return SaveConfig(cfg)
 }
