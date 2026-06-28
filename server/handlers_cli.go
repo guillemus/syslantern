@@ -41,6 +41,14 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if payload.LiveSnapshot == nil {
+		if len(payload.Logs) > 0 {
+			s.Logger.Debug("ingest: received logs", "team_id", agent.TeamID, "agent_id", agent.ID, "count", len(payload.Logs))
+		}
+		writeJSON(w, shared.IngestResult{AgentStatus: agent.Status.ToShared()})
+		return
+	}
+
 	switch agent.Status {
 	case db.AgentStatusCreated:
 		// the agent has just been installed / reinstalled on host machine, so we should set it to running

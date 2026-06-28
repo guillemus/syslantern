@@ -93,6 +93,7 @@ func NewServerFromConfig(cfg config.Config) *Server {
 
 		r.Post("/agents/new", s.HandleAgentsNew)
 		r.Get("/agents/{agentID}", s.HandleAgentsPage)
+		r.Get("/agents/{agentID}/events", s.HandleAgentsEvents)
 		r.Post("/agents/{agentID}/delete", s.HandleAgentsDelete)
 	})
 

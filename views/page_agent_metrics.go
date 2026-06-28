@@ -2,40 +2,12 @@ package views
 
 import (
 	"fmt"
-	"io"
 	"sort"
 	"time"
 
-	"github.com/starfederation/datastar-go/datastar"
 	. "maragu.dev/gomponents"
 	. "maragu.dev/gomponents/html"
 )
-
-type AgentMetricsData struct {
-	AgentID   string
-	Stats     DashboardStatsData
-	Analytics DashboardAnalyticsData
-}
-
-func (r *Renderer) AgentMetrics(data AgentMetricsData) Node {
-	return Div(
-		Class("min-h-dvh bg-zinc-950 p-4 font-mono text-zinc-100 sm:p-6"),
-		Data("init", r.Get("/agents/"+data.AgentID+"/events")),
-		Main(
-			Class("mx-auto flex max-w-7xl flex-col gap-4"),
-			dashboardHeader(data),
-			DashboardStats(data.Stats),
-			DashboardHistory(data.Analytics),
-		),
-	)
-}
-func (r *Renderer) RenderAgentMetricsPage(w io.Writer, data AgentMetricsData) {
-	r.RenderPage(w, "metrics", r.AgentMetrics(data))
-}
-
-func (r *Renderer) PatchMetricsPage(sse *datastar.ServerSentEventGenerator, data AgentMetricsData) {
-	ssePatch(sse, r.AgentMetrics(data))
-}
 
 func DashboardStats(data DashboardStatsData) Node {
 	cpuUsed := "—"
@@ -78,22 +50,6 @@ func availableStat(title string, value string, desc string, valueClass string) N
 	)
 }
 
-func dashboardHeader(data AgentMetricsData) Node {
-	host := valueOr(data.Stats.HostName, "waiting for agent")
-	return Header(
-		Class("flex flex-col gap-3 border-b border-zinc-700 pb-4 lg:flex-row lg:items-end lg:justify-between"),
-		Div(
-			Div(
-				Class("flex flex-wrap items-center gap-2 text-sm text-zinc-500"),
-				Span(Class("rounded border border-zinc-700 px-2 py-0.5"), Text(valueOr(data.AgentID, "agent"))),
-				Span(Text(headerMeta(data.Stats))),
-			),
-			H1(Class("mt-2 text-2xl font-semibold tracking-normal sm:text-3xl"), Text(host)),
-		),
-		Span(Class("text-sm text-zinc-500"), Text(updatedAt(data.Stats.SentAt))),
-	)
-}
-
 type DashboardDiskData struct {
 	Mount       string
 	FreeBytes   uint64
@@ -103,10 +59,6 @@ type DashboardDiskData struct {
 
 type DashboardStatsData struct {
 	HasMetrics           bool
-	HostName             string
-	HostOS               string
-	HostArch             string
-	SentAt               time.Time
 	CPUUsedPercent       float64
 	CPUCoresLogical      int
 	MemoryUsedBytes      uint64
@@ -117,7 +69,6 @@ type DashboardStatsData struct {
 
 type DashboardAnalyticsData struct {
 	HasAnalytics bool
-	SentAt       time.Time
 	Since        time.Time
 	CPU          []DashboardCPUHistoryData
 	Memory       []DashboardMemoryHistoryData
@@ -157,17 +108,6 @@ type DashboardDiskHistoryData struct {
 	UsedBytes   uint64
 	FreeBytes   uint64
 	TotalBytes  uint64
-}
-
-func headerMeta(data DashboardStatsData) string {
-	if data.HostName == "" {
-		return "No host connected"
-	}
-	hostDetail := fmt.Sprintf("%s %s", data.HostOS, data.HostArch)
-	if hostDetail == " " {
-		return data.HostName
-	}
-	return data.HostName + " · " + hostDetail
 }
 
 func valueOr(value string, fallback string) string {
@@ -234,22 +174,4 @@ func formatBytes(bytes uint64) string {
 		}
 	}
 	return fmt.Sprintf("%.1f EB", value/unit)
-}
-
-type DashboardExampleResultData struct {
-	Count     int
-	UpdatedAt string
-}
-
-func DashboardExampleResult(data DashboardExampleResultData) Node {
-	return Div(
-		ID("dashboard-example-result"),
-		Class("rounded-lg border border-zinc-800 bg-zinc-950 p-4 text-zinc-300"),
-		P(
-			Text("Server count is now "),
-			Strong(Class("text-zinc-100"), Text(fmt.Sprintf("%d", data.Count))),
-			Text("."),
-		),
-		P(Class("text-sm text-zinc-500"), Text(fmt.Sprintf("Last updated at %s.", data.UpdatedAt))),
-	)
 }
