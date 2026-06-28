@@ -105,7 +105,7 @@ func createAgentAlreadyRegisteredFixture(
 		ID:     agentID,
 		TeamID: user.TeamID,
 		Name:   agentID,
-		HostID: sql.NullString{String: hostID, Valid: true},
+		HostID: sql.NullString{String: hostID, Valid: hostID != ""},
 		ApiKey: apiKey,
 	})
 	require.NoError(t, err)
