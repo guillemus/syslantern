@@ -25,36 +25,46 @@ func NewClient(hubURL string, agentAPIKey string) *Client {
 	}
 }
 
+func (c *Client) SendLogs(ctx context.Context, logs []shared.LogEvent) (result shared.IngestResult, err error) {
+	return c.SendIngestEvent(ctx, shared.IngestEvent{Logs: logs})
+}
+
 func (c *Client) SendLiveSnapshot(
 	ctx context.Context, snapshot shared.LiveSnapshot,
+) (result shared.IngestResult, err error) {
+	return c.SendIngestEvent(ctx, shared.IngestEvent{LiveSnapshot: &snapshot})
+}
+
+func (c *Client) SendIngestEvent(
+	ctx context.Context, event shared.IngestEvent,
 ) (result shared.IngestResult, err error) {
 	for attempt := 0; ; attempt++ {
 		resp, err := c.resty.R().
 			SetContext(ctx).
 			SetHeader("Content-Type", "application/json").
-			SetBody(shared.IngestEvent{LiveSnapshot: &snapshot}).
+			SetBody(event).
 			SetResult(&result).
 			Post("/ingest")
 		if err != nil {
 			if ctx.Err() != nil {
-				return result, fmt.Errorf("send live snapshot: %w", ctx.Err())
+				return result, fmt.Errorf("send ingest event: %w", ctx.Err())
 			}
 			if err := waitBeforeRetry(ctx, attempt); err != nil {
-				return result, fmt.Errorf("send live snapshot: %w", err)
+				return result, fmt.Errorf("send ingest event: %w", err)
 			}
 			continue
 		}
 
 		if resp.StatusCode() >= 500 {
 			if err := waitBeforeRetry(ctx, attempt); err != nil {
-				return result, fmt.Errorf("send live snapshot: %w", err)
+				return result, fmt.Errorf("send ingest event: %w", err)
 			}
 			continue
 		}
 
 		if resp.IsError() {
 			return result, fmt.Errorf(
-				"send live snapshot: %s: %s",
+				"send ingest event: %s: %s",
 				resp.Status(), string(resp.Body()),
 			)
 		}

@@ -4,6 +4,7 @@ import "time"
 
 type IngestEvent struct {
 	LiveSnapshot *LiveSnapshot `json:"live_snapshot,omitempty"`
+	Logs         []LogEvent    `json:"logs,omitempty"`
 }
 
 type AgentStatus string
@@ -69,6 +70,17 @@ type MetricsSnapshot struct {
 	VirtualMemory MemoryUsage `json:"virtual_memory"`
 	SwapMemory    MemoryUsage `json:"swap_memory"`
 	Disk          DiskMetrics `json:"disk"`
+}
+
+type LogEvent struct {
+	ID         string    `json:"id"`
+	Host       Host      `json:"host"`
+	SentAt     time.Time `json:"sent_at"`
+	ObservedAt time.Time `json:"observed_at"`
+	Source     string    `json:"source"`
+	Unit       string    `json:"unit,omitempty"`
+	Priority   string    `json:"priority,omitempty"`
+	Message    string    `json:"message"`
 }
 
 type CPUUsage struct {

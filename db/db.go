@@ -75,6 +75,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createDiskSampleStmt, err = db.PrepareContext(ctx, createDiskSample); err != nil {
 		return nil, fmt.Errorf("error preparing query createDiskSample: %w", err)
 	}
+	if q.createLogEntryStmt, err = db.PrepareContext(ctx, createLogEntry); err != nil {
+		return nil, fmt.Errorf("error preparing query createLogEntry: %w", err)
+	}
 	if q.createMemorySampleStmt, err = db.PrepareContext(ctx, createMemorySample); err != nil {
 		return nil, fmt.Errorf("error preparing query createMemorySample: %w", err)
 	}
@@ -204,6 +207,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createDiskSampleStmt: %w", cerr)
 		}
 	}
+	if q.createLogEntryStmt != nil {
+		if cerr := q.createLogEntryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createLogEntryStmt: %w", cerr)
+		}
+	}
 	if q.createMemorySampleStmt != nil {
 		if cerr := q.createMemorySampleStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createMemorySampleStmt: %w", cerr)
@@ -325,6 +333,7 @@ type Queries struct {
 	commitSessionStmt                *sql.Stmt
 	createCPUSampleStmt              *sql.Stmt
 	createDiskSampleStmt             *sql.Stmt
+	createLogEntryStmt               *sql.Stmt
 	createMemorySampleStmt           *sql.Stmt
 	createTeamStmt                   *sql.Stmt
 	createUserStmt                   *sql.Stmt
@@ -361,6 +370,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		commitSessionStmt:                q.commitSessionStmt,
 		createCPUSampleStmt:              q.createCPUSampleStmt,
 		createDiskSampleStmt:             q.createDiskSampleStmt,
+		createLogEntryStmt:               q.createLogEntryStmt,
 		createMemorySampleStmt:           q.createMemorySampleStmt,
 		createTeamStmt:                   q.createTeamStmt,
 		createUserStmt:                   q.createUserStmt,

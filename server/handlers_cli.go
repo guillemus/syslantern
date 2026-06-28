@@ -41,35 +41,7 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if payload.LiveSnapshot == nil {
-		if len(payload.Logs) > 0 {
-			s.Logger.Debug("ingest: received logs", "team_id", agent.TeamID, "agent_id", agent.ID, "count", len(payload.Logs))
-		}
-		writeJSON(w, shared.IngestResult{AgentStatus: agent.Status.ToShared()})
-		return
-	}
-
 	switch agent.Status {
-	case db.AgentStatusCreated:
-		// the agent has just been installed / reinstalled on host machine, so we should set it to running
-
-		newStatus, err := s.DB.SaveLiveSnapshot(ctx, agent.ID, agent.TeamID, payload.LiveSnapshot)
-		if err != nil {
-			s.Logger.Error("ingest: save live snapshot", "err", err)
-			http.Error(w, "Could not save ingest event.", http.StatusInternalServerError)
-			return
-		}
-
-		s.Logger.Debug("ingest: saved live snapshot", "team_id", agent.TeamID, "agent_id", agent.ID)
-
-		s.BusSnapshotProcessed.Emit(EventSnapshotProcessed{
-			TeamID:  agent.TeamID,
-			AgentID: agent.ID,
-		})
-
-		writeJSON(w, shared.IngestResult{
-			AgentStatus: newStatus.ToShared(),
-		})
 	case db.AgentStatusDeleted:
 		// agent is deleted, so it should never send metrics again. The host machine can have the agent reinstalled, in which by that point it should send metrics again, but on a new agent.
 
@@ -82,49 +54,49 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, shared.IngestResult{
 			AgentStatus: agent.Status.ToShared(),
 		})
-	case db.AgentStatusResuming:
-		// agent was paused and now resuming, so we need to set the agent to running and ingest
+	case db.AgentStatusCreated, db.AgentStatusResuming, db.AgentStatusRunning:
+		// Created: just (re)installed. Resuming: was paused. Running: noop update.
+		// In all cases we ingest what the agent sends and (re)set it to running.
 
-		newStatus, err := s.DB.SaveLiveSnapshot(ctx, agent.ID, agent.TeamID, payload.LiveSnapshot)
-		if err != nil {
-			s.Logger.Error("ingest: save live snapshot", "err", err)
-			http.Error(w, "Could not save ingest event.", http.StatusInternalServerError)
-			return
+		status := agent.Status
+
+		if payload.LiveSnapshot != nil {
+			newStatus, err := s.DB.SaveLiveSnapshot(ctx, agent.ID, agent.TeamID, payload.LiveSnapshot)
+			if err != nil {
+				s.Logger.Error("ingest: save live snapshot", "err", err)
+				http.Error(w, "Could not save ingest event.", http.StatusInternalServerError)
+				return
+			}
+			status = newStatus
+
+			s.Logger.Debug("ingest: saved live snapshot", "team_id", agent.TeamID, "agent_id", agent.ID)
+
+			s.BusSnapshotProcessed.Emit(EventSnapshotProcessed{
+				TeamID:  agent.TeamID,
+				AgentID: agent.ID,
+			})
 		}
 
-		s.Logger.Debug("ingest: saved live snapshot", "team_id", agent.TeamID, "agent_id", agent.ID)
+		if len(payload.Logs) > 0 {
+			newStatus, err := s.DB.SaveLogs(ctx, agent.ID, agent.TeamID, payload.Logs)
+			if err != nil {
+				s.Logger.Error("ingest: save logs", "err", err)
+				http.Error(w, "Could not save ingest event.", http.StatusInternalServerError)
+				return
+			}
+			status = newStatus
 
-		s.BusSnapshotProcessed.Emit(EventSnapshotProcessed{
-			TeamID:  agent.TeamID,
-			AgentID: agent.ID,
-		})
-
-		writeJSON(w, shared.IngestResult{AgentStatus: newStatus.ToShared()})
-	case db.AgentStatusRunning:
-		// agent status noop update. ingest
-
-		newStatus, err := s.DB.SaveLiveSnapshot(ctx, agent.ID, agent.TeamID, payload.LiveSnapshot)
-		if err != nil {
-			s.Logger.Error("ingest: save live snapshot", "err", err)
-			http.Error(w, "Could not save ingest event.", http.StatusInternalServerError)
-			return
+			s.Logger.Debug("ingest: saved logs", "team_id", agent.TeamID, "agent_id", agent.ID, "count", len(payload.Logs))
 		}
 
-		s.Logger.Debug("ingest: saved live snapshot", "team_id", agent.TeamID, "agent_id", agent.ID)
-
-		s.BusSnapshotProcessed.Emit(EventSnapshotProcessed{
-			TeamID:  agent.TeamID,
-			AgentID: agent.ID,
-		})
-
-		writeJSON(w, shared.IngestResult{AgentStatus: newStatus.ToShared()})
+		writeJSON(w, shared.IngestResult{AgentStatus: status.ToShared()})
 	}
 }
 
 const (
 	allowInstall   = "ALLOW_INSTALL"
 	duplicatedHost = "DUPLICATED_HOST"
-	invalidAPIKey  = "INVALID_API_KEY" // #nosec G101 -- response code, not a credential
+	invalidAPIKey  = "INVALID_API_KEY"
 	databaseError  = "DATABASE_ERROR"
 )
 

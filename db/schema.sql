@@ -89,3 +89,19 @@ CREATE TABLE IF NOT EXISTS disk_samples (
 CREATE INDEX IF NOT EXISTS disk_samples_observed_idx ON disk_samples (observed_at);
 CREATE INDEX IF NOT EXISTS disk_samples_total_observed_idx ON disk_samples (is_total, observed_at);
 CREATE INDEX IF NOT EXISTS disk_samples_mount_observed_idx ON disk_samples (mount, observed_at);
+
+CREATE TABLE IF NOT EXISTS log_entries (
+    id TEXT PRIMARY KEY,
+    team_id INTEGER NOT NULL REFERENCES teams(id),
+    agent_id TEXT NOT NULL REFERENCES agents(id),
+    observed_at TEXT NOT NULL,
+    received_at TEXT NOT NULL,
+    source TEXT NOT NULL,
+    unit TEXT NOT NULL DEFAULT '',
+    priority TEXT NOT NULL DEFAULT '',
+    message TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS log_entries_agent_observed_idx ON log_entries (agent_id, observed_at);
+CREATE INDEX IF NOT EXISTS log_entries_agent_unit_observed_idx ON log_entries (agent_id, unit, observed_at);
+CREATE INDEX IF NOT EXISTS log_entries_team_observed_idx ON log_entries (team_id, observed_at);

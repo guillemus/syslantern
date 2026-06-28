@@ -76,6 +76,40 @@ func TestHandleIngest(t *testing.T) {
 			assertNoSnapshotSaved(t, s)
 		})
 	}
+
+	for _, tc := range []struct {
+		name           string
+		initialStatus  db.AgentStatus
+		responseStatus shared.AgentStatus
+		finalStatus    db.AgentStatus
+		savesLogs      bool
+	}{
+		{"created agent saves logs and becomes running", db.AgentStatusCreated, shared.AgentStatusRunning, db.AgentStatusRunning, true},
+		{"running agent saves logs and stays running", db.AgentStatusRunning, shared.AgentStatusRunning, db.AgentStatusRunning, true},
+		{"resuming agent saves logs and becomes running", db.AgentStatusResuming, shared.AgentStatusRunning, db.AgentStatusRunning, true},
+		{"paused agent does not save logs", db.AgentStatusPaused, shared.AgentStatusPaused, db.AgentStatusPaused, false},
+		{"deleted agent does not save logs", db.AgentStatusDeleted, shared.AgentStatusDeleted, db.AgentStatusDeleted, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := newTestServer(t)
+			createIngestAgentFixture(t, s, tc.initialStatus)
+			events := s.BusSnapshotProcessed.Subscribe(t.Context())
+
+			rr := sendIngest(t, s, "api-key-a", logIngestBody(t))
+
+			require.Equal(t, http.StatusOK, rr.Code)
+			assertIngestResult(t, rr, tc.responseStatus)
+			assertAgentStatus(t, s, tc.finalStatus)
+			// logs must never save metrics nor emit the snapshot bus.
+			assertNoSnapshotSaved(t, s)
+			assertNoSnapshotProcessedEvent(t, events)
+			if tc.savesLogs {
+				require.Equal(t, 1, countRows(t, s, "log_entries"))
+				return
+			}
+			require.Equal(t, 0, countRows(t, s, "log_entries"))
+		})
+	}
 }
 
 func TestHandleAgentAlreadyRegistered(t *testing.T) {
@@ -186,6 +220,23 @@ func ingestBody(t *testing.T) string {
 	return string(body)
 }
 
+func logIngestBody(t *testing.T) string {
+	t.Helper()
+
+	now := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	body, err := json.Marshal(shared.IngestEvent{Logs: []shared.LogEvent{{
+		ID:         "log-a",
+		SentAt:     now,
+		ObservedAt: now,
+		Source:     "journal",
+		Unit:       "ssh.service",
+		Priority:   "6",
+		Message:    "accepted login",
+	}}})
+	require.NoError(t, err)
+	return string(body)
+}
+
 func assertIngestResult(t *testing.T, rr *httptest.ResponseRecorder, status shared.AgentStatus) {
 	t.Helper()
 
@@ -234,6 +285,16 @@ func assertSnapshotProcessedEvent(t *testing.T, events <-chan EventSnapshotProce
 		require.Equal(t, "agent-a", event.AgentID)
 	case <-time.After(time.Second):
 		t.Fatal("expected snapshot processed event")
+	}
+}
+
+func assertNoSnapshotProcessedEvent(t *testing.T, events <-chan EventSnapshotProcessed) {
+	t.Helper()
+
+	select {
+	case event := <-events:
+		t.Fatalf("unexpected snapshot processed event: %s", event.AgentID)
+	case <-time.After(100 * time.Millisecond):
 	}
 }
 

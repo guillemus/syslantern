@@ -46,6 +46,18 @@ type DiskSample struct {
 	TotalBytes  int64   `db:"total_bytes"`
 }
 
+type LogEntry struct {
+	ID         string `db:"id"`
+	TeamID     int64  `db:"team_id"`
+	AgentID    string `db:"agent_id"`
+	ObservedAt string `db:"observed_at"`
+	ReceivedAt string `db:"received_at"`
+	Source     string `db:"source"`
+	Unit       string `db:"unit"`
+	Priority   string `db:"priority"`
+	Message    string `db:"message"`
+}
+
 type MemorySample struct {
 	ID                    int64   `db:"id"`
 	ObservedAt            string  `db:"observed_at"`
