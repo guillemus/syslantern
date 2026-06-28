@@ -9,7 +9,6 @@ import (
 	"syslantern"
 	"syslantern/config"
 	"syslantern/db"
-	"syslantern/logger"
 	"syslantern/views"
 
 	"github.com/alexedwards/scs/v2"
@@ -40,7 +39,7 @@ func NewServerFromConfig(cfg config.Config) *Server {
 		log.Fatalf("db: %v", err)
 	}
 
-	log := logger.NewLogger(cfg.Dev)
+	log := NewLogger(cfg.Dev)
 
 	sessionManager := scs.New()
 	sessionManager.Store = db.NewSessionStore(conn)

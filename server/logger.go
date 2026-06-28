@@ -1,4 +1,4 @@
-package logger
+package server
 
 import (
 	"log/slog"

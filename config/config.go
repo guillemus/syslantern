@@ -5,8 +5,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/joho/godotenv"
 	"syslantern/validate"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
