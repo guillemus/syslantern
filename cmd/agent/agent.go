@@ -71,8 +71,6 @@ func (a *Agent) Collect(ctx context.Context) error {
 
 	agentStatus := agentCfg.AgentStatus
 
-	// fixme: what happens if polling makes metrics collection loose a few snapshots?
-
 	collectMetricsTick := time.NewTicker(2 * time.Second)
 	defer collectMetricsTick.Stop()
 
