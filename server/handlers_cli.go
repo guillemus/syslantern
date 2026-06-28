@@ -45,7 +45,7 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 	case db.AgentStatusCreated:
 		// the agent has just been installed / reinstalled on host machine, so we should set it to running
 
-		err = s.DB.SaveLiveSnapshot(ctx, agent.ID, agent.TeamID, payload.LiveSnapshot)
+		newStatus, err := s.DB.SaveLiveSnapshot(ctx, agent.ID, agent.TeamID, payload.LiveSnapshot)
 		if err != nil {
 			s.Logger.Error("ingest: save live snapshot", "err", err)
 			http.Error(w, "Could not save ingest event.", http.StatusInternalServerError)
@@ -60,9 +60,7 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 		})
 
 		writeJSON(w, shared.IngestResult{
-			// fixme: this is a bug! but I want to catch it in an integration test.
-			// It should be 'running' always (at least as of now)
-			AgentStatus: agent.Status.ToShared(),
+			AgentStatus: newStatus.ToShared(),
 		})
 	case db.AgentStatusDeleted:
 		// agent is deleted, so it should never send metrics again. The host machine can have the agent reinstalled, in which by that point it should send metrics again, but on a new agent.
@@ -79,7 +77,7 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 	case db.AgentStatusResuming:
 		// agent was paused and now resuming, so we need to set the agent to running and ingest
 
-		err = s.DB.SaveLiveSnapshot(ctx, agent.ID, agent.TeamID, payload.LiveSnapshot)
+		newStatus, err := s.DB.SaveLiveSnapshot(ctx, agent.ID, agent.TeamID, payload.LiveSnapshot)
 		if err != nil {
 			s.Logger.Error("ingest: save live snapshot", "err", err)
 			http.Error(w, "Could not save ingest event.", http.StatusInternalServerError)
@@ -93,11 +91,11 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 			AgentID: agent.ID,
 		})
 
-		writeJSON(w, shared.IngestResult{AgentStatus: agent.Status.ToShared()})
+		writeJSON(w, shared.IngestResult{AgentStatus: newStatus.ToShared()})
 	case db.AgentStatusRunning:
 		// agent status noop update. ingest
 
-		err = s.DB.SaveLiveSnapshot(ctx, agent.ID, agent.TeamID, payload.LiveSnapshot)
+		newStatus, err := s.DB.SaveLiveSnapshot(ctx, agent.ID, agent.TeamID, payload.LiveSnapshot)
 		if err != nil {
 			s.Logger.Error("ingest: save live snapshot", "err", err)
 			http.Error(w, "Could not save ingest event.", http.StatusInternalServerError)
@@ -111,7 +109,7 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 			AgentID: agent.ID,
 		})
 
-		writeJSON(w, shared.IngestResult{AgentStatus: agent.Status.ToShared()})
+		writeJSON(w, shared.IngestResult{AgentStatus: newStatus.ToShared()})
 	}
 }
 

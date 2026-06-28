@@ -11,10 +11,10 @@ import (
 
 const sampleRetention = 30 * 24 * time.Hour
 
-func (c *Conn) SaveLiveSnapshot(ctx context.Context, agentID string, teamID int64, snapshot *shared.LiveSnapshot) error {
+func (c *Conn) SaveLiveSnapshot(ctx context.Context, agentID string, teamID int64, snapshot *shared.LiveSnapshot) (AgentStatus, error) {
 	tx, err := c.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin live snapshot transaction: %w", err)
+		return "", fmt.Errorf("begin live snapshot transaction: %w", err)
 	}
 	defer tx.Rollback()
 
@@ -25,10 +25,10 @@ func (c *Conn) SaveLiveSnapshot(ctx context.Context, agentID string, teamID int6
 		Version: snapshot.Agent.Version,
 	})
 	if err != nil {
-		return fmt.Errorf("set agent %s version for team %d: %w", agentID, teamID, err)
+		return "", fmt.Errorf("set agent %s version for team %d: %w", agentID, teamID, err)
 	}
 	if updated == 0 {
-		return fmt.Errorf("set agent %s version for team %d: %w", agentID, teamID, sql.ErrNoRows)
+		return "", fmt.Errorf("set agent %s version for team %d: %w", agentID, teamID, sql.ErrNoRows)
 	}
 
 	err = queries.setAgentStatus(ctx, setAgentStatusParams{
@@ -37,7 +37,7 @@ func (c *Conn) SaveLiveSnapshot(ctx context.Context, agentID string, teamID int6
 		TeamID: teamID,
 	})
 	if err != nil {
-		return fmt.Errorf("set agent %s running status for team %d: %w", agentID, teamID, err)
+		return "", fmt.Errorf("set agent %s running status for team %d: %w", agentID, teamID, err)
 	}
 
 	metrics := snapshot.Metrics
@@ -45,7 +45,7 @@ func (c *Conn) SaveLiveSnapshot(ctx context.Context, agentID string, teamID int6
 
 	perCorePercent, err := json.Marshal(metrics.CPU.PerCorePercent)
 	if err != nil {
-		return fmt.Errorf("marshal CPU per-core percent: %w", err)
+		return "", fmt.Errorf("marshal CPU per-core percent: %w", err)
 	}
 	if err := queries.createCPUSample(ctx, createCPUSampleParams{
 		ObservedAt:     observedAt,
@@ -57,7 +57,7 @@ func (c *Conn) SaveLiveSnapshot(ctx context.Context, agentID string, teamID int6
 		Load5m:         metrics.CPU.Load5M,
 		Load15m:        metrics.CPU.Load15M,
 	}); err != nil {
-		return fmt.Errorf("create CPU sample: %w", err)
+		return "", fmt.Errorf("create CPU sample: %w", err)
 	}
 
 	if err := queries.createMemorySample(ctx, createMemorySampleParams{
@@ -71,34 +71,34 @@ func (c *Conn) SaveLiveSnapshot(ctx context.Context, agentID string, teamID int6
 		SwapAvailableBytes:    int64(metrics.SwapMemory.AvailableBytes),
 		SwapTotalBytes:        int64(metrics.SwapMemory.TotalBytes),
 	}); err != nil {
-		return fmt.Errorf("create memory sample: %w", err)
+		return "", fmt.Errorf("create memory sample: %w", err)
 	}
 
 	if err := saveDiskSample(ctx, queries, observedAt, true, metrics.Disk.Total); err != nil {
-		return fmt.Errorf("create total disk sample: %w", err)
+		return "", fmt.Errorf("create total disk sample: %w", err)
 	}
 	for _, partition := range metrics.Disk.Partitions {
 		if err := saveDiskSample(ctx, queries, observedAt, false, partition); err != nil {
-			return fmt.Errorf("create disk sample for mount %s: %w", partition.Mount, err)
+			return "", fmt.Errorf("create disk sample for mount %s: %w", partition.Mount, err)
 		}
 	}
 
 	cutoff := snapshot.SentAt.Add(-sampleRetention).Format(time.RFC3339Nano)
 	if err := queries.deleteOldCPUSamples(ctx, cutoff); err != nil {
-		return fmt.Errorf("delete old CPU samples: %w", err)
+		return "", fmt.Errorf("delete old CPU samples: %w", err)
 	}
 	if err := queries.deleteOldMemorySamples(ctx, cutoff); err != nil {
-		return fmt.Errorf("delete old memory samples: %w", err)
+		return "", fmt.Errorf("delete old memory samples: %w", err)
 	}
 	if err := queries.deleteOldDiskSamples(ctx, cutoff); err != nil {
-		return fmt.Errorf("delete old disk samples: %w", err)
+		return "", fmt.Errorf("delete old disk samples: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit live snapshot transaction: %w", err)
+		return "", fmt.Errorf("commit live snapshot transaction: %w", err)
 	}
 
-	return nil
+	return AgentStatusRunning, nil
 }
 
 func saveDiskSample(ctx context.Context, queries *Queries, observedAt string, isTotal bool, disk shared.DiskUsage) error {

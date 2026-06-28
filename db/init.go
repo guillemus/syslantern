@@ -40,7 +40,8 @@ func Connect(dbPath string) (*Conn, error) {
 	return &Conn{db: db, Queries: New(db)}, nil
 }
 
-func (c *Conn) SessionDB() *sql.DB {
+// GetDB is a scape hatch so that we can execute arbitrary stuff. Useful for tests.
+func (c *Conn) GetDB() *sql.DB {
 	return c.db
 }
 
