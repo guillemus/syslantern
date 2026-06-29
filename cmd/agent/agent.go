@@ -130,6 +130,10 @@ func (a *Agent) Collect(ctx context.Context) error {
 				return fmt.Errorf("failed to collect journal logs: %w", err)
 			}
 			if len(logs) == 0 {
+				// seed/advance the cursor even with no new logs, otherwise the
+				// first empty-cursor call (which only seeds) never persists and
+				// we re-seed forever, never sending anything.
+				a.journalCursor = nextCursor
 				continue
 			}
 
