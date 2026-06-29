@@ -1,0 +1,3 @@
+- Remember to rerun `sqlc` when editing sql files.
+- In order to do local migrations use `just migrate`
+- dev sqlite database at ./tmp/syslantern.db
