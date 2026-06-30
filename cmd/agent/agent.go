@@ -125,7 +125,7 @@ func (a *Agent) Collect(ctx context.Context) error {
 				continue
 			}
 
-			logs, nextCursor, err := collectJournalLogs(ctx, a.host, a.journalCursor, 500)
+			logs, nextCursor, err := a.collectJournalLogs(ctx, a.host, a.journalCursor, 500)
 			if err != nil {
 				return fmt.Errorf("failed to collect journal logs: %w", err)
 			}
