@@ -58,6 +58,7 @@ func StartAgent(ctx context.Context) {
 		logger.Error("failed to create new agent", "error", err)
 		return
 	}
+	agent.logger.Info("agent started", "hub_url", agent.cfg.HubURL)
 
 	if err := agent.Collect(ctx); err != nil {
 		logger.Error("failed to collect metrics", "error", err)
@@ -71,6 +72,7 @@ func (a *Agent) Collect(ctx context.Context) error {
 	}
 
 	agentStatus := agentCfg.AgentStatus
+	a.logger.Info("agent config loaded", "status", agentStatus)
 
 	collectMetricsTick := time.NewTicker(10 * time.Second)
 	defer collectMetricsTick.Stop()
@@ -87,24 +89,29 @@ func (a *Agent) Collect(ctx context.Context) error {
 			return nil
 		case <-pollTick.C:
 			if !agentStatus.ShouldAgentPoll() {
+				a.logger.Debug("skip config poll", "status", agentStatus)
 				continue
 			}
 
-			a.logger.Debug("polling for config", "status", agentStatus)
+			a.logger.Debug("polling config", "status", agentStatus)
 
 			agentCfg, err := a.client.GetAgentConfig(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to get agent config: %w", err)
 			}
 
+			oldStatus := agentStatus
 			agentStatus = agentCfg.AgentStatus
 
-			a.logger.Debug("polled for config", "status", agentStatus)
+			a.logger.Debug("polled config", "old_status", oldStatus, "new_status", agentStatus)
 
 		case <-collectMetricsTick.C:
 			if !agentStatus.ShouldAgentSendMetrics() {
+				a.logger.Debug("skip metrics collection", "status", agentStatus)
 				continue
 			}
+
+			a.logger.Debug("collecting metrics")
 
 			snapshot, err := collectLiveSnapshot(a.agent, a.host)
 			if err != nil {
@@ -116,14 +123,17 @@ func (a *Agent) Collect(ctx context.Context) error {
 				return fmt.Errorf("failed to send snapshot: %w", err)
 			}
 
-			a.logger.Debug("sent snapshot")
-
+			oldStatus := agentStatus
 			agentStatus = result.AgentStatus
+			a.logger.Debug("sent metrics", "old_status", oldStatus, "new_status", agentStatus)
 
 		case <-collectLogsTick.C:
 			if !agentStatus.ShouldAgentSendMetrics() {
+				a.logger.Debug("skip logs collection", "status", agentStatus)
 				continue
 			}
+
+			a.logger.Debug("collecting logs", "cursor_set", a.journalCursor != "", "limit", 500)
 
 			logs, nextCursor, err := a.collectJournalLogs(ctx, a.host, a.journalCursor, 500)
 			if err != nil {
@@ -134,6 +144,7 @@ func (a *Agent) Collect(ctx context.Context) error {
 				// first empty-cursor call (which only seeds) never persists and
 				// we re-seed forever, never sending anything.
 				a.journalCursor = nextCursor
+				a.logger.Debug("no logs collected", "cursor_advanced", nextCursor != "")
 				continue
 			}
 
@@ -143,9 +154,9 @@ func (a *Agent) Collect(ctx context.Context) error {
 			}
 
 			a.journalCursor = nextCursor
-			a.logger.Debug("sent logs", "count", len(logs))
-
+			oldStatus := agentStatus
 			agentStatus = result.AgentStatus
+			a.logger.Debug("sent logs", "count", len(logs), "old_status", oldStatus, "new_status", agentStatus)
 		}
 	}
 }

@@ -70,7 +70,7 @@ func TestHandleIngest(t *testing.T) {
 			assertAgentStatus(t, s, tc.finalStatus)
 			if tc.savesSnapshot {
 				assertSnapshotSaved(t, s)
-				assertSnapshotProcessedEvent(t, events)
+				assertSnapshotProcessedEvent(t, events, SnapshotProcessedTypeMetrics)
 				return
 			}
 			assertNoSnapshotSaved(t, s)
@@ -100,13 +100,13 @@ func TestHandleIngest(t *testing.T) {
 			require.Equal(t, http.StatusOK, rr.Code)
 			assertIngestResult(t, rr, tc.responseStatus)
 			assertAgentStatus(t, s, tc.finalStatus)
-			// logs must never save metrics nor emit the snapshot bus.
 			assertNoSnapshotSaved(t, s)
-			assertNoSnapshotProcessedEvent(t, events)
 			if tc.savesLogs {
+				assertSnapshotProcessedEvent(t, events, SnapshotProcessedTypeLogs)
 				require.Equal(t, 1, countRows(t, s, "log_entries"))
 				return
 			}
+			assertNoSnapshotProcessedEvent(t, events)
 			require.Equal(t, 0, countRows(t, s, "log_entries"))
 		})
 	}
@@ -277,14 +277,15 @@ func assertNoSnapshotSaved(t *testing.T, s *Server) {
 	require.Equal(t, 0, countRows(t, s, "disk_samples"))
 }
 
-func assertSnapshotProcessedEvent(t *testing.T, events <-chan EventSnapshotProcessed) {
+func assertSnapshotProcessedEvent(t *testing.T, events <-chan EventSnapshotProcessed, eventType SnapshotProcessedType) {
 	t.Helper()
 
 	select {
 	case event := <-events:
+		require.Equal(t, eventType, event.Type)
 		require.Equal(t, "agent-a", event.AgentID)
 	case <-time.After(time.Second):
-		t.Fatal("expected snapshot processed event")
+		t.Fatalf("expected snapshot processed event: type=%s", eventType)
 	}
 }
 
@@ -293,7 +294,7 @@ func assertNoSnapshotProcessedEvent(t *testing.T, events <-chan EventSnapshotPro
 
 	select {
 	case event := <-events:
-		t.Fatalf("unexpected snapshot processed event: %s", event.AgentID)
+		t.Fatalf("unexpected snapshot processed event: type=%s agent_id=%s", event.Type, event.AgentID)
 	case <-time.After(100 * time.Millisecond):
 	}
 }

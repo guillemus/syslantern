@@ -72,6 +72,7 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 			s.Logger.Debug("ingest: saved live snapshot", "team_id", agent.TeamID, "agent_id", agent.ID)
 
 			s.BusSnapshotProcessed.Emit(EventSnapshotProcessed{
+				Type:    SnapshotProcessedTypeMetrics,
 				TeamID:  agent.TeamID,
 				AgentID: agent.ID,
 			})
@@ -87,6 +88,12 @@ func (s *Server) HandleIngest(w http.ResponseWriter, r *http.Request) {
 			status = newStatus
 
 			s.Logger.Debug("ingest: saved logs", "team_id", agent.TeamID, "agent_id", agent.ID, "count", len(payload.Logs))
+
+			s.BusSnapshotProcessed.Emit(EventSnapshotProcessed{
+				Type:    SnapshotProcessedTypeLogs,
+				TeamID:  agent.TeamID,
+				AgentID: agent.ID,
+			})
 		}
 
 		writeJSON(w, shared.IngestResult{AgentStatus: status.ToShared()})

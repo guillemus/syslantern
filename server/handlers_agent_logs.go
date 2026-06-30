@@ -7,6 +7,7 @@ import (
 	"syslantern/views"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/starfederation/datastar-go/datastar"
 )
 
 func (s *Server) HandleAgentLogsPage(w http.ResponseWriter, r *http.Request) {
@@ -53,4 +54,35 @@ func (s *Server) agentLogsData(ctx context.Context, agentID string, teamID int64
 		})
 	}
 	return logs, nil
+}
+
+func (s *Server) HandleAgentLogsEvents(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user := GetAuthenticatedUser(r)
+	agentID := chi.URLParam(r, "agentID")
+	snapshotReceivedC := s.BusSnapshotProcessed.Subscribe(ctx)
+
+	sse := datastar.NewSSE(w, r)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case evt := <-snapshotReceivedC:
+			if evt.TeamID != user.TeamID || evt.AgentID != agentID {
+				continue
+			}
+			if evt.Type != SnapshotProcessedTypeLogs {
+				continue
+			}
+
+			logs, err := s.agentLogsData(ctx, agentID, user.TeamID)
+			if err != nil {
+				s.Logger.Warn("agent logs events: load logs", "team_id", user.TeamID, "agent_id", agentID, "err", err)
+				return
+			}
+
+			s.Renderer.PatchAgentLogs(sse, logs)
+		}
+	}
+
 }

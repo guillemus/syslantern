@@ -2,11 +2,16 @@ package views
 
 import (
 	"io"
-	"net/url"
 
+	"github.com/starfederation/datastar-go/datastar"
 	. "maragu.dev/gomponents"
 
 	. "maragu.dev/gomponents/html"
+)
+
+const (
+	agentLogsPageID = "agent_logs_page"
+	agentLogsID     = "agent_logs"
 )
 
 type AgentLogsPageData struct {
@@ -28,7 +33,8 @@ func (r *Renderer) RenderAgentLogsPage(w io.Writer, data AgentLogsPageData) {
 
 func (r *Renderer) AgentLogsPage(data AgentLogsPageData) Node {
 	return MainPageLayout(
-		ID(agentPageID),
+		ID(agentLogsPageID),
+		Data("init", r.Get("/agents/"+data.ID+"/logs/events")),
 		r.agentPageHeader(data.AgentPageData),
 		r.agentLogsNav(data.ID),
 		r.agentLogs(data.Logs),
@@ -37,13 +43,16 @@ func (r *Renderer) AgentLogsPage(data AgentLogsPageData) Node {
 }
 
 func (r *Renderer) agentLogsNav(agentID string) Node {
-	escapedAgentID := url.PathEscape(agentID)
 	return Div(
 		Class("tabs tabs-border"),
 		Attr("role", "tablist"),
-		A(Href(r.URL("GET", "/agents/"+escapedAgentID)), Class("tab text-zinc-400"), Attr("role", "tab"), Text("Metrics")),
-		A(Href(r.URL("GET", "/agents/"+escapedAgentID+"/logs")), Class("tab tab-active text-zinc-100"), Attr("role", "tab"), Text("Logs")),
+		A(Href(r.URL("GET", "/agents/"+agentID)), Class("tab text-zinc-400"), Attr("role", "tab"), Text("Metrics")),
+		A(Href(r.URL("GET", "/agents/"+agentID+"/logs")), Class("tab tab-active text-zinc-100"), Attr("role", "tab"), Text("Logs")),
 	)
+}
+
+func (r *Renderer) PatchAgentLogs(sse *datastar.ServerSentEventGenerator, logs []AgentLogEntryData) {
+	ssePatch(sse, r.agentLogs(logs))
 }
 
 func (r *Renderer) agentLogs(logs []AgentLogEntryData) Node {
@@ -62,6 +71,7 @@ func (r *Renderer) agentLogs(logs []AgentLogEntryData) Node {
 	}
 
 	return Section(
+		ID(agentLogsID),
 		Class("overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"),
 		Table(
 			Class("w-full text-left text-sm"),

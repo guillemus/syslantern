@@ -88,8 +88,10 @@ func (s *Server) HandleAgentsEvents(w http.ResponseWriter, r *http.Request) {
 		case <-ctx.Done():
 			return
 		case evt := <-snapshotReceivedC:
-			s.Logger.Debug("agent events: snapshot processed", "team_id", evt.TeamID, "agent_id", evt.AgentID)
 			if evt.TeamID != user.TeamID || evt.AgentID != agentID {
+				continue
+			}
+			if evt.Type != SnapshotProcessedTypeMetrics {
 				continue
 			}
 
