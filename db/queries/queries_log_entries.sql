@@ -20,3 +20,9 @@ INSERT INTO log_entries (
     @priority,
     @message
 );
+
+-- name: ListAgentLogEntries :many
+SELECT * FROM log_entries
+WHERE agent_id = @agent_id AND team_id = @team_id
+ORDER BY observed_at DESC
+LIMIT @limit;

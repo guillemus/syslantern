@@ -60,30 +60,26 @@ func (r *Renderer) PatchIndexPageTableData(
 }
 
 func (r *Renderer) AgentsIndex(data AgentsIndexPageData) Node {
-	return Div(
+	return MainPageLayout(
 		ID(indexPageID),
-		Class("min-h-dvh bg-zinc-950 p-6 font-mono text-zinc-100"),
-		Main(
-			Class("mx-auto max-w-5xl space-y-6"),
-			Header(
-				Class("flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"),
-				Div(
-					H1(Class("text-3xl font-semibold"), Text("Agents")),
-					P(Class("mt-2 text-sm text-zinc-500"), Text("Agents available for your account.")),
-				),
-				Button(
-					Class("rounded-md bg-orange-600 px-3 py-2 text-sm font-medium text-white transition hover:brightness-110"),
-					Data("on:click", newAgentDialogID+".showModal()"),
-					Text("Add agent"),
-				),
+		Header(
+			Class("flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"),
+			Div(
+				H1(Class("text-3xl font-semibold"), Text("Agents")),
+				P(Class("mt-2 text-sm text-zinc-500"), Text("Agents available for your account.")),
 			),
-			Data("init", r.Get("/events")),
-			r.AgentsIndexTable(data),
-
-			r.NewAgentDialogForm(),
-			CopyCommandDialog(""),
-			DeleteAgentDialog(),
+			Button(
+				Class("rounded-md bg-orange-600 px-3 py-2 text-sm font-medium text-white transition hover:brightness-110"),
+				Data("on:click", newAgentDialogID+".showModal()"),
+				Text("Add agent"),
+			),
 		),
+		Data("init", r.Get("/events")),
+		r.AgentsIndexTable(data),
+
+		r.NewAgentDialogForm(),
+		CopyCommandDialog(""),
+		DeleteAgentDialog(),
 	)
 }
 

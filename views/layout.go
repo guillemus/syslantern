@@ -41,3 +41,13 @@ func (r *Renderer) Layout(title string, body Node) Node {
 		},
 	})
 }
+
+func MainPageLayout(children ...Node) Node {
+	return Div(
+		Class("min-h-dvh bg-zinc-950 p-6 font-mono text-zinc-100"),
+		Main(
+			Class("mx-auto space-y-6"),
+			Group(children),
+		),
+	)
+}

@@ -20,27 +20,9 @@ func (s *Server) HandleAgentsPage(w http.ResponseWriter, r *http.Request) {
 	user := GetAuthenticatedUser(r)
 	agentID := chi.URLParam(r, "agentID")
 
-	agent, err := s.DB.GetAgent(ctx, db.GetAgentParams{
-		ID:     agentID,
-		TeamID: user.TeamID,
-	})
-	if errors.Is(err, sql.ErrNoRows) {
-		http.NotFound(w, r)
+	agent, ok := s.getVisibleAgent(w, r, user.TeamID, agentID)
+	if !ok {
 		return
-	} else if err != nil {
-		s.Logger.Warn("agent page: get agent", "team_id", user.TeamID, "agent_id", agentID, "err", err)
-		http.Error(w, "Could not load this agent.", http.StatusInternalServerError)
-		return
-	}
-
-	if agent.Status == db.AgentStatusDeleted {
-		http.NotFound(w, r)
-		return
-	}
-
-	hostID := ""
-	if agent.HostID.Valid {
-		hostID = agent.HostID.String
 	}
 
 	metrics, err := s.agentMetricsData(ctx)
@@ -50,7 +32,39 @@ func (s *Server) HandleAgentsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.Renderer.RenderAgentPage(w, views.AgentPageData{
+	data := s.agentPageData(r, agent)
+	data.Metrics = metrics
+	s.Renderer.RenderAgentPage(w, data)
+}
+
+func (s *Server) getVisibleAgent(w http.ResponseWriter, r *http.Request, teamID int64, agentID string) (db.Agent, bool) {
+	agent, err := s.DB.GetAgent(r.Context(), db.GetAgentParams{
+		ID:     agentID,
+		TeamID: teamID,
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		http.NotFound(w, r)
+		return db.Agent{}, false
+	} else if err != nil {
+		s.Logger.Warn("agent page: get agent", "team_id", teamID, "agent_id", agentID, "err", err)
+		http.Error(w, "Could not load this agent.", http.StatusInternalServerError)
+		return db.Agent{}, false
+	}
+
+	if agent.Status == db.AgentStatusDeleted {
+		http.NotFound(w, r)
+		return db.Agent{}, false
+	}
+	return agent, true
+}
+
+func (s *Server) agentPageData(r *http.Request, agent db.Agent) views.AgentPageData {
+	hostID := ""
+	if agent.HostID.Valid {
+		hostID = agent.HostID.String
+	}
+
+	return views.AgentPageData{
 		ID:             agent.ID,
 		Status:         string(agent.Status),
 		Name:           agent.Name,
@@ -59,8 +73,7 @@ func (s *Server) HandleAgentsPage(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:      agent.CreatedAt,
 		UpdatedAt:      agent.UpdatedAt,
 		InstallCommand: s.agentInstallCommand(r, agent.ApiKey),
-		Metrics:        metrics,
-	})
+	}
 }
 
 func (s *Server) HandleAgentsEvents(w http.ResponseWriter, r *http.Request) {

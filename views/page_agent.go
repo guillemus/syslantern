@@ -39,21 +39,16 @@ func (r *Renderer) RenderAgentPage(w io.Writer, data AgentPageData) {
 }
 
 func (r *Renderer) PatchAgentMetrics(sse *datastar.ServerSentEventGenerator, data DashboardMetricsData) {
-	ssePatch(sse, r.agentMetricsTab(data))
+	ssePatch(sse, r.agentMetricsDashboard(data))
 }
 
 func (r *Renderer) AgentPage(data AgentPageData) Node {
-	return Div(
+	return MainPageLayout(
 		ID(agentPageID),
-		Class("min-h-dvh bg-zinc-950 p-6 font-mono text-zinc-100"),
 		Data("init", r.Get("/agents/"+url.PathEscape(data.ID)+"/events")),
-		Main(
-			Class("mx-auto max-w-5xl space-y-6"),
-			r.agentPageHeader(data),
-			r.agentOverview(data),
-			r.agentTabs(data),
-			DeleteAgentDialog(),
-		),
+		r.agentPageHeader(data),
+		r.agentTabs(data),
+		DeleteAgentDialog(),
 	)
 }
 
@@ -116,47 +111,33 @@ func (r *Renderer) agentOverview(data AgentPageData) Node {
 }
 
 func (r *Renderer) agentTabs(data AgentPageData) Node {
+	agentID := url.PathEscape(data.ID)
 	return Div(
-		Class("tabs tabs-border"),
-		Attr("role", "tablist"),
-		Input(
-			Type("radio"),
-			Name("agent_tabs"),
-			Class("tab text-zinc-400 checked:text-zinc-100"),
-			Aria("label", "Metrics"),
-			Attr("checked", "checked"),
-		),
+		Class("space-y-4"),
 		Div(
-			Class("tab-content pt-4"),
-			r.agentMetricsTab(data.Metrics),
+			Class("tabs tabs-border"),
+			Attr("role", "tablist"),
+			A(Href(r.URL("GET", "/agents/"+agentID)), Class("tab tab-active text-zinc-100"), Attr("role", "tab"), Text("Metrics")),
+			A(Href(r.URL("GET", "/agents/"+agentID+"/logs")), Class("tab text-zinc-400"), Attr("role", "tab"), Text("Logs")),
 		),
-		Input(
-			Type("radio"),
-			Name("agent_tabs"),
-			Class("tab text-zinc-400 checked:text-zinc-100"),
-			Aria("label", "Logs"),
-		),
-		Div(
-			Class("tab-content pt-4"),
-			r.agentLogsTab(),
-		),
+		r.agentMetricsTab(data),
 	)
 }
 
-func (r *Renderer) agentMetricsTab(data DashboardMetricsData) Node {
+func (r *Renderer) agentMetricsTab(data AgentPageData) Node {
+	return Div(
+		Class("space-y-4"),
+		r.agentOverview(data),
+		r.agentMetricsDashboard(data.Metrics),
+	)
+}
+
+func (r *Renderer) agentMetricsDashboard(data DashboardMetricsData) Node {
 	return Div(
 		ID(agentMetricsTabID),
 		Class("space-y-4"),
 		DashboardStats(data.Stats),
 		DashboardHistory(data.Analytics),
-	)
-}
-
-func (r *Renderer) agentLogsTab() Node {
-	return Section(
-		Class("rounded-xl border border-zinc-800 bg-zinc-900 p-6"),
-		H2(Class("text-lg font-semibold"), Text("Logs")),
-		P(Class("mt-2 text-sm text-zinc-500"), Text("Log collection and search is coming next.")),
 	)
 }
 

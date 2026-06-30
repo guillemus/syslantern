@@ -1,0 +1,78 @@
+package views
+
+import (
+	"io"
+	"net/url"
+
+	. "maragu.dev/gomponents"
+
+	. "maragu.dev/gomponents/html"
+)
+
+type AgentLogsPageData struct {
+	AgentPageData
+	Logs []AgentLogEntryData
+}
+
+type AgentLogEntryData struct {
+	ObservedAt string
+	Source     string
+	Unit       string
+	Priority   string
+	Message    string
+}
+
+func (r *Renderer) RenderAgentLogsPage(w io.Writer, data AgentLogsPageData) {
+	r.RenderPage(w, valueOr(data.Name, "agent")+" logs", r.AgentLogsPage(data))
+}
+
+func (r *Renderer) AgentLogsPage(data AgentLogsPageData) Node {
+	return MainPageLayout(
+		ID(agentPageID),
+		r.agentPageHeader(data.AgentPageData),
+		r.agentLogsNav(data.ID),
+		r.agentLogs(data.Logs),
+		DeleteAgentDialog(),
+	)
+}
+
+func (r *Renderer) agentLogsNav(agentID string) Node {
+	escapedAgentID := url.PathEscape(agentID)
+	return Div(
+		Class("tabs tabs-border"),
+		Attr("role", "tablist"),
+		A(Href(r.URL("GET", "/agents/"+escapedAgentID)), Class("tab text-zinc-400"), Attr("role", "tab"), Text("Metrics")),
+		A(Href(r.URL("GET", "/agents/"+escapedAgentID+"/logs")), Class("tab tab-active text-zinc-100"), Attr("role", "tab"), Text("Logs")),
+	)
+}
+
+func (r *Renderer) agentLogs(logs []AgentLogEntryData) Node {
+	rows := make([]Node, 0, len(logs))
+	for _, log := range logs {
+		rows = append(rows, Tr(
+			Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500 whitespace-nowrap"), Text(log.ObservedAt)),
+			Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-400"), Text(valueOr(log.Source, "—"))),
+			Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-400"), Text(valueOr(log.Unit, "—"))),
+			Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-400"), Text(valueOr(log.Priority, "—"))),
+			Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-100"), Text(log.Message)),
+		))
+	}
+	if len(rows) == 0 {
+		rows = append(rows, Tr(Td(ColSpan("5"), Class("p-6 text-zinc-500"), Text("No logs received yet."))))
+	}
+
+	return Section(
+		Class("overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"),
+		Table(
+			Class("w-full text-left text-sm"),
+			THead(Class("bg-zinc-900/70 text-zinc-500"), Tr(
+				Th(Class("px-4 py-3 font-medium"), Text("Time")),
+				Th(Class("px-4 py-3 font-medium"), Text("Source")),
+				Th(Class("px-4 py-3 font-medium"), Text("Unit")),
+				Th(Class("px-4 py-3 font-medium"), Text("Priority")),
+				Th(Class("px-4 py-3 font-medium"), Text("Message")),
+			)),
+			TBody(rows...),
+		),
+	)
+}
