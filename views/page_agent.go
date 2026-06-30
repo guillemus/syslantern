@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	agentPageID        = "agent_page"
-	agentOverviewID    = "agent_overview"
+	agentPageID       = "agent_page"
+	agentOverviewID   = "agent_overview"
 	agentMetricsTabID = "agent_metrics_tab"
 )
 

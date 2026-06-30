@@ -24,13 +24,17 @@ func (s *Server) HandleAgentsPage(w http.ResponseWriter, r *http.Request) {
 		ID:     agentID,
 		TeamID: user.TeamID,
 	})
-	if errors.Is(err, sql.ErrNoRows) || agent.Status == db.AgentStatusDeleted {
+	if errors.Is(err, sql.ErrNoRows) {
 		http.NotFound(w, r)
 		return
-	}
-	if err != nil {
+	} else if err != nil {
 		s.Logger.Warn("agent page: get agent", "team_id", user.TeamID, "agent_id", agentID, "err", err)
 		http.Error(w, "Could not load this agent.", http.StatusInternalServerError)
+		return
+	}
+
+	if agent.Status == db.AgentStatusDeleted {
+		http.NotFound(w, r)
 		return
 	}
 

@@ -21,7 +21,7 @@ type journalLogEntry struct {
 	Message           string `json:"MESSAGE"`
 }
 
-func collectJournalLogs(
+func (a *Agent) collectJournalLogs(
 	ctx context.Context, host shared.Host, cursor string, limit int,
 ) ([]shared.LogEvent, string, error) {
 	args := []string{"-o", "json", "--no-pager", "-n", strconv.Itoa(limit), "--after-cursor", cursor}
@@ -48,7 +48,12 @@ func collectJournalLogs(
 			continue
 		}
 
-		observedAt := journalTimestamp(entry.RealtimeTimestamp)
+		observedAt, err := journalTimestamp(entry.RealtimeTimestamp)
+		if err != nil {
+			a.logger.Warn("failed to parse journal timestamp", "timestamp", entry.RealtimeTimestamp, "error", err)
+			continue
+		}
+
 		unit := entry.SystemdUnit
 		if unit == "" {
 			unit = entry.SystemdUserUnit
@@ -75,10 +80,10 @@ func collectJournalLogs(
 	return logs, lastCursor, nil
 }
 
-func journalTimestamp(value string) time.Time {
+func journalTimestamp(value string) (time.Time, error) {
 	microseconds, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
-		return time.Now().UTC()
+		return time.Time{}, err
 	}
-	return time.UnixMicro(microseconds).UTC()
+	return time.UnixMicro(microseconds).UTC(), nil
 }
