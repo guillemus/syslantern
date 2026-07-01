@@ -22,8 +22,6 @@ type AgentLogsPageData struct {
 type AgentLogEntryData struct {
 	ObservedAt string
 	Source     string
-	Unit       string
-	Priority   string
 	Message    string
 }
 
@@ -61,8 +59,6 @@ func (r *Renderer) agentLogs(logs []AgentLogEntryData) Node {
 		rows = append(rows, Tr(
 			Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500 whitespace-nowrap"), Text(log.ObservedAt)),
 			Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-400"), Text(valueOr(log.Source, "—"))),
-			Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-400"), Text(valueOr(log.Unit, "—"))),
-			Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-400"), Text(valueOr(log.Priority, "—"))),
 			Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-100"), Text(log.Message)),
 		))
 	}
@@ -78,8 +74,6 @@ func (r *Renderer) agentLogs(logs []AgentLogEntryData) Node {
 			THead(Class("bg-zinc-900/70 text-zinc-500"), Tr(
 				Th(Class("px-4 py-3 font-medium"), Text("Time")),
 				Th(Class("px-4 py-3 font-medium"), Text("Source")),
-				Th(Class("px-4 py-3 font-medium"), Text("Unit")),
-				Th(Class("px-4 py-3 font-medium"), Text("Priority")),
 				Th(Class("px-4 py-3 font-medium"), Text("Message")),
 			)),
 			TBody(rows...),

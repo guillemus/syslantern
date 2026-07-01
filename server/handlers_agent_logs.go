@@ -48,8 +48,6 @@ func (s *Server) agentLogsData(ctx context.Context, agentID string, teamID int64
 		logs = append(logs, views.AgentLogEntryData{
 			ObservedAt: entry.ObservedAt,
 			Source:     entry.Source,
-			Unit:       entry.Unit,
-			Priority:   entry.Priority,
 			Message:    entry.Message,
 		})
 	}
