@@ -2,6 +2,7 @@ package views
 
 import (
 	"io"
+	"time"
 
 	"github.com/starfederation/datastar-go/datastar"
 	. "maragu.dev/gomponents"
@@ -21,7 +22,6 @@ type AgentLogsPageData struct {
 
 type AgentLogEntryData struct {
 	ObservedAt string
-	Source     string
 	Message    string
 }
 
@@ -57,8 +57,7 @@ func (r *Renderer) agentLogs(logs []AgentLogEntryData) Node {
 	rows := make([]Node, 0, len(logs))
 	for _, log := range logs {
 		rows = append(rows, Tr(
-			Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500 whitespace-nowrap"), Text(log.ObservedAt)),
-			Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-400"), Text(valueOr(log.Source, "—"))),
+			Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500 whitespace-nowrap"), Text(logTimestamp(log.ObservedAt))),
 			Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-100"), Text(log.Message)),
 		))
 	}
@@ -73,10 +72,17 @@ func (r *Renderer) agentLogs(logs []AgentLogEntryData) Node {
 			Class("w-full text-left text-sm"),
 			THead(Class("bg-zinc-900/70 text-zinc-500"), Tr(
 				Th(Class("px-4 py-3 font-medium"), Text("Time")),
-				Th(Class("px-4 py-3 font-medium"), Text("Source")),
 				Th(Class("px-4 py-3 font-medium"), Text("Message")),
 			)),
 			TBody(rows...),
 		),
 	)
+}
+
+func logTimestamp(value string) string {
+	parsed, err := time.Parse(time.RFC3339Nano, value)
+	if err != nil {
+		return value
+	}
+	return parsed.Format("Jan 02, 15:04:05")
 }

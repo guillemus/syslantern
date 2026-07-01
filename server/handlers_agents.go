@@ -123,9 +123,9 @@ func (s *Server) agentMetricsData(ctx context.Context) (views.DashboardMetricsDa
 	latestTimes := []string{latestCPU.ObservedAt, latestMemory.ObservedAt}
 	latestTimes = append(latestTimes, latestDiskSampleTimes(latestDisks)...)
 	latest := latestSampleTime(latestTimes...)
-	since := latest.Add(-6 * time.Hour)
+	since := latest.Add(-30 * time.Minute)
 	if latest.IsZero() {
-		since = time.Now().Add(-6 * time.Hour)
+		since = time.Now().Add(-30 * time.Minute)
 	}
 	sinceValue := since.Format(time.RFC3339Nano)
 

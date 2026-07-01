@@ -47,7 +47,6 @@ func (s *Server) agentLogsData(ctx context.Context, agentID string, teamID int64
 	for _, entry := range entries {
 		logs = append(logs, views.AgentLogEntryData{
 			ObservedAt: entry.ObservedAt,
-			Source:     entry.Source,
 			Message:    entry.Message,
 		})
 	}
