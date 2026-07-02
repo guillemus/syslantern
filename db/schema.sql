@@ -97,11 +97,10 @@ CREATE TABLE IF NOT EXISTS log_entries (
     observed_at TEXT NOT NULL,
     received_at TEXT NOT NULL,
     source TEXT NOT NULL,
-    unit TEXT NOT NULL DEFAULT '',
-    priority TEXT NOT NULL DEFAULT '',
+    metadata TEXT NOT NULL DEFAULT '{}',
     message TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS log_entries_agent_observed_idx ON log_entries (agent_id, observed_at);
-CREATE INDEX IF NOT EXISTS log_entries_agent_unit_observed_idx ON log_entries (agent_id, unit, observed_at);
+CREATE INDEX IF NOT EXISTS log_entries_agent_unit_observed_idx ON log_entries (agent_id, json_extract(metadata, '$.unit'), observed_at);
 CREATE INDEX IF NOT EXISTS log_entries_team_observed_idx ON log_entries (team_id, observed_at);

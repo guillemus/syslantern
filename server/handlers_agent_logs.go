@@ -37,7 +37,7 @@ func (s *Server) agentLogsData(ctx context.Context, agentID string, teamID int64
 	entries, err := s.DB.ListAgentLogEntries(ctx, db.ListAgentLogEntriesParams{
 		AgentID: agentID,
 		TeamID:  teamID,
-		Limit:   200,
+		Limit:   50,
 	})
 	if err != nil {
 		return nil, err

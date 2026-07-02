@@ -37,6 +37,20 @@ body {
     background: #09090b;
 }
 
+.logs-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #52525b #18181b;
+}
+
+.logs-scroll::-webkit-scrollbar-track {
+    background: #18181b;
+}
+
+.logs-scroll::-webkit-scrollbar-thumb {
+    background: #52525b;
+    border-radius: 9999px;
+}
+
 .graph-grid {
     background-image:
         linear-gradient(to right, rgb(212 212 216 / 8%) 1px, transparent 1px),

@@ -6,8 +6,7 @@ INSERT INTO log_entries (
     observed_at,
     received_at,
     source,
-    unit,
-    priority,
+    metadata,
     message
 ) VALUES (
     @id,
@@ -16,8 +15,7 @@ INSERT INTO log_entries (
     @observed_at,
     @received_at,
     @source,
-    @unit,
-    @priority,
+    @metadata,
     @message
 );
 

@@ -66,9 +66,11 @@ func (a *Agent) collectJournalLogs(
 				SentAt:     now,
 				ObservedAt: observedAt,
 				Source:     "journal",
-				Unit:       unit,
-				Priority:   entry.Priority,
-				Message:    entry.Message,
+				Metadata: map[string]string{
+					"unit":     unit,
+					"priority": entry.Priority,
+				},
+				Message: entry.Message,
 			})
 		}
 		lastCursor = entry.Cursor

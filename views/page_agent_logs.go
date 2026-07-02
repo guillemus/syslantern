@@ -1,6 +1,7 @@
 package views
 
 import (
+	"fmt"
 	"io"
 	"time"
 
@@ -30,13 +31,17 @@ func (r *Renderer) RenderAgentLogsPage(w io.Writer, data AgentLogsPageData) {
 }
 
 func (r *Renderer) AgentLogsPage(data AgentLogsPageData) Node {
-	return MainPageLayout(
+	return Div(
 		ID(agentLogsPageID),
 		Data("init", r.Get("/agents/"+data.ID+"/logs/events")),
-		r.agentPageHeader(data.AgentPageData),
-		r.agentLogsNav(data.ID),
-		r.agentLogs(data.Logs),
-		DeleteAgentDialog(),
+		Class("h-dvh overflow-hidden bg-zinc-950 p-6 font-mono text-zinc-100"),
+		Main(
+			Class("mx-auto flex h-full min-h-0 flex-col gap-6"),
+			r.agentPageHeader(data.AgentPageData),
+			r.agentLogsNav(data.ID),
+			r.agentLogs(data.Logs),
+			DeleteAgentDialog(),
+		),
 	)
 }
 
@@ -56,21 +61,22 @@ func (r *Renderer) PatchAgentLogs(sse *datastar.ServerSentEventGenerator, logs [
 func (r *Renderer) agentLogs(logs []AgentLogEntryData) Node {
 	rows := make([]Node, 0, len(logs))
 	for _, log := range logs {
+		fmt.Println(log.Message)
 		rows = append(rows, Tr(
 			Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-500 whitespace-nowrap"), Text(logTimestamp(log.ObservedAt))),
 			Td(Class("border-b border-zinc-800 px-4 py-3 text-zinc-100"), Text(log.Message)),
 		))
 	}
 	if len(rows) == 0 {
-		rows = append(rows, Tr(Td(ColSpan("5"), Class("p-6 text-zinc-500"), Text("No logs received yet."))))
+		rows = append(rows, Tr(Td(ColSpan("2"), Class("p-6 text-zinc-500"), Text("No logs received yet."))))
 	}
 
 	return Section(
 		ID(agentLogsID),
-		Class("overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"),
+		Class("logs-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-xl border border-zinc-800 bg-zinc-900 [scrollbar-gutter:stable]"),
 		Table(
 			Class("w-full text-left text-sm"),
-			THead(Class("bg-zinc-900/70 text-zinc-500"), Tr(
+			THead(Class("sticky top-0 z-10 bg-zinc-900 text-zinc-500"), Tr(
 				Th(Class("px-4 py-3 font-medium"), Text("Time")),
 				Th(Class("px-4 py-3 font-medium"), Text("Message")),
 			)),

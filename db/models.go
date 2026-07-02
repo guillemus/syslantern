@@ -53,8 +53,7 @@ type LogEntry struct {
 	ObservedAt string `db:"observed_at"`
 	ReceivedAt string `db:"received_at"`
 	Source     string `db:"source"`
-	Unit       string `db:"unit"`
-	Priority   string `db:"priority"`
+	Metadata   string `db:"metadata"`
 	Message    string `db:"message"`
 }
 

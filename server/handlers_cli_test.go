@@ -229,9 +229,11 @@ func logIngestBody(t *testing.T) string {
 		SentAt:     now,
 		ObservedAt: now,
 		Source:     "journal",
-		Unit:       "ssh.service",
-		Priority:   "6",
-		Message:    "accepted login",
+		Metadata: map[string]string{
+			"unit":     "ssh.service",
+			"priority": "6",
+		},
+		Message: "accepted login",
 	}}})
 	require.NoError(t, err)
 	return string(body)

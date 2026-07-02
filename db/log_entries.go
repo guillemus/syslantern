@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"syslantern/shared"
 	"time"
@@ -37,6 +38,11 @@ func (c *Conn) SaveLogs(ctx context.Context, agentID string, teamID int64, logs 
 func saveLogEntries(ctx context.Context, queries *Queries, agentID string, teamID int64, logs []shared.LogEvent) error {
 	receivedAt := time.Now().UTC().Format(time.RFC3339Nano)
 	for _, log := range logs {
+		metadata, err := json.Marshal(log.Metadata)
+		if err != nil {
+			return fmt.Errorf("marshal log metadata %s: %w", log.ID, err)
+		}
+
 		if err := queries.createLogEntry(ctx, createLogEntryParams{
 			ID:         log.ID,
 			TeamID:     teamID,
@@ -44,8 +50,7 @@ func saveLogEntries(ctx context.Context, queries *Queries, agentID string, teamI
 			ObservedAt: log.ObservedAt.Format(time.RFC3339Nano),
 			ReceivedAt: receivedAt,
 			Source:     log.Source,
-			Unit:       log.Unit,
-			Priority:   log.Priority,
+			Metadata:   string(metadata),
 			Message:    log.Message,
 		}); err != nil {
 			return fmt.Errorf("create log entry %s: %w", log.ID, err)

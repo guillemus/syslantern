@@ -73,14 +73,13 @@ type MetricsSnapshot struct {
 }
 
 type LogEvent struct {
-	ID         string    `json:"id"`
-	Host       Host      `json:"host"`
-	SentAt     time.Time `json:"sent_at"`
-	ObservedAt time.Time `json:"observed_at"`
-	Source     string    `json:"source"`
-	Unit       string    `json:"unit,omitempty"`
-	Priority   string    `json:"priority,omitempty"`
-	Message    string    `json:"message"`
+	ID         string            `json:"id"`
+	Host       Host              `json:"host"`
+	SentAt     time.Time         `json:"sent_at"`
+	ObservedAt time.Time         `json:"observed_at"`
+	Source     string            `json:"source"`
+	Metadata   map[string]string `json:"metadata,omitempty"`
+	Message    string            `json:"message"`
 }
 
 type CPUUsage struct {
